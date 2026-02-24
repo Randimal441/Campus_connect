@@ -1,9 +1,6 @@
-import { Routes, Route, Navigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import Loader from '../components/common/Loader';
+import { Routes, Route, Link } from 'react-router-dom';
 import SignIn from '../pages/auth/SignIn';
 import SignUp from '../pages/auth/SignUp';
-import RoleRoutes from './RoleRoutes';
 import UserHome from '../pages/user/UserHome';
 import ClubsSports from '../pages/user/ClubsSports';
 import ResourceSharing from '../pages/user/ResourceSharing';
@@ -14,124 +11,123 @@ import CoachesDashboard from '../pages/admin/CoachesDashboard';
 import ResourceCoordinatorDashboard from '../pages/admin/ResourceCoordinatorDashboard';
 import ConsultantDashboard from '../pages/admin/ConsultantDashboard';
 import EventCoordinatorDashboard from '../pages/admin/EventCoordinatorDashboard';
-import NotFound from '../pages/notFound/NotFound';
-import ProtectedRoute from '../components/protected/ProtectedRoute';
 import AdminLayout from '../components/admin/AdminLayout';
-import { ROLES } from '../utils/constants';
 
 export default function AppRoutes() {
-  const { user, loading } = useAuth();
-
-  if (loading) return <Loader />;
-
   return (
     <Routes>
-      <Route path="/signin" element={user ? <Navigate to="/" replace /> : <SignIn />} />
-      <Route path="/signup" element={user ? <Navigate to="/" replace /> : <SignUp />} />
+      <Route path="/signin" element={<SignIn />} />
+      <Route path="/signup" element={<SignUp />} />
 
-      <Route
-        path="/user"
-        element={
-          <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
-            <Routes>
-              <Route index element={<UserHome />} />
-              <Route path="clubs-sports" element={<ClubsSports />} />
-              <Route path="resource-sharing" element={<ResourceSharing />} />
-              <Route path="consulting" element={<Consulting />} />
-              <Route path="events-chill" element={<EventsChill />} />
-            </Routes>
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/user" element={<UserHome />} />
+      <Route path="/user/clubs-sports" element={<ClubsSports />} />
+      <Route path="/user/resource-sharing" element={<ResourceSharing />} />
+      <Route path="/user/consulting" element={<Consulting />} />
+      <Route path="/user/events-chill" element={<EventsChill />} />
 
       <Route
         path="/admin/super"
         element={
-          <ProtectedRoute allowedRoles={[ROLES.SUPER_ADMIN]}>
-            <AdminLayout>
-              <SuperAdminDashboard />
-            </AdminLayout>
-          </ProtectedRoute>
+          <AdminLayout>
+            <SuperAdminDashboard />
+          </AdminLayout>
         }
       />
       <Route
         path="/admin/coaches"
         element={
-          <ProtectedRoute allowedRoles={[ROLES.COACH, ROLES.SUPER_ADMIN]}>
-            <AdminLayout>
-              <CoachesDashboard />
-            </AdminLayout>
-          </ProtectedRoute>
+          <AdminLayout>
+            <CoachesDashboard />
+          </AdminLayout>
         }
       />
       <Route
         path="/admin/resources"
         element={
-          <ProtectedRoute allowedRoles={[ROLES.RESOURCE_COORDINATOR, ROLES.SUPER_ADMIN]}>
-            <AdminLayout>
-              <ResourceCoordinatorDashboard />
-            </AdminLayout>
-          </ProtectedRoute>
+          <AdminLayout>
+            <ResourceCoordinatorDashboard />
+          </AdminLayout>
         }
       />
       <Route
         path="/admin/consulting"
         element={
-          <ProtectedRoute allowedRoles={[ROLES.CONSULTANT, ROLES.SUPER_ADMIN]}>
-            <AdminLayout>
-              <ConsultantDashboard />
-            </AdminLayout>
-          </ProtectedRoute>
+          <AdminLayout>
+            <ConsultantDashboard />
+          </AdminLayout>
         }
       />
       <Route
         path="/admin/events"
         element={
-          <ProtectedRoute allowedRoles={[ROLES.EVENT_COORDINATOR, ROLES.SUPER_ADMIN]}>
-            <AdminLayout>
-              <EventCoordinatorDashboard />
-            </AdminLayout>
-          </ProtectedRoute>
+          <AdminLayout>
+            <EventCoordinatorDashboard />
+          </AdminLayout>
         }
       />
 
       <Route
         path="/"
         element={
-          user ? (
-            <RoleRoutes />
-          ) : (
-            <div className="page">
+          <div className="page">
               <nav className="navbar">
-                <Link to="/" className="navbar-brand">Campus Connect</Link>
+                <Link to="/" className="navbar-brand flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-md border border-white/30">
+                    <span className="text-white font-heading font-black text-lg">
+                      CC
+                    </span>
+                  </div>
+                  Campus Connect
+                </Link>
                 <div className="navbar-menu">
-                  <Link to="/signin">Sign In</Link>
-                  <Link to="/signup" className="btn-nav-signup">Sign Up</Link>
+                  <Link to="/signin" className="hidden sm:inline px-4 py-2 rounded-lg hover:bg-white/10 transition-colors font-medium">Sign In</Link>
+                  <Link to="/signup" className="px-4 py-2.5 rounded-xl bg-white/15 border border-white/30 hover:bg-white/25 transition-all backdrop-blur-sm font-bold shadow-sm">Sign Up</Link>
                 </div>
               </nav>
               <div className="landing">
-                <div className="h-16 w-16 rounded-xl bg-primary flex items-center justify-center mx-auto mb-4">
-                  <span className="text-primary-foreground font-heading font-bold text-2xl">
+                <div className="h-24 w-24 rounded-3xl bg-gradient-to-br from-primary to-primary-light flex items-center justify-center mx-auto mb-8 shadow-2xl border-4 border-white/20 animate-fade-in">
+                  <span className="text-white font-heading font-black text-5xl">
                     CC
                   </span>
                 </div>
-                <h1>Campus Connect</h1>
-                <p>Your campus community hub — clubs, resources, consulting & events.</p>
+                <h1 className="landing-content">Campus Connect</h1>
+                <p className="max-w-2xl mx-auto">Your all-in-one platform for campus life. Connect with clubs, share resources, book consulting sessions, and discover exciting events — all in one place.</p>
                 <div className="landing-actions">
-                  <Link to="/signin">Sign In</Link>
-                  <Link to="/signup">Sign Up</Link>
+                  <Link to="/signin" className="btn-primary">Get Started</Link>
+                  <Link to="/signup" className="btn-secondary">Create Account</Link>
+                </div>
+                <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto text-center">
+                  <div className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
+                    <div className="text-4xl mb-2">🏆</div>
+                    <p className="font-semibold text-sm text-foreground">Clubs & Sports</p>
+                  </div>
+                  <div className="animate-fade-in" style={{ animationDelay: '0.3s' }}>
+                    <div className="text-4xl mb-2">📚</div>
+                    <p className="font-semibold text-sm text-foreground">Resources</p>
+                  </div>
+                  <div className="animate-fade-in" style={{ animationDelay: '0.4s' }}>
+                    <div className="text-4xl mb-2">💬</div>
+                    <p className="font-semibold text-sm text-foreground">Consulting</p>
+                  </div>
+                  <div className="animate-fade-in" style={{ animationDelay: '0.5s' }}>
+                    <div className="text-4xl mb-2">🎉</div>
+                    <p className="font-semibold text-sm text-foreground">Events</p>
+                  </div>
                 </div>
               </div>
               <footer className="footer">
-                <p>&copy; {new Date().getFullYear()} Campus Connect. All rights reserved.</p>
+                <div className="max-w-7xl mx-auto">
+                  <p className="font-medium">
+                    &copy; {new Date().getFullYear()} <span className="font-bold">Campus Connect</span>. All rights reserved.
+                  </p>
+                  <p className="text-sm text-white/70 mt-1">
+                    Connecting campus life, one click at a time
+                  </p>
+                </div>
               </footer>
             </div>
-          )
         }
       />
-
-      <Route path="/404" element={<NotFound />} />
-      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
