@@ -28,21 +28,23 @@ export default function SignUp() {
 
   return (
     <div className="auth-page">
-      <div className="auth-card animate-fade-in">
-        <div className="flex justify-center mb-6">
-          <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-heading font-bold text-xl">
+      <div className="auth-card">
+        <div className="flex justify-center mb-8">
+          <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-primary-light flex items-center justify-center shadow-xl">
+            <span className="text-white font-heading font-black text-3xl">
               CC
             </span>
           </div>
         </div>
-        <h2>Create Account</h2>
-        <p className="auth-subtitle">
-          Sign up as a student or section admin (coach, coordinator, consultant).
-        </p>
+        <div className="text-center mb-8">
+          <h2 className="mb-3">Join Campus Connect</h2>
+          <p className="auth-subtitle">
+            Create your account to connect with campus life
+          </p>
+        </div>
         <SignUpForm onSubmit={handleSubmit} loading={loading} message={message} />
         <p className="auth-switch">
-          Already have an account? <Link to="/signin">Sign In</Link>
+          Already have an account? <Link to="/signin" className="font-bold hover:underline">Sign in</Link>
         </p>
       </div>
     </div>
