@@ -8,7 +8,7 @@ import SignInForm from '../../components/forms/SignInForm';
 export default function SignIn() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const { loginUser } = useAuth();
+  const { loginUser, refreshUser } = useAuth();
   const navigate = useNavigate();
 
   const getRedirectPath = (role) => {
@@ -35,7 +35,7 @@ export default function SignIn() {
     try {
       const res = await login(data);
       setMessage('Login successful.');
-      loginUser(res.user);
+      await refreshUser();
       const redirectPath = getRedirectPath(res.user.role);
       navigate(redirectPath);
     } catch (err) {

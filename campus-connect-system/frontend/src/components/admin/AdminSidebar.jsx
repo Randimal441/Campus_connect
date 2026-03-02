@@ -4,7 +4,7 @@ const MENU_ITEMS = [
   { path: '/admin/super', label: 'Approvals' },
   { path: '/admin/coaches', label: 'Clubs & Sports' },
   { path: '/admin/resources', label: 'Resource Sharing' },
-  { path: '/admin/consulting', label: 'Consulting' },
+  { path: '/admin/consulting/reviews', label: 'Consulting' },
   { path: '/admin/events', label: 'Events & Chill Sessions' },
 ];
 
