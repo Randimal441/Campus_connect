@@ -12,6 +12,8 @@ import ResourceCoordinatorDashboard from '../pages/admin/ResourceCoordinatorDash
 import ConsultantDashboard from '../pages/admin/ConsultantDashboard';
 import EventCoordinatorDashboard from '../pages/admin/EventCoordinatorDashboard';
 import AdminLayout from '../components/admin/AdminLayout';
+import ConsultantDetails from '../pages/user/ConsultingDetails';
+import ConsultingReviewDashboard from '../pages/admin/ConsultingReviewDasboard';
 
 export default function AppRoutes() {
   return (
@@ -24,6 +26,7 @@ export default function AppRoutes() {
       <Route path="/user/resource-sharing" element={<ResourceSharing />} />
       <Route path="/user/consulting" element={<Consulting />} />
       <Route path="/user/events-chill" element={<EventsChill />} />
+      <Route path="/user/consulting/:id" element={<ConsultantDetails />}/>
 
       <Route
         path="/admin/super"
@@ -65,7 +68,14 @@ export default function AppRoutes() {
           </AdminLayout>
         }
       />
-
+      <Route
+        path="/admin/consulting/reviews"
+        element={
+          <AdminLayout>
+            <ConsultingReviewDashboard />
+          </AdminLayout>
+        }
+      />
       <Route
         path="/"
         element={
