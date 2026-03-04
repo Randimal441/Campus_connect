@@ -6,7 +6,7 @@ import AdminSidebar from './AdminSidebar';
 
 export default function AdminLayout({ children }) {
   const { user } = useAuth();
-  const showSidebar = user?.role === ROLES.SUPER_ADMIN;
+  const showSidebar = user?.role && user.role !== ROLES.STUDENT;
 
   return (
     <div className="page">
