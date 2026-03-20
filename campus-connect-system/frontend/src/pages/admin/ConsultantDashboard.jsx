@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import BookingSessionModal from '../../components/admin/BookingSessionModal';
+import { toast } from 'react-toastify';
 
 const avatar = (initials, color = "bg-teal-500") => (
   <div className={`w-8 h-8 rounded-full ${color} flex items-center justify-center text-white text-xs font-semibold flex-shrink-0`}>
@@ -68,7 +69,7 @@ export default function ConsultantDashboard() {
       setDeletingSessionId(null);
     } catch (error) {
       console.error('Failed to delete session:', error);
-      alert('Failed to delete session: ' + error.message);
+      toast.error('Failed to delete session: ' + error.message);
     } finally {
       setDeleting(false);
     }

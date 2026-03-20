@@ -206,8 +206,8 @@ const getPublicSessionsByCounselor = async (req, res, next) => {
         _id:       slot._id,
         startTime: slot.startTime,
         endTime:   slot.endTime,
-        isBooked:  slot.isBooked,  // student only needs to know if slot is taken
-        // booking details are NOT included
+        isBooked:  slot.isBooked, 
+        bookedBy: req.user && slot.bookedBy && slot.bookedBy.toString() === req.user._id.toString() ? slot.bookedBy : null,
       })),
     }));
 

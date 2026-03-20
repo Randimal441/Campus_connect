@@ -25,4 +25,25 @@ const protect = async (req, res, next) => {
   }
 };
 
+// const optionalAuth = async (req, res, next) => {
+//   try {
+//     let token = req.headers.authorization;
+//     if (token && token.startsWith('Bearer ')) {
+//       token = token.slice(7);
+//     }
+
+//     if (token) {
+//       const decoded = verifyToken(token);
+//       const user = await User.findById(decoded.id).select('-password');
+//       if (user) {
+//         req.user = user;
+//       }
+//     }
+//     next();
+//   } catch (error) {
+//     // Ignore auth errors for optional auth
+//     next();
+//   }
+// };
+
 module.exports = { protect };
