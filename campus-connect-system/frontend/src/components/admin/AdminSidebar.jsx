@@ -18,10 +18,9 @@ export default function AdminSidebar() {
     [ROLES.COACH]: [MENU_ITEMS[1]],
     [ROLES.RESOURCE_COORDINATOR]: [MENU_ITEMS[2]],
     [ROLES.CONSULTANT]: [MENU_ITEMS[3]],
-    [ROLES.EVENT_COORDINATOR]: [MENU_ITEMS[4]],
   };
 
-  const visibleItems = menuByRole[user?.role] || [MENU_ITEMS[4]];
+  const visibleItems = menuByRole[user?.role] || [];
 
   return (
     <aside className="admin-sidebar">

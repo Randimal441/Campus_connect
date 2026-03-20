@@ -12,6 +12,8 @@ import ResourceCoordinatorDashboard from '../pages/admin/ResourceCoordinatorDash
 import ConsultantDashboard from '../pages/admin/ConsultantDashboard';
 import EventCoordinatorDashboard from '../pages/admin/EventCoordinatorDashboard';
 import AdminLayout from '../components/admin/AdminLayout';
+import ProtectedRoute from '../components/protected/ProtectedRoute';
+import { ROLES } from '../utils/constants';
 
 export default function AppRoutes() {
   return (
@@ -60,9 +62,11 @@ export default function AppRoutes() {
       <Route
         path="/admin/events"
         element={
-          <AdminLayout>
-            <EventCoordinatorDashboard />
-          </AdminLayout>
+          <ProtectedRoute allowedRoles={[ROLES.SUPER_ADMIN]}>
+            <AdminLayout>
+              <EventCoordinatorDashboard />
+            </AdminLayout>
+          </ProtectedRoute>
         }
       />
 

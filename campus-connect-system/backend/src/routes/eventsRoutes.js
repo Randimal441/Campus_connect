@@ -18,23 +18,23 @@ router.get('/upcoming', getUpcoming);
 router.use(protect);
 router.post(
   '/',
-  restrictTo('event_coordinator', 'super_admin'),
+  restrictTo('super_admin'),
   uploadEventImage.single('imageFile'),
   create
 );
 router.put(
   '/:id',
-  restrictTo('event_coordinator', 'super_admin'),
+  restrictTo('super_admin'),
   uploadEventImage.single('imageFile'),
   update
 );
 router.patch(
   '/:id',
-  restrictTo('event_coordinator', 'super_admin'),
+  restrictTo('super_admin'),
   uploadEventImage.single('imageFile'),
   update
 );
-router.delete('/:id', restrictTo('event_coordinator', 'super_admin'), remove);
+router.delete('/:id', restrictTo('super_admin'), remove);
 router.post('/:id/attend', restrictTo('student'), attendEvent);
 
 module.exports = router;
