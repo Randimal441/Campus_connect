@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import Button from '@/components/ui/button';
 
+/* ────── main component ──────────────────────── */
 export default function SuperAdminDashboard() {
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,16 +36,14 @@ export default function SuperAdminDashboard() {
     <>
       <div className="flex items-center gap-4 mb-8 animate-fade-in-up">
         <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-primary-light flex items-center justify-center shadow-lg">
-          <span className="text-white font-heading font-black text-2xl">
-            ⚙️
-          </span>
+          <span className="text-white font-heading font-black text-2xl">⚙️</span>
         </div>
         <div>
           <h1 className="mb-1">Super Admin Dashboard</h1>
           <p className="lead !mb-0">Review and manage user sign-up requests</p>
         </div>
       </div>
-      
+
       {loading ? (
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
@@ -71,7 +70,7 @@ export default function SuperAdminDashboard() {
               </div>
             </div>
           </div>
-          
+
           <div className="table-wrapper animate-fade-in">
             <table className="data-table">
               <thead>
@@ -94,19 +93,10 @@ export default function SuperAdminDashboard() {
                     </td>
                     <td>
                       <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => handleApprove(u._id)}
-                        >
+                        <Button type="button" size="sm" onClick={() => handleApprove(u._id)}>
                           ✔ Approve
                         </Button>
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleReject(u._id)}
-                        >
+                        <Button type="button" variant="destructive" size="sm" onClick={() => handleReject(u._id)}>
                           ✖ Reject
                         </Button>
                       </div>
