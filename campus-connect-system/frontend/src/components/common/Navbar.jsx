@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Button from '@/components/ui/button';
 import { SECTIONS } from '../../utils/constants';
@@ -6,10 +6,19 @@ import { SECTIONS } from '../../utils/constants';
 export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const hideUserGreeting =
+    user?.role === 'coach' && location.pathname.startsWith('/admin/coaches');
+  const isAdminArea = location.pathname.startsWith('/admin');
 
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  const handleProfileClick = () => {
+    navigate('/admin/profile');
   };
 
   return (
@@ -39,8 +48,20 @@ export default function Navbar() {
       <div className="navbar-menu">
         {user ? (
           <>
-            <span className="navbar-user hidden md:inline">👋 {user.fullName}</span>
-            <span className="navbar-role">{user.role}</span>
+            {!hideUserGreeting && (
+              <span className="navbar-user hidden md:inline">👋 {user.fullName}</span>
+            )}
+            {isAdminArea ? (
+              <button
+                type="button"
+                className="navbar-role"
+                onClick={handleProfileClick}
+              >
+                Profile
+              </button>
+            ) : (
+              <span className="navbar-role">{user.role}</span>
+            )}
             <Button
               variant="outline"
               size="sm"

@@ -12,6 +12,7 @@ import CoachesDashboard from '../pages/admin/CoachesDashboard';
 import ResourceCoordinatorDashboard from '../pages/admin/ResourceCoordinatorDashboard';
 import ConsultantDashboard from '../pages/admin/ConsultantDashboard';
 import EventCoordinatorDashboard from '../pages/admin/EventCoordinatorDashboard';
+import CoachProfile from '../pages/admin/CoachProfile';
 import AdminLayout from '../components/admin/AdminLayout';
 import ConsultantDetails from '../pages/user/ConsultingDetails';
 import ConsultingReviewDashboard from '../pages/admin/ConsultingReviewDasboard';
@@ -43,6 +44,14 @@ export default function AppRoutes() {
         element={
           <AdminLayout>
             <CoachesDashboard />
+          </AdminLayout>
+        }
+      />
+      <Route
+        path="/admin/profile"
+        element={
+          <AdminLayout>
+            <CoachProfile />
           </AdminLayout>
         }
       />
