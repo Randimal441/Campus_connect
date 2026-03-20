@@ -53,7 +53,7 @@ export default function Navbar() {
         {user ? (
           <>
             {!hideUserGreeting && (
-              <span className="navbar-user hidden md:inline">👋 {user.fullName}</span>
+              <span className="navbar-user hidden md:inline">{user.fullName}</span>
             )}
             {isAdminArea ? (
               <button
