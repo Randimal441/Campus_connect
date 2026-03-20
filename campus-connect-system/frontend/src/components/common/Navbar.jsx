@@ -11,6 +11,8 @@ export default function Navbar() {
   const hideUserGreeting =
     user?.role === 'coach' && location.pathname.startsWith('/admin/coaches');
   const isAdminArea = location.pathname.startsWith('/admin');
+  const showUserSectionLinks =
+    user?.role === 'student' && location.pathname.startsWith('/user');
 
   const handleLogout = () => {
     logout();
@@ -33,17 +35,19 @@ export default function Navbar() {
       </Link>
       
       {/* Section Navigation Links */}
-      <div className="hidden lg:flex items-center gap-2">
-        {SECTIONS.map((section) => (
-          <Link
-            key={section.id}
-            to={section.path}
-            className="px-3 py-2 rounded-lg hover:bg-white/10 transition-colors font-medium text-sm text-white/90 hover:text-white"
-          >
-            {section.label}
-          </Link>
-        ))}
-      </div>
+      {showUserSectionLinks && (
+        <div className="hidden lg:flex items-center gap-2">
+          {SECTIONS.map((section) => (
+            <Link
+              key={section.id}
+              to={section.path}
+              className="px-3 py-2 rounded-lg hover:bg-white/10 transition-colors font-medium text-sm text-white/90 hover:text-white"
+            >
+              {section.label}
+            </Link>
+          ))}
+        </div>
+      )}
       
       <div className="navbar-menu">
         {user ? (
