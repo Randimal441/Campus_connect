@@ -3,6 +3,7 @@ import SignIn from '../pages/auth/SignIn';
 import SignUp from '../pages/auth/SignUp';
 import UserHome from '../pages/user/UserHome';
 import ClubsSports from '../pages/user/ClubsSports';
+import MedicleSupport from '../pages/user/MedicleSupport';
 import ResourceSharing from '../pages/user/ResourceSharing';
 import Consulting from '../pages/user/Consulting';
 import EventsChill from '../pages/user/EventsChill';
@@ -23,6 +24,7 @@ export default function AppRoutes() {
 
       <Route path="/user" element={<UserHome />} />
       <Route path="/user/clubs-sports" element={<ClubsSports />} />
+      <Route path="/user/clubs-sports/medicle-support" element={<MedicleSupport />} />
       <Route path="/user/resource-sharing" element={<ResourceSharing />} />
       <Route path="/user/consulting" element={<Consulting />} />
       <Route path="/user/events-chill" element={<EventsChill />} />

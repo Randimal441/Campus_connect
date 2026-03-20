@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import Navbar from '../../components/common/Navbar';
@@ -246,11 +247,10 @@ export default function ClubsSports() {
   return (
     <div className="page">
       <Navbar />
-      <main className="main-content">
+      <main className="main-content clubs-full-width">
         {/* ── header ── */}
-        <div className="mb-8 animate-fade-in-up">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="text-5xl">🏆</div>
+        <div className="mb-8 animate-fade-in-up text-center">
+          <div className="flex items-center justify-center gap-3 mb-4">
             <div>
               <h1>Clubs &amp; Sports</h1>
               <p className="lead !mb-0">Discover and join exciting clubs and sports activities on campus</p>
@@ -258,7 +258,7 @@ export default function ClubsSports() {
           </div>
 
           {/* tabs */}
-          <div className="flex gap-2 mt-4">
+          <div className="flex flex-wrap justify-center gap-2 mt-4">
             {['clubs', 'my-requests'].map((t) => (
               <button
                 key={t}
@@ -268,6 +268,12 @@ export default function ClubsSports() {
                 {t === 'clubs' ? '🏟️ All Clubs' : '📋 My Requests'}
               </button>
             ))}
+            <Link
+              to="/user/clubs-sports/medicle-support"
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-muted text-muted-foreground hover:bg-muted/70"
+            >
+              🩺 MEdicle Support
+            </Link>
           </div>
         </div>
 

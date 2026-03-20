@@ -727,6 +727,12 @@ a:focus-visible {
   font-size: 1rem;
 }
 
+/* Full-width layout for Clubs & Sports pages */
+.clubs-full-width {
+  max-width: 100%;
+  margin: 0;
+}
+
 /* Section grid */
 .section-grid {
   display: grid;
