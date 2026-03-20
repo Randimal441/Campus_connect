@@ -209,6 +209,7 @@ a:focus-visible {
 }
 
 .event-card {
+  overflow: hidden;
   background: linear-gradient(180deg, var(--cream) 0%, var(--cream-warm) 100%);
   border: 1px solid var(--gray-200);
   border-radius: var(--radius-2xl);
@@ -225,6 +226,30 @@ a:focus-visible {
 
 .event-card-header {
   margin-bottom: 0.75rem;
+}
+
+.event-card-image-wrap {
+  width: calc(100% + 2.5rem);
+  margin: -1.25rem -1.25rem 0.95rem;
+  height: 190px;
+  background: var(--gray-100);
+}
+
+.event-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.event-card-image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  font-weight: 600;
 }
 
 .event-card-type {

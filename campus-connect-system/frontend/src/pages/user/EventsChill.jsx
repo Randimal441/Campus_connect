@@ -3,6 +3,16 @@ import { getUpcomingEvents } from '../../services/eventsService';
 import Navbar from '../../components/common/Navbar';
 import Footer from '../../components/common/Footer';
 
+const BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
+const resolveImageUrl = (imagePath) => {
+  if (!imagePath) return '';
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  return `${BACKEND_ORIGIN}${imagePath}`;
+};
+
 const getCountdownData = (eventDate, now) => {
   const diff = new Date(eventDate).getTime() - now.getTime();
 
@@ -122,6 +132,18 @@ export default function EventsChill() {
                   className="event-card animate-fade-in"
                   style={{ animationDelay: `${index * 0.05}s` }}
                 >
+                  <div className="event-card-image-wrap">
+                    {resolveImageUrl(item.image) ? (
+                      <img
+                        src={resolveImageUrl(item.image)}
+                        alt={item.title}
+                        className="event-card-image"
+                      />
+                    ) : (
+                      <div className="event-card-image-placeholder">No Image</div>
+                    )}
+                  </div>
+
                   <div className="event-card-header">
                     <span className="event-card-type capitalize">{(item.eventType || 'event').replace('_', ' ')}</span>
                     <h3 className="event-card-title text-sinhala">{item.title}</h3>
