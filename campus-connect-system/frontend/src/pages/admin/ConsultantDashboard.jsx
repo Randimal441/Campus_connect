@@ -26,6 +26,9 @@ const reviews = [
   { initials: "AL", color: "bg-purple-400", name: "Anna L.", rating: 4, date: "Feb 3, 2024", text: "Very knowledgeable and creates a safe space for healing. The couples therapy sessions really helped our relationship." },
 ];
 
+const DUMMY_SPECIALTIES = ['Anxiety & Depression', 'Trauma Recovery', 'Couples Therapy', 'CBT'];
+const DUMMY_DESCRIPTION = 'Dedicated to providing compassionate, evidence-based therapy to help individuals navigate life\'s challenges and achieve lasting well-being.';
+
 export default function ConsultantDashboard() {
   const { user, loading: authLoading } = useAuth();
   const [sessions, setSessions] = useState([]);
@@ -37,6 +40,8 @@ export default function ConsultantDashboard() {
   const [editingSession, setEditingSession] = useState(null);
   const [deletingSessionId, setDeletingSessionId] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const specialtiesToDisplay = profile?.specialties?.length ? profile.specialties : DUMMY_SPECIALTIES;
+  const descriptionToDisplay = profile?.bio?.trim() ? profile.bio : DUMMY_DESCRIPTION;
 
   const handleNewSession = (newSession) => {
     // refresh session list after creation
@@ -136,29 +141,25 @@ export default function ConsultantDashboard() {
                       </div>
                     </div>
                     <h2 className="text-base font-semibold text-gray-800">{profile.fullName || 'Consultant'}</h2>
-                    <p className="text-teal-500 text-xs font-medium mt-0.5">{profile.specialization || 'Professional'}</p>
-                    <p className="text-gray-400 text-xs mt-1">{profile.location || 'Location not specified'}</p>
-                    <p className="text-gray-400 text-xs">{profile.yearsOfExperience || 0} years experience</p>
+                    <p className="text-teal-500 text-xs font-medium mt-0.5">{profile.specialization || 'Licensed Clinical Psychologist'}</p>
+                    <p className="text-gray-400 text-xs mt-1">{profile.location || 'No 25,Thilakawardana Mawatha,Malabe'}</p>
+                    <p className="text-gray-400 text-xs">{profile.yearsOfExperience || 10} years experience</p>
                   </div>
 
-                  {profile.specialties && profile.specialties.length > 0 && (
-                    <div className="mb-3">
-                      <p className="text-gray-400 text-xs uppercase tracking-wider mb-1.5">Specialties</p>
-                      <div className="flex flex-wrap gap-1">
-                        {profile.specialties.map((tag) => (
-                          <span key={tag} className="text-xs bg-teal-50 text-teal-600 px-2 py-0.5 rounded-full border border-teal-100">{tag}</span>
-                        ))}
-                      </div>
+                  <div className="mb-3">
+                    <p className="text-gray-400 text-xs uppercase tracking-wider mb-1.5">Specialties</p>
+                    <div className="flex flex-wrap gap-1">
+                      {specialtiesToDisplay.map((tag) => (
+                        <span key={tag} className="text-xs bg-teal-50 text-teal-600 px-2 py-0.5 rounded-full border border-teal-100">{tag}</span>
+                      ))}
                     </div>
-                  )}
+                  </div>
 
                   <div className="space-y-1.5 text-xs text-gray-500">
-                    {profile.phone && (
-                      <div className="flex items-center gap-2">
-                        <svg className="w-3.5 h-3.5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                        <span>{profile.phone}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <svg className="w-3.5 h-3.5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                      <span>{profile?.phone || "+94 77 123 4567"}</span>
+                    </div>
                     {profile.email && (
                       <div className="flex items-center gap-2">
                         <svg className="w-3.5 h-3.5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
@@ -167,11 +168,9 @@ export default function ConsultantDashboard() {
                     )}
                   </div>
 
-                  {profile.bio && (
-                    <p className="text-xs text-gray-400 mt-3 leading-relaxed border-t border-gray-50 pt-3">
-                      {profile.bio}
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-400 mt-3 leading-relaxed border-t border-gray-50 pt-3">
+                    {descriptionToDisplay}
+                  </p>
                 </>
               ) : (
                 <div className="text-center py-8">
