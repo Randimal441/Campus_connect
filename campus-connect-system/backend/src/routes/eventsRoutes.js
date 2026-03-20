@@ -6,6 +6,7 @@ const {
   update,
   remove,
   attendEvent,
+  applyForParticipation,
 } = require('../controllers/eventsController');
 const { protect } = require('../middlewares/authMiddleware');
 const { restrictTo } = require('../middlewares/roleMiddleware');
@@ -36,5 +37,6 @@ router.patch(
 );
 router.delete('/:id', restrictTo('super_admin'), remove);
 router.post('/:id/attend', restrictTo('student'), attendEvent);
+router.post('/:id/apply-participation', restrictTo('student'), applyForParticipation);
 
 module.exports = router;

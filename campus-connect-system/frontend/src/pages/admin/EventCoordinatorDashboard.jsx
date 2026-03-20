@@ -18,6 +18,7 @@ import {
   getAllEvents,
   updateEvent,
 } from '../../services/adminEventsService';
+import { PARTICIPATION_OPTIONS } from '../../utils/constants';
 
 const BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
@@ -28,6 +29,7 @@ const INITIAL_FORM = {
   location: '',
   description: '',
   image: '',
+  participationOptions: [],
 };
 
 const resolveImageUrl = (imagePath) => {
@@ -106,6 +108,9 @@ export default function EventCoordinatorDashboard() {
       location: item.location || '',
       description: item.description || '',
       image: item.image || '',
+      participationOptions: Array.isArray(item.participationOptions)
+        ? item.participationOptions
+        : [],
     });
     setImageFile(null);
     setMessage('');
@@ -130,6 +135,18 @@ export default function EventCoordinatorDashboard() {
     setImageFile(file);
   };
 
+  const handleParticipationOptionToggle = (optionValue) => {
+    setForm((prev) => {
+      const exists = prev.participationOptions.includes(optionValue);
+      return {
+        ...prev,
+        participationOptions: exists
+          ? prev.participationOptions.filter((value) => value !== optionValue)
+          : [...prev.participationOptions, optionValue],
+      };
+    });
+  };
+
   const handleSave = async (event) => {
     event.preventDefault();
     setSaving(true);
@@ -145,6 +162,9 @@ export default function EventCoordinatorDashboard() {
       payload.append('description', form.description);
       payload.append('eventType', 'event');
       payload.append('image', form.image || '');
+      form.participationOptions.forEach((option) => {
+        payload.append('participationOptions', option);
+      });
 
       if (imageFile) {
         payload.append('imageFile', imageFile);
@@ -304,6 +324,25 @@ export default function EventCoordinatorDashboard() {
               <div className="space-y-2">
                 <Label htmlFor="imageFile">Event Image Upload</Label>
                 <Input id="imageFile" name="imageFile" type="file" accept="image/*" onChange={handleFileChange} />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Participation Types (Students can apply)</Label>
+                <div className="admin-events-options-grid">
+                  {PARTICIPATION_OPTIONS.map((option) => {
+                    const checked = form.participationOptions.includes(option.value);
+                    return (
+                      <label key={option.value} className="admin-events-option-item">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => handleParticipationOptionToggle(option.value)}
+                        />
+                        <span>{option.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="admin-events-form-actions">

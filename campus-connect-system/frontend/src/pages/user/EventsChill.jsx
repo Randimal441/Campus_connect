@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getUpcomingEvents } from '../../services/eventsService';
+import { applyForParticipation, getUpcomingEvents } from '../../services/eventsService';
 import Navbar from '../../components/common/Navbar';
 import Footer from '../../components/common/Footer';
+import { useAuth } from '../../hooks/useAuth';
+import { PARTICIPATION_OPTIONS, ROLES } from '../../utils/constants';
 
 const BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
@@ -51,10 +53,32 @@ const getCountdownData = (eventDate, now) => {
 };
 
 export default function EventsChill() {
+  const { user } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [now, setNow] = useState(new Date());
+  const [applyMessage, setApplyMessage] = useState('');
+  const [applyError, setApplyError] = useState('');
+  const [applyingKey, setApplyingKey] = useState('');
+  const [appliedMap, setAppliedMap] = useState({});
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedOption, setSelectedOption] = useState('');
+  const [applicationForm, setApplicationForm] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    notes: '',
+  });
+
+  const optionLabelMap = useMemo(
+    () =>
+      PARTICIPATION_OPTIONS.reduce((acc, item) => {
+        acc[item.value] = item.label;
+        return acc;
+      }, {}),
+    []
+  );
 
   useEffect(() => {
     getUpcomingEvents()
@@ -85,6 +109,134 @@ export default function EventsChill() {
       .filter((item) => new Date(item.date).getTime() >= todayStart.getTime())
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [items]);
+
+  const formatOptionLabel = (option) => optionLabelMap[option] || option;
+
+  const hasStudentApplied = (eventItem, option) => {
+    if (!user?._id) return false;
+
+    const alreadyAppliedInSession = !!appliedMap[`${eventItem._id}:${option}`];
+    if (alreadyAppliedInSession) return true;
+
+    const applications = Array.isArray(eventItem.participationApplications)
+      ? eventItem.participationApplications
+      : [];
+
+    return applications.some((entry) => {
+      const studentId = typeof entry.student === 'object' ? entry.student?._id : entry.student;
+      return String(studentId) === String(user._id) && entry.option === option;
+    });
+  };
+
+  const openEventDetails = (eventItem) => {
+    setSelectedEvent(eventItem);
+    setSelectedOption('');
+    setApplicationForm({
+      fullName: user?.fullName || '',
+      email: user?.email || '',
+      phone: '',
+      notes: '',
+    });
+    setApplyError('');
+    setApplyMessage('');
+  };
+
+  const closeEventDetails = () => {
+    setSelectedEvent(null);
+    setSelectedOption('');
+    setApplyingKey('');
+  };
+
+  const openApplicationForm = (option) => {
+    setSelectedOption(option);
+    setApplyError('');
+    setApplyMessage('');
+  };
+
+  const handleApplicationFieldChange = (event) => {
+    const { name, value } = event.target;
+    setApplicationForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleApply = async (eventId, option) => {
+    const key = `${eventId}:${option}`;
+    setApplyingKey(key);
+    setApplyMessage('');
+    setApplyError('');
+
+    try {
+      await applyForParticipation(eventId, {
+        option,
+        application: {
+          fullName: applicationForm.fullName,
+          email: applicationForm.email,
+          phone: applicationForm.phone,
+          notes: applicationForm.notes,
+        },
+      });
+
+      setAppliedMap((prev) => ({ ...prev, [key]: true }));
+      setApplyMessage(`Applied successfully for ${optionLabelMap[option] || option}.`);
+      setSelectedOption('');
+
+      setItems((prev) =>
+        prev.map((eventItem) => {
+          if (eventItem._id !== eventId) return eventItem;
+
+          const existingApps = Array.isArray(eventItem.participationApplications)
+            ? eventItem.participationApplications
+            : [];
+
+          return {
+            ...eventItem,
+            participationApplications: [
+              ...existingApps,
+              {
+                student: user?._id,
+                option,
+                application: {
+                  fullName: applicationForm.fullName,
+                  email: applicationForm.email,
+                  phone: applicationForm.phone,
+                  notes: applicationForm.notes,
+                },
+                appliedAt: new Date().toISOString(),
+              },
+            ],
+          };
+        })
+      );
+
+      setSelectedEvent((prev) => {
+        if (!prev || prev._id !== eventId) return prev;
+        const existingApps = Array.isArray(prev.participationApplications)
+          ? prev.participationApplications
+          : [];
+
+        return {
+          ...prev,
+          participationApplications: [
+            ...existingApps,
+            {
+              student: user?._id,
+              option,
+              application: {
+                fullName: applicationForm.fullName,
+                email: applicationForm.email,
+                phone: applicationForm.phone,
+                notes: applicationForm.notes,
+              },
+              appliedAt: new Date().toISOString(),
+            },
+          ],
+        };
+      });
+    } catch (err) {
+      setApplyError(err.message || 'Unable to submit application right now.');
+    } finally {
+      setApplyingKey('');
+    }
+  };
 
   return (
     <div className="page">
@@ -122,7 +274,11 @@ export default function EventsChill() {
             <p className="text-muted-foreground">Stay tuned for the next campus event!</p>
           </div>
         ) : (
-          <div className="event-dashboard-grid">
+          <div>
+            {applyMessage ? <p className="event-apply-success">{applyMessage}</p> : null}
+            {applyError ? <p className="event-apply-error">{applyError}</p> : null}
+
+            <div className="event-dashboard-grid">
             {upcomingItems.map((item, index) => {
               const countdown = getCountdownData(item.date, now);
 
@@ -164,19 +320,6 @@ export default function EventsChill() {
                         })}
                       </span>
                     </div>
-                    <div className="event-card-meta-item">
-                      <span className="event-card-meta-label">Time</span>
-                      <span className="event-card-meta-value">
-                        {new Date(item.date).toLocaleTimeString('en-GB', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    </div>
-                    <div className="event-card-meta-item">
-                      <span className="event-card-meta-label">Location</span>
-                      <span className="event-card-meta-value text-sinhala">{item.location || 'TBA'}</span>
-                    </div>
                   </div>
 
                   <div className="event-countdown-wrap">
@@ -198,11 +341,180 @@ export default function EventsChill() {
                       </div>
                     ) : null}
                   </div>
+
+                  <div className="event-card-actions">
+                    <button
+                      type="button"
+                      className="event-view-more-btn"
+                      onClick={() => openEventDetails(item)}
+                    >
+                      View More
+                    </button>
+                  </div>
                 </div>
               );
             })}
+            </div>
           </div>
         )}
+
+        {selectedEvent ? (
+          <div className="event-modal-backdrop" onClick={closeEventDetails}>
+            <div className="event-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="event-modal-header">
+                <h3 className="mb-0">{selectedOption ? 'Participation Application Form' : 'Event Details'}</h3>
+                <button type="button" className="event-modal-close-btn" onClick={closeEventDetails}>X</button>
+              </div>
+
+              {selectedOption ? (
+                <form
+                  className="event-application-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    handleApply(selectedEvent._id, selectedOption);
+                  }}
+                >
+                  <p className="event-application-subtitle">
+                    Applying for <strong>{formatOptionLabel(selectedOption)}</strong> in <strong>{selectedEvent.title}</strong>
+                  </p>
+
+                  <div className="event-application-grid">
+                    <label className="event-application-field">
+                      <span>Full Name</span>
+                      <input
+                        type="text"
+                        name="fullName"
+                        value={applicationForm.fullName}
+                        onChange={handleApplicationFieldChange}
+                        required
+                      />
+                    </label>
+
+                    <label className="event-application-field">
+                      <span>Email</span>
+                      <input
+                        type="email"
+                        name="email"
+                        value={applicationForm.email}
+                        onChange={handleApplicationFieldChange}
+                        required
+                      />
+                    </label>
+
+                    <label className="event-application-field">
+                      <span>Phone Number</span>
+                      <input
+                        type="text"
+                        name="phone"
+                        value={applicationForm.phone}
+                        onChange={handleApplicationFieldChange}
+                        placeholder="07X XXX XXXX"
+                        required
+                      />
+                    </label>
+                  </div>
+
+                  <label className="event-application-field">
+                    <span>Why are you applying for this role?</span>
+                    <textarea
+                      name="notes"
+                      rows={4}
+                      value={applicationForm.notes}
+                      onChange={handleApplicationFieldChange}
+                      placeholder="Share your relevant skills, interest, or experience."
+                      required
+                    />
+                  </label>
+
+                  <div className="event-application-actions">
+                    <button
+                      type="button"
+                      className="event-secondary-btn"
+                      onClick={() => setSelectedOption('')}
+                    >
+                      Back to Details
+                    </button>
+                    <button
+                      type="submit"
+                      className="event-primary-btn"
+                      disabled={applyingKey === `${selectedEvent._id}:${selectedOption}`}
+                    >
+                      {applyingKey === `${selectedEvent._id}:${selectedOption}`
+                        ? 'Submitting...'
+                        : 'Submit Application'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="event-modal-content">
+                  {resolveImageUrl(selectedEvent.image) ? (
+                    <img
+                      src={resolveImageUrl(selectedEvent.image)}
+                      alt={selectedEvent.title}
+                      className="event-modal-image"
+                    />
+                  ) : null}
+
+                  <h3 className="event-modal-title text-sinhala">{selectedEvent.title}</h3>
+                  <p className="event-modal-description text-sinhala">
+                    {selectedEvent.description || 'No description provided for this event.'}
+                  </p>
+
+                  <div className="event-card-meta-list">
+                    <div className="event-card-meta-item">
+                      <span className="event-card-meta-label">Date</span>
+                      <span className="event-card-meta-value">
+                        {new Date(selectedEvent.date).toLocaleDateString('en-GB', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                      </span>
+                    </div>
+                    <div className="event-card-meta-item">
+                      <span className="event-card-meta-label">Time</span>
+                      <span className="event-card-meta-value">
+                        {new Date(selectedEvent.date).toLocaleTimeString('en-GB', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                    <div className="event-card-meta-item">
+                      <span className="event-card-meta-label">Location</span>
+                      <span className="event-card-meta-value text-sinhala">{selectedEvent.location || 'TBA'}</span>
+                    </div>
+                  </div>
+
+                  <div className="event-modal-participation-wrap">
+                    <p className="event-participation-title mb-2">Available Participation Options</p>
+
+                    {Array.isArray(selectedEvent.participationOptions) && selectedEvent.participationOptions.length > 0 ? (
+                      <div className="event-option-list">
+                        {selectedEvent.participationOptions.map((option) => {
+                          const applied = hasStudentApplied(selectedEvent, option);
+                          return (
+                            <button
+                              key={option}
+                              type="button"
+                              className="event-option-btn"
+                              onClick={() => openApplicationForm(option)}
+                              disabled={applied || user?.role !== ROLES.STUDENT}
+                            >
+                              {formatOptionLabel(option)} {applied ? '(Applied)' : ''}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="event-participation-empty mb-0">No participation roles are open for this event.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
       </main>
       <Footer />
     </div>
