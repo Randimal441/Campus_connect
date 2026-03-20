@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import Navbar from '../../components/common/Navbar';
@@ -11,7 +12,7 @@ const STATUS_COLORS = {
   rejected: 'bg-red-100 text-red-800',
 };
 
-const CATEGORY_ICONS = { club: '🎭', sport: '⚽' };
+const CATEGORY_ICONS = { club: '', sport: '' };
 
 function formatDate(d) {
   if (!d) return '';
@@ -98,7 +99,7 @@ function ClubDetailModal({ club, onClose, onJoin, onLeave, myRequests }) {
           {club.coachInfo && (
             <div className="bg-muted rounded-xl p-4">
               <h4 className="font-semibold text-foreground mb-1 flex items-center gap-2">
-                <span>👤</span> Coach Information
+                Coach Information
               </h4>
               <p className="text-sm text-muted-foreground">{club.coachInfo}</p>
             </div>
@@ -119,7 +120,7 @@ function ClubDetailModal({ club, onClose, onJoin, onLeave, myRequests }) {
                       <span className="font-medium text-sm">{s.title}</span>
                       <span className="text-xs text-muted-foreground">{formatDate(s.date)} · {s.time}</span>
                     </div>
-                    {s.location && <p className="text-xs text-muted-foreground mt-0.5">📍 {s.location}</p>}
+                    {s.location && <p className="text-xs text-muted-foreground mt-0.5"> {s.location}</p>}
                     {s.description && <p className="text-xs text-muted-foreground mt-0.5">{s.description}</p>}
                   </div>
                 ))}
@@ -168,7 +169,7 @@ function ClubDetailModal({ club, onClose, onJoin, onLeave, myRequests }) {
                 className="input w-full h-20 resize-none text-sm"
               />
               <button onClick={handleJoin} disabled={busy} className="btn btn-primary mt-2 w-full">
-                {busy ? 'Sending…' : '🙋 Send Join Request'}
+                {busy ? 'Sending…' : ' Send Join Request'}
               </button>
             </div>
           )}
@@ -246,11 +247,10 @@ export default function ClubsSports() {
   return (
     <div className="page">
       <Navbar />
-      <main className="main-content">
+      <main className="main-content clubs-full-width">
         {/* ── header ── */}
-        <div className="mb-8 animate-fade-in-up">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="text-5xl">🏆</div>
+        <div className="mb-8 animate-fade-in-up text-center">
+          <div className="flex items-center justify-center gap-3 mb-4">
             <div>
               <h1>Clubs &amp; Sports</h1>
               <p className="lead !mb-0">Discover and join exciting clubs and sports activities on campus</p>
@@ -258,7 +258,7 @@ export default function ClubsSports() {
           </div>
 
           {/* tabs */}
-          <div className="flex gap-2 mt-4">
+          <div className="flex flex-wrap justify-center gap-2 mt-4">
             {['clubs', 'my-requests'].map((t) => (
               <button
                 key={t}
@@ -268,6 +268,12 @@ export default function ClubsSports() {
                 {t === 'clubs' ? '🏟️ All Clubs' : '📋 My Requests'}
               </button>
             ))}
+            <Link
+              to="/user/clubs-sports/medicle-support"
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-muted text-muted-foreground hover:bg-muted/70"
+            >
+              🩺 MEdicle Support
+            </Link>
           </div>
         </div>
 
@@ -326,7 +332,7 @@ export default function ClubsSports() {
                       )}
                       <p className="text-sm text-muted-foreground line-clamp-3 mb-4">{item.description}</p>
                       {item.createdBy && (
-                        <p className="text-xs text-muted-foreground mb-4">👤 {item.createdBy.fullName}</p>
+                        <p className="text-xs text-muted-foreground mb-4">{item.createdBy.fullName}</p>
                       )}
                       <div className="flex items-center justify-between mt-auto">
                         <button className="btn btn-sm btn-outline" onClick={(e) => { e.stopPropagation(); setSelected(item); }}>

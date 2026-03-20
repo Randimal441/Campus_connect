@@ -3,6 +3,7 @@ import SignIn from '../pages/auth/SignIn';
 import SignUp from '../pages/auth/SignUp';
 import UserHome from '../pages/user/UserHome';
 import ClubsSports from '../pages/user/ClubsSports';
+import MedicleSupport from '../pages/user/MedicleSupport';
 import ResourceSharing from '../pages/user/ResourceSharing';
 import Consulting from '../pages/user/Consulting';
 import EventsChill from '../pages/user/EventsChill';
@@ -11,6 +12,7 @@ import CoachesDashboard from '../pages/admin/CoachesDashboard';
 import ResourceCoordinatorDashboard from '../pages/admin/ResourceCoordinatorDashboard';
 import ConsultantDashboard from '../pages/admin/ConsultantDashboard';
 import EventCoordinatorDashboard from '../pages/admin/EventCoordinatorDashboard';
+import CoachProfile from '../pages/admin/CoachProfile';
 import AdminLayout from '../components/admin/AdminLayout';
 import ConsultantDetails from '../pages/user/ConsultingDetails';
 import ConsultingReviewDashboard from '../pages/admin/ConsultingReviewDasboard';
@@ -23,6 +25,7 @@ export default function AppRoutes() {
 
       <Route path="/user" element={<UserHome />} />
       <Route path="/user/clubs-sports" element={<ClubsSports />} />
+      <Route path="/user/clubs-sports/medicle-support" element={<MedicleSupport />} />
       <Route path="/user/resource-sharing" element={<ResourceSharing />} />
       <Route path="/user/consulting" element={<Consulting />} />
       <Route path="/user/events-chill" element={<EventsChill />} />
@@ -41,6 +44,14 @@ export default function AppRoutes() {
         element={
           <AdminLayout>
             <CoachesDashboard />
+          </AdminLayout>
+        }
+      />
+      <Route
+        path="/admin/profile"
+        element={
+          <AdminLayout>
+            <CoachProfile />
           </AdminLayout>
         }
       />
