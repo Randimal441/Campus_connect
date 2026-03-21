@@ -22,10 +22,10 @@ export default function SignIn() {
       case ROLES.CONSULTANT:
         return '/admin/consulting';
       case ROLES.EVENT_COORDINATOR:
-        return '/admin/events';
+        return '/user/events-chill';
       case ROLES.STUDENT:
       default:
-        return '/user';
+        return '/user/events-chill';
     }
   };
 

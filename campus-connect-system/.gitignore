@@ -8,3 +8,20 @@ build/
 .DS_Store
 .idea/
 .vscode/
+Thumbs.db
+Desktop.ini
+
+# Backend runtime uploads
+backend/uploads/
+
+# Frontend build output
+frontend/dist/
+
+# Unused nested template project
+frontend/vite-project/
+
+# App-specific environment files (explicit)
+backend/.env
+backend/.env.local
+frontend/.env
+frontend/.env.local

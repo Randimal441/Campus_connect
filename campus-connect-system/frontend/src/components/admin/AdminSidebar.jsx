@@ -1,4 +1,6 @@
 import { NavLink } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { ROLES } from '../../utils/constants';
 
 const MENU_ITEMS = [
   { path: '/admin/super', label: 'Approvals' },
@@ -9,11 +11,22 @@ const MENU_ITEMS = [
 ];
 
 export default function AdminSidebar() {
+  const { user } = useAuth();
+
+  const menuByRole = {
+    [ROLES.SUPER_ADMIN]: MENU_ITEMS,
+    [ROLES.COACH]: [MENU_ITEMS[1]],
+    [ROLES.RESOURCE_COORDINATOR]: [MENU_ITEMS[2]],
+    [ROLES.CONSULTANT]: [MENU_ITEMS[3]],
+  };
+
+  const visibleItems = menuByRole[user?.role] || [];
+
   return (
     <aside className="admin-sidebar">
       <nav className="admin-sidebar-nav">
         <h3 className="admin-sidebar-title">Admin Panels</h3>
-        {MENU_ITEMS.map((item) => (
+        {visibleItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
