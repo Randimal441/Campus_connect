@@ -39,11 +39,75 @@ const normalizeParticipationOptions = (value) => {
 
 const sanitizeApplicationField = (value) => String(value || '').trim();
 
+const normalizeParticipationForms = (value, selectedOptions = []) => {
+  if (!value) return [];
+
+  let rawForms = [];
+
+  if (Array.isArray(value)) {
+    rawForms = value;
+  } else if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      rawForms = Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      return [];
+    }
+  } else {
+    rawForms = [value];
+  }
+
+  const optionFilter = Array.isArray(selectedOptions) && selectedOptions.length > 0
+    ? new Set(selectedOptions)
+    : null;
+
+  const result = [];
+
+  rawForms.forEach((form, formIndex) => {
+    const option = sanitizeApplicationField(form?.option);
+    if (!ALLOWED_PARTICIPATION_OPTIONS.includes(option)) return;
+    if (optionFilter && !optionFilter.has(option)) return;
+
+    const rawQuestions = Array.isArray(form?.questions) ? form.questions : [];
+    const normalizedQuestions = rawQuestions
+      .map((question, questionIndex) => {
+        const label = sanitizeApplicationField(question?.label);
+        if (!label) return null;
+
+        const keySource = sanitizeApplicationField(question?.key) || `q_${questionIndex + 1}`;
+        const key = keySource.toLowerCase().replace(/[^a-z0-9_]+/g, '_');
+
+        return {
+          key: key || `q_${questionIndex + 1}`,
+          label,
+          required: question?.required !== false,
+        };
+      })
+      .filter(Boolean);
+
+    result.push({
+      option,
+      questions: normalizedQuestions,
+      _position: formIndex,
+    });
+  });
+
+  // Keep only the latest form per option if duplicates are submitted.
+  const deduped = [...new Map(result.map((form) => [form.option, form])).values()];
+  return deduped
+    .sort((a, b) => a._position - b._position)
+    .map(({ _position, ...form }) => form);
+};
+
 // Get all active events
 const getAll = async (req, res, next) => {
   try {
     const items = await Events.find({ isActive: true })
       .populate('createdBy', 'fullName email')
+      .populate('participationApplications.student', 'fullName email idNumber')
       .sort({ date: 1 });
 
     res.json(items);
@@ -62,6 +126,7 @@ const getUpcoming = async (req, res, next) => {
       isActive: true,
       date: { $gte: startOfToday },
     })
+      .select('-participationApplications')
       .populate('createdBy', 'fullName email')
       .sort({ date: 1 });
 
@@ -74,9 +139,20 @@ const getUpcoming = async (req, res, next) => {
 // Create event
 const create = async (req, res, next) => {
   try {
-    const { title, description, eventType, date, time, location, image, participationOptions } = req.body;
+    const {
+      title,
+      description,
+      eventType,
+      date,
+      time,
+      location,
+      image,
+      participationOptions,
+      participationForms,
+    } = req.body;
 
     const imagePath = req.file ? `/uploads/events/${req.file.filename}` : image || '';
+    const normalizedParticipationOptions = normalizeParticipationOptions(participationOptions);
 
     const item = await Events.create({
       title,
@@ -86,7 +162,11 @@ const create = async (req, res, next) => {
       time: time || '',
       location: location || '',
       image: imagePath,
-      participationOptions: normalizeParticipationOptions(participationOptions),
+      participationOptions: normalizedParticipationOptions,
+      participationForms: normalizeParticipationForms(
+        participationForms,
+        normalizedParticipationOptions
+      ),
       createdBy: req.user._id,
     });
 
@@ -103,26 +183,44 @@ const create = async (req, res, next) => {
 // Update event
 const update = async (req, res, next) => {
   try {
+    const item = await Events.findById(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Not found.' });
+
     const updateData = { ...req.body };
 
+    if ('title' in updateData) item.title = updateData.title;
+    if ('description' in updateData) item.description = updateData.description || '';
+    if ('eventType' in updateData) item.eventType = updateData.eventType || 'event';
+    if ('date' in updateData) item.date = updateData.date || item.date;
+    if ('time' in updateData) item.time = updateData.time || '';
+    if ('location' in updateData) item.location = updateData.location || '';
+    if ('image' in updateData && !req.file) item.image = updateData.image || '';
+
+    if (req.file) {
+      item.image = `/uploads/events/${req.file.filename}`;
+    }
+
     if ('participationOptions' in updateData) {
-      updateData.participationOptions = normalizeParticipationOptions(
+      item.participationOptions = normalizeParticipationOptions(
         updateData.participationOptions
       );
     }
 
-    if (req.file) {
-      updateData.image = `/uploads/events/${req.file.filename}`;
+    if ('participationForms' in updateData) {
+      item.participationForms = normalizeParticipationForms(
+        updateData.participationForms,
+        item.participationOptions
+      );
+    } else {
+      item.participationForms = (item.participationForms || []).filter((form) =>
+        item.participationOptions.includes(form.option)
+      );
     }
 
-    const item = await Events.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true, runValidators: true }
-    ).populate('createdBy', 'fullName email');
+    await item.save();
 
-    if (!item) return res.status(404).json({ message: 'Not found.' });
-    res.json(item);
+    const populated = await Events.findById(item._id).populate('createdBy', 'fullName email');
+    res.json(populated);
   } catch (error) {
     next(error);
   }
@@ -167,17 +265,6 @@ const applyForParticipation = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid participation option.' });
     }
 
-    const fullName = sanitizeApplicationField(application?.fullName);
-    const email = sanitizeApplicationField(application?.email);
-    const phone = sanitizeApplicationField(application?.phone);
-    const notes = sanitizeApplicationField(application?.notes);
-
-    if (!fullName || !email || !phone || !notes) {
-      return res.status(400).json({
-        message: 'Please complete the participation application form.',
-      });
-    }
-
     const item = await Events.findById(req.params.id);
     if (!item) return res.status(404).json({ message: 'Not found.' });
 
@@ -189,6 +276,13 @@ const applyForParticipation = async (req, res, next) => {
       return res.status(400).json({ message: 'This option is not available for the selected event.' });
     }
 
+    const participationForm = (item.participationForms || []).find(
+      (form) => form.option === option
+    );
+    const formQuestions = Array.isArray(participationForm?.questions)
+      ? participationForm.questions
+      : [];
+
     const alreadyApplied = item.participationApplications.some(
       (entry) =>
         String(entry.student) === String(req.user._id) &&
@@ -199,6 +293,46 @@ const applyForParticipation = async (req, res, next) => {
       return res.status(400).json({ message: 'You have already applied for this role.' });
     }
 
+    const submittedAnswers = Array.isArray(application?.answers)
+      ? application.answers.map((answer) => ({
+          questionKey: sanitizeApplicationField(answer?.questionKey),
+          label: sanitizeApplicationField(answer?.label),
+          answer: sanitizeApplicationField(answer?.answer),
+        }))
+      : [];
+
+    if (formQuestions.length > 0) {
+      const answersMap = new Map(
+        submittedAnswers.map((entry) => [entry.questionKey, entry.answer])
+      );
+
+      const missingRequired = formQuestions.some(
+        (question) => question.required && !sanitizeApplicationField(answersMap.get(question.key))
+      );
+
+      if (missingRequired) {
+        return res.status(400).json({
+          message: 'Please complete all required questions in the application form.',
+        });
+      }
+    } else {
+      const fullName = sanitizeApplicationField(application?.fullName);
+      const email = sanitizeApplicationField(application?.email);
+      const phone = sanitizeApplicationField(application?.phone);
+      const notes = sanitizeApplicationField(application?.notes);
+
+      if (!fullName || !email || !phone || !notes) {
+        return res.status(400).json({
+          message: 'Please complete the participation application form.',
+        });
+      }
+    }
+
+    const fullName = sanitizeApplicationField(application?.fullName);
+    const email = sanitizeApplicationField(application?.email);
+    const phone = sanitizeApplicationField(application?.phone);
+    const notes = sanitizeApplicationField(application?.notes);
+
     item.participationApplications.push({
       student: req.user._id,
       option,
@@ -207,6 +341,9 @@ const applyForParticipation = async (req, res, next) => {
         email,
         phone,
         notes,
+        answers: submittedAnswers.filter(
+          (entry) => entry.questionKey && entry.label && entry.answer
+        ),
       },
       appliedAt: new Date(),
     });

@@ -30,6 +30,7 @@ const INITIAL_FORM = {
   description: '',
   image: '',
   participationOptions: [],
+  participationForms: {},
 };
 
 const resolveImageUrl = (imagePath) => {
@@ -73,6 +74,15 @@ export default function EventCoordinatorDashboard() {
     [items]
   );
 
+  const optionLabelMap = useMemo(
+    () =>
+      PARTICIPATION_OPTIONS.reduce((acc, option) => {
+        acc[option.value] = option.label;
+        return acc;
+      }, {}),
+    []
+  );
+
   const loadEvents = async () => {
     try {
       const data = await getAllEvents();
@@ -100,6 +110,19 @@ export default function EventCoordinatorDashboard() {
   };
 
   const openEditModal = (item) => {
+    const mappedForms = {};
+
+    if (Array.isArray(item.participationForms)) {
+      item.participationForms.forEach((formItem) => {
+        mappedForms[formItem.option] = Array.isArray(formItem.questions)
+          ? formItem.questions.map((question) => ({
+              label: question.label || '',
+              required: question.required !== false,
+            }))
+          : [];
+      });
+    }
+
     setEditingItem(item);
     setForm({
       title: item.title || '',
@@ -111,6 +134,7 @@ export default function EventCoordinatorDashboard() {
       participationOptions: Array.isArray(item.participationOptions)
         ? item.participationOptions
         : [],
+      participationForms: mappedForms,
     });
     setImageFile(null);
     setMessage('');
@@ -138,11 +162,78 @@ export default function EventCoordinatorDashboard() {
   const handleParticipationOptionToggle = (optionValue) => {
     setForm((prev) => {
       const exists = prev.participationOptions.includes(optionValue);
+
+      const nextParticipationForms = { ...prev.participationForms };
+      if (exists) {
+        delete nextParticipationForms[optionValue];
+      } else {
+        nextParticipationForms[optionValue] = [{ label: '', required: true }];
+      }
+
       return {
         ...prev,
         participationOptions: exists
           ? prev.participationOptions.filter((value) => value !== optionValue)
           : [...prev.participationOptions, optionValue],
+        participationForms: nextParticipationForms,
+      };
+    });
+  };
+
+  const handleAddQuestion = (optionValue) => {
+    setForm((prev) => {
+      const existing = Array.isArray(prev.participationForms[optionValue])
+        ? prev.participationForms[optionValue]
+        : [];
+
+      return {
+        ...prev,
+        participationForms: {
+          ...prev.participationForms,
+          [optionValue]: [...existing, { label: '', required: true }],
+        },
+      };
+    });
+  };
+
+  const handleQuestionChange = (optionValue, index, field, value) => {
+    setForm((prev) => {
+      const existing = Array.isArray(prev.participationForms[optionValue])
+        ? prev.participationForms[optionValue]
+        : [];
+
+      const updatedQuestions = existing.map((question, questionIndex) => {
+        if (questionIndex !== index) return question;
+        return {
+          ...question,
+          [field]: value,
+        };
+      });
+
+      return {
+        ...prev,
+        participationForms: {
+          ...prev.participationForms,
+          [optionValue]: updatedQuestions,
+        },
+      };
+    });
+  };
+
+  const handleRemoveQuestion = (optionValue, index) => {
+    setForm((prev) => {
+      const existing = Array.isArray(prev.participationForms[optionValue])
+        ? prev.participationForms[optionValue]
+        : [];
+
+      const updatedQuestions = existing.filter((_, questionIndex) => questionIndex !== index);
+
+      return {
+        ...prev,
+        participationForms: {
+          ...prev.participationForms,
+          [optionValue]: updatedQuestions,
+        },
       };
     });
   };
@@ -165,6 +256,25 @@ export default function EventCoordinatorDashboard() {
       form.participationOptions.forEach((option) => {
         payload.append('participationOptions', option);
       });
+
+      const participationFormsPayload = form.participationOptions.map((option) => {
+        const questions = Array.isArray(form.participationForms[option])
+          ? form.participationForms[option]
+          : [];
+
+        return {
+          option,
+          questions: questions
+            .map((question, index) => ({
+              key: `q_${index + 1}`,
+              label: (question.label || '').trim(),
+              required: question.required !== false,
+            }))
+            .filter((question) => question.label),
+        };
+      });
+
+      payload.append('participationForms', JSON.stringify(participationFormsPayload));
 
       if (imageFile) {
         payload.append('imageFile', imageFile);
@@ -345,6 +455,69 @@ export default function EventCoordinatorDashboard() {
                 </div>
               </div>
 
+              {form.participationOptions.length > 0 ? (
+                <div className="space-y-2">
+                  <Label>Application Form Builder (Per Participation Type)</Label>
+                  <div className="admin-events-form-builder-stack">
+                    {form.participationOptions.map((optionValue) => {
+                      const optionMeta = PARTICIPATION_OPTIONS.find((option) => option.value === optionValue);
+                      const questions = Array.isArray(form.participationForms[optionValue])
+                        ? form.participationForms[optionValue]
+                        : [];
+
+                      return (
+                        <div key={optionValue} className="admin-events-form-builder-card">
+                          <div className="admin-events-form-builder-header">
+                            <h4 className="mb-0">{optionMeta?.label || optionValue}</h4>
+                            <Button type="button" size="sm" variant="outline" onClick={() => handleAddQuestion(optionValue)}>
+                              Add Question
+                            </Button>
+                          </div>
+
+                          {questions.length === 0 ? (
+                            <p className="admin-events-form-builder-empty mb-0">
+                              No questions yet. Add questions students should answer for this role.
+                            </p>
+                          ) : (
+                            <div className="admin-events-form-builder-list">
+                              {questions.map((question, questionIndex) => (
+                                <div key={`${optionValue}-${questionIndex}`} className="admin-events-form-question-row">
+                                  <Input
+                                    value={question.label}
+                                    onChange={(event) =>
+                                      handleQuestionChange(optionValue, questionIndex, 'label', event.target.value)
+                                    }
+                                    placeholder="Question label"
+                                  />
+                                  <label className="admin-events-form-question-required">
+                                    <input
+                                      type="checkbox"
+                                      checked={question.required !== false}
+                                      onChange={(event) =>
+                                        handleQuestionChange(optionValue, questionIndex, 'required', event.target.checked)
+                                      }
+                                    />
+                                    <span>Required</span>
+                                  </label>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => handleRemoveQuestion(optionValue, questionIndex)}
+                                  >
+                                    Remove
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="admin-events-form-actions">
                 <Button type="button" variant="outline" onClick={closeModal}>Cancel</Button>
                 <Button type="submit" disabled={saving}>{saving ? 'Saving...' : editingItem ? 'Update Event' : 'Create Event'}</Button>
@@ -373,6 +546,69 @@ export default function EventCoordinatorDashboard() {
               <p className="mb-0"><strong>Time:</strong> {formatCardTime(selectedItem)}</p>
               <p className="mb-0"><strong>Location:</strong> {selectedItem.location || 'TBA'}</p>
               <p className="mb-0 text-muted-foreground">{selectedItem.description || 'No description provided.'}</p>
+
+              <div className="admin-event-applications-wrap">
+                <h4 className="mb-1">Participation Applications</h4>
+
+                {Array.isArray(selectedItem.participationApplications) && selectedItem.participationApplications.length > 0 ? (
+                  <div className="admin-event-applications-list">
+                    {[...selectedItem.participationApplications]
+                      .sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime())
+                      .map((entry, index) => {
+                        const student = entry.student && typeof entry.student === 'object'
+                          ? entry.student
+                          : null;
+                        const submittedAnswers = Array.isArray(entry.application?.answers)
+                          ? entry.application.answers
+                          : [];
+
+                        return (
+                          <div key={`${entry._id || entry.option}-${index}`} className="admin-event-application-item">
+                            <div className="admin-event-application-head">
+                              <p className="mb-0">
+                                <strong>{student?.fullName || entry.application?.fullName || 'Student'}</strong>
+                              </p>
+                              <span className="admin-event-application-badge">
+                                {optionLabelMap[entry.option] || entry.option}
+                              </span>
+                            </div>
+
+                            <p className="mb-0 text-sm text-muted-foreground">
+                              {student?.email || entry.application?.email || 'No email provided'}
+                            </p>
+                            <p className="mb-0 text-sm text-muted-foreground">
+                              Applied on {new Date(entry.appliedAt).toLocaleString('en-GB')}
+                            </p>
+
+                            {submittedAnswers.length > 0 ? (
+                              <div className="admin-event-application-answers">
+                                {submittedAnswers.map((answer, answerIndex) => (
+                                  <div key={`${answer.questionKey}-${answerIndex}`} className="admin-event-application-answer">
+                                    <p className="mb-0"><strong>{answer.label}</strong></p>
+                                    <p className="mb-0">{answer.answer}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="admin-event-application-answers">
+                                <div className="admin-event-application-answer">
+                                  <p className="mb-0"><strong>Phone</strong></p>
+                                  <p className="mb-0">{entry.application?.phone || 'Not provided'}</p>
+                                </div>
+                                <div className="admin-event-application-answer">
+                                  <p className="mb-0"><strong>Notes</strong></p>
+                                  <p className="mb-0">{entry.application?.notes || 'Not provided'}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                ) : (
+                  <p className="mb-0 text-muted-foreground">No participation applications submitted yet.</p>
+                )}
+              </div>
             </div>
           </div>
         </div>

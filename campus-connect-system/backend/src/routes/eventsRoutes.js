@@ -14,8 +14,8 @@ const { uploadEventImage } = require('../middlewares/uploadMiddleware');
 
 const router = express.Router();
 
-router.get('/', getAll);
 router.get('/upcoming', getUpcoming);
+router.get('/', protect, restrictTo('super_admin'), getAll);
 router.use(protect);
 router.post(
   '/',

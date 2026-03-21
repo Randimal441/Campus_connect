@@ -63,13 +63,8 @@ export default function EventsChill() {
   const [applyingKey, setApplyingKey] = useState('');
   const [appliedMap, setAppliedMap] = useState({});
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [selectedOption, setSelectedOption] = useState('');
-  const [applicationForm, setApplicationForm] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    notes: '',
-  });
+  const [selectedOptions, setSelectedOptions] = useState([]);
+  const [applicationAnswersByOption, setApplicationAnswersByOption] = useState({});
 
   const optionLabelMap = useMemo(
     () =>
@@ -112,6 +107,33 @@ export default function EventsChill() {
 
   const formatOptionLabel = (option) => optionLabelMap[option] || option;
 
+  const getParticipationTemplate = (eventItem, option) => {
+    const forms = Array.isArray(eventItem?.participationForms)
+      ? eventItem.participationForms
+      : [];
+
+    const matched = forms.find((form) => form.option === option);
+    return Array.isArray(matched?.questions) ? matched.questions : [];
+  };
+
+  const createInitialAnswersForOption = (eventItem, option) => {
+    const templateQuestions = getParticipationTemplate(eventItem, option);
+
+    if (templateQuestions.length > 0) {
+      return templateQuestions.reduce((acc, question) => {
+        acc[question.key] = '';
+        return acc;
+      }, {});
+    }
+
+    return {
+      fullName: user?.fullName || '',
+      email: user?.email || '',
+      phone: '',
+      notes: '',
+    };
+  };
+
   const hasStudentApplied = (eventItem, option) => {
     if (!user?._id) return false;
 
@@ -130,79 +152,147 @@ export default function EventsChill() {
 
   const openEventDetails = (eventItem) => {
     setSelectedEvent(eventItem);
-    setSelectedOption('');
-    setApplicationForm({
-      fullName: user?.fullName || '',
-      email: user?.email || '',
-      phone: '',
-      notes: '',
-    });
+    setSelectedOptions([]);
+    setApplicationAnswersByOption({});
     setApplyError('');
     setApplyMessage('');
   };
 
   const closeEventDetails = () => {
     setSelectedEvent(null);
-    setSelectedOption('');
+    setSelectedOptions([]);
+    setApplicationAnswersByOption({});
     setApplyingKey('');
   };
 
-  const openApplicationForm = (option) => {
-    setSelectedOption(option);
+  const toggleApplicationOption = (option) => {
+    if (!selectedEvent) return;
+
+    setSelectedOptions((prev) => {
+      const exists = prev.includes(option);
+      if (exists) {
+        setApplicationAnswersByOption((answersPrev) => {
+          const next = { ...answersPrev };
+          delete next[option];
+          return next;
+        });
+        return prev.filter((value) => value !== option);
+      }
+
+      setApplicationAnswersByOption((answersPrev) => ({
+        ...answersPrev,
+        [option]: createInitialAnswersForOption(selectedEvent, option),
+      }));
+
+      return [...prev, option];
+    });
+
     setApplyError('');
     setApplyMessage('');
   };
 
-  const handleApplicationFieldChange = (event) => {
-    const { name, value } = event.target;
-    setApplicationForm((prev) => ({ ...prev, [name]: value }));
+  const handleApplicationFieldChange = (option, fieldKey, value) => {
+    setApplicationAnswersByOption((prev) => ({
+      ...prev,
+      [option]: {
+        ...(prev[option] || {}),
+        [fieldKey]: value,
+      },
+    }));
   };
 
-  const handleApply = async (eventId, option) => {
-    const key = `${eventId}:${option}`;
-    setApplyingKey(key);
+  const handleApplySelected = async (eventId) => {
+    if (!selectedEvent || selectedOptions.length === 0) {
+      setApplyError('Please select at least one participation option.');
+      return;
+    }
+
+    setApplyingKey(eventId);
     setApplyMessage('');
     setApplyError('');
 
     try {
-      await applyForParticipation(eventId, {
-        option,
-        application: {
-          fullName: applicationForm.fullName,
-          email: applicationForm.email,
-          phone: applicationForm.phone,
-          notes: applicationForm.notes,
-        },
+      const validatedSubmissions = selectedOptions.map((option) => {
+        const optionAnswers = applicationAnswersByOption[option] || {};
+        const templateQuestions = getParticipationTemplate(selectedEvent, option);
+        const hasTemplate = templateQuestions.length > 0;
+
+        if (hasTemplate) {
+          const missingRequired = templateQuestions.some(
+            (question) => question.required && !String(optionAnswers[question.key] || '').trim()
+          );
+
+          if (missingRequired) {
+            throw new Error(`Please complete all required questions for ${formatOptionLabel(option)}.`);
+          }
+        } else {
+          const fullName = String(optionAnswers.fullName || '').trim();
+          const email = String(optionAnswers.email || '').trim();
+          const phone = String(optionAnswers.phone || '').trim();
+          const notes = String(optionAnswers.notes || '').trim();
+
+          if (!fullName || !email || !phone || !notes) {
+            throw new Error(`Please complete the application form for ${formatOptionLabel(option)}.`);
+          }
+        }
+
+        const answers = hasTemplate
+          ? templateQuestions.map((question) => ({
+              questionKey: question.key,
+              label: question.label,
+              answer: String(optionAnswers[question.key] || '').trim(),
+            }))
+          : [];
+
+        return {
+          option,
+          application: {
+            fullName: optionAnswers.fullName || '',
+            email: optionAnswers.email || '',
+            phone: optionAnswers.phone || '',
+            notes: optionAnswers.notes || '',
+            answers,
+          },
+        };
       });
 
-      setAppliedMap((prev) => ({ ...prev, [key]: true }));
-      setApplyMessage(`Applied successfully for ${optionLabelMap[option] || option}.`);
-      setSelectedOption('');
+      for (const submission of validatedSubmissions) {
+        await applyForParticipation(eventId, {
+          option: submission.option,
+          application: submission.application,
+        });
+      }
+
+      const appliedKeys = validatedSubmissions.map((submission) => `${eventId}:${submission.option}`);
+      setAppliedMap((prev) => {
+        const next = { ...prev };
+        appliedKeys.forEach((key) => {
+          next[key] = true;
+        });
+        return next;
+      });
+
+      setApplyMessage(
+        `Application submitted for ${validatedSubmissions.length} participation option${validatedSubmissions.length > 1 ? 's' : ''}.`
+      );
+
+      const newApplications = validatedSubmissions.map((submission) => ({
+        student: user?._id,
+        option: submission.option,
+        application: submission.application,
+        appliedAt: new Date().toISOString(),
+      }));
 
       setItems((prev) =>
         prev.map((eventItem) => {
           if (eventItem._id !== eventId) return eventItem;
-
           const existingApps = Array.isArray(eventItem.participationApplications)
             ? eventItem.participationApplications
             : [];
 
           return {
             ...eventItem,
-            participationApplications: [
-              ...existingApps,
-              {
-                student: user?._id,
-                option,
-                application: {
-                  fullName: applicationForm.fullName,
-                  email: applicationForm.email,
-                  phone: applicationForm.phone,
-                  notes: applicationForm.notes,
-                },
-                appliedAt: new Date().toISOString(),
-              },
-            ],
+            participationApplications: [...existingApps, ...newApplications],
           };
         })
       );
@@ -215,22 +305,12 @@ export default function EventsChill() {
 
         return {
           ...prev,
-          participationApplications: [
-            ...existingApps,
-            {
-              student: user?._id,
-              option,
-              application: {
-                fullName: applicationForm.fullName,
-                email: applicationForm.email,
-                phone: applicationForm.phone,
-                notes: applicationForm.notes,
-              },
-              appliedAt: new Date().toISOString(),
-            },
-          ],
+          participationApplications: [...existingApps, ...newApplications],
         };
       });
+
+      setSelectedOptions([]);
+      setApplicationAnswersByOption({});
     } catch (err) {
       setApplyError(err.message || 'Unable to submit application right now.');
     } finally {
@@ -362,86 +442,148 @@ export default function EventsChill() {
           <div className="event-modal-backdrop" onClick={closeEventDetails}>
             <div className="event-modal" onClick={(event) => event.stopPropagation()}>
               <div className="event-modal-header">
-                <h3 className="mb-0">{selectedOption ? 'Participation Application Form' : 'Event Details'}</h3>
+                <h3 className="mb-0">{selectedOptions.length > 0 ? 'Participation Application Forms' : 'Event Details'}</h3>
                 <button type="button" className="event-modal-close-btn" onClick={closeEventDetails}>X</button>
               </div>
 
-              {selectedOption ? (
+              {selectedOptions.length > 0 ? (
                 <form
                   className="event-application-form"
                   onSubmit={(event) => {
                     event.preventDefault();
-                    handleApply(selectedEvent._id, selectedOption);
+                    handleApplySelected(selectedEvent._id);
                   }}
                 >
                   <p className="event-application-subtitle">
-                    Applying for <strong>{formatOptionLabel(selectedOption)}</strong> in <strong>{selectedEvent.title}</strong>
+                    Fill and submit all selected participation applications for <strong>{selectedEvent.title}</strong>.
                   </p>
 
-                  <div className="event-application-grid">
-                    <label className="event-application-field">
-                      <span>Full Name</span>
-                      <input
-                        type="text"
-                        name="fullName"
-                        value={applicationForm.fullName}
-                        onChange={handleApplicationFieldChange}
-                        required
-                      />
-                    </label>
-
-                    <label className="event-application-field">
-                      <span>Email</span>
-                      <input
-                        type="email"
-                        name="email"
-                        value={applicationForm.email}
-                        onChange={handleApplicationFieldChange}
-                        required
-                      />
-                    </label>
-
-                    <label className="event-application-field">
-                      <span>Phone Number</span>
-                      <input
-                        type="text"
-                        name="phone"
-                        value={applicationForm.phone}
-                        onChange={handleApplicationFieldChange}
-                        placeholder="07X XXX XXXX"
-                        required
-                      />
-                    </label>
+                  <div className="event-modal-participation-wrap">
+                    <p className="event-participation-title mb-2">Available Participation Options (Click to select)</p>
+                    <div className="event-option-list">
+                      {selectedEvent.participationOptions.map((option) => {
+                        const applied = hasStudentApplied(selectedEvent, option);
+                        const selected = selectedOptions.includes(option);
+                        return (
+                          <button
+                            key={`selected-${option}`}
+                            type="button"
+                            className={`event-option-btn ${selected ? 'selected' : ''}`}
+                            onClick={() => toggleApplicationOption(option)}
+                              disabled={applied}
+                          >
+                            {formatOptionLabel(option)} {applied ? '(Applied)' : selected ? '(Selected)' : ''}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  <label className="event-application-field">
-                    <span>Why are you applying for this role?</span>
-                    <textarea
-                      name="notes"
-                      rows={4}
-                      value={applicationForm.notes}
-                      onChange={handleApplicationFieldChange}
-                      placeholder="Share your relevant skills, interest, or experience."
-                      required
-                    />
-                  </label>
+                  {selectedOptions.map((option) => {
+                    const templateQuestions = getParticipationTemplate(selectedEvent, option);
+                    const optionAnswers = applicationAnswersByOption[option] || {};
+
+                    return (
+                      <div key={option} className="event-selected-option-section">
+                        <h4 className="event-selected-option-title mb-1">{formatOptionLabel(option)}</h4>
+
+                        {templateQuestions.length > 0 ? (
+                          <div className="event-application-grid">
+                            {templateQuestions.map((question) => (
+                              <label key={`${option}-${question.key}`} className="event-application-field">
+                                <span>
+                                  {question.label}
+                                  {question.required ? ' *' : ''}
+                                </span>
+                                <textarea
+                                  rows={3}
+                                  value={optionAnswers[question.key] || ''}
+                                  onChange={(event) =>
+                                    handleApplicationFieldChange(option, question.key, event.target.value)
+                                  }
+                                  required={question.required !== false}
+                                />
+                              </label>
+                            ))}
+                          </div>
+                        ) : (
+                          <>
+                            <div className="event-application-grid">
+                              <label className="event-application-field">
+                                <span>Full Name</span>
+                                <input
+                                  type="text"
+                                  value={optionAnswers.fullName || ''}
+                                  onChange={(event) =>
+                                    handleApplicationFieldChange(option, 'fullName', event.target.value)
+                                  }
+                                  required
+                                />
+                              </label>
+
+                              <label className="event-application-field">
+                                <span>Email</span>
+                                <input
+                                  type="email"
+                                  value={optionAnswers.email || ''}
+                                  onChange={(event) =>
+                                    handleApplicationFieldChange(option, 'email', event.target.value)
+                                  }
+                                  required
+                                />
+                              </label>
+
+                              <label className="event-application-field">
+                                <span>Phone Number</span>
+                                <input
+                                  type="text"
+                                  value={optionAnswers.phone || ''}
+                                  onChange={(event) =>
+                                    handleApplicationFieldChange(option, 'phone', event.target.value)
+                                  }
+                                  placeholder="07X XXX XXXX"
+                                  required
+                                />
+                              </label>
+                            </div>
+
+                            <label className="event-application-field">
+                              <span>Why are you applying for this role?</span>
+                              <textarea
+                                rows={4}
+                                value={optionAnswers.notes || ''}
+                                onChange={(event) =>
+                                  handleApplicationFieldChange(option, 'notes', event.target.value)
+                                }
+                                placeholder="Share your relevant skills, interest, or experience."
+                                required
+                              />
+                            </label>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
 
                   <div className="event-application-actions">
                     <button
                       type="button"
                       className="event-secondary-btn"
-                      onClick={() => setSelectedOption('')}
+                      onClick={() => {
+                        setSelectedOptions([]);
+                        setApplicationAnswersByOption({});
+                      }}
                     >
                       Back to Details
                     </button>
                     <button
                       type="submit"
                       className="event-primary-btn"
-                      disabled={applyingKey === `${selectedEvent._id}:${selectedOption}`}
+                      disabled={applyingKey === selectedEvent._id}
                     >
-                      {applyingKey === `${selectedEvent._id}:${selectedOption}`
+                      {applyingKey === selectedEvent._id
                         ? 'Submitting...'
-                        : 'Submit Application'}
+                        : `Submit ${selectedOptions.length} Application${selectedOptions.length > 1 ? 's' : ''}`}
                     </button>
                   </div>
                 </form>
@@ -493,15 +635,16 @@ export default function EventsChill() {
                       <div className="event-option-list">
                         {selectedEvent.participationOptions.map((option) => {
                           const applied = hasStudentApplied(selectedEvent, option);
+                          const selected = selectedOptions.includes(option);
                           return (
                             <button
                               key={option}
                               type="button"
-                              className="event-option-btn"
-                              onClick={() => openApplicationForm(option)}
-                              disabled={applied || user?.role !== ROLES.STUDENT}
+                              className={`event-option-btn ${selected ? 'selected' : ''}`}
+                              onClick={() => toggleApplicationOption(option)}
+                              disabled={applied}
                             >
-                              {formatOptionLabel(option)} {applied ? '(Applied)' : ''}
+                              {formatOptionLabel(option)} {applied ? '(Applied)' : selected ? '(Selected)' : ''}
                             </button>
                           );
                         })}

@@ -429,6 +429,12 @@ a:focus-visible {
   background: rgba(21, 128, 61, 0.16);
 }
 
+.event-option-btn.selected {
+  border-color: var(--forest-green);
+  background: rgba(21, 128, 61, 0.2);
+  color: var(--forest-green-deep);
+}
+
 .event-option-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
@@ -437,6 +443,19 @@ a:focus-visible {
 .event-application-form {
   display: grid;
   gap: 0.9rem;
+}
+
+.event-selected-option-section {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  background: var(--gray-50);
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.event-selected-option-title {
+  color: var(--forest-green-dark);
 }
 
 .event-application-subtitle {
@@ -796,6 +815,8 @@ a:focus-visible {
 .admin-events-modal {
   width: 100%;
   max-width: 640px;
+  max-height: 88vh;
+  overflow-y: auto;
   background: var(--cream);
   border-radius: var(--radius-2xl);
   border: 1px solid var(--gray-200);
@@ -835,6 +856,70 @@ a:focus-visible {
 }
 
 .admin-events-option-item input {
+  accent-color: var(--forest-green);
+}
+
+.admin-events-form-builder-stack {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.admin-events-form-builder-card {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-xl);
+  background: var(--gray-50);
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.admin-events-form-builder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.admin-events-form-builder-header h4 {
+  font-size: 0.95rem;
+}
+
+.admin-events-form-builder-empty {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.admin-events-form-builder-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.admin-events-form-question-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .admin-events-form-question-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.admin-events-form-question-required {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  background: var(--cream);
+}
+
+.admin-events-form-question-required input {
   accent-color: var(--forest-green);
 }
 
@@ -884,6 +969,56 @@ a:focus-visible {
   justify-content: flex-end;
   gap: 0.6rem;
   margin-top: 0.5rem;
+}
+
+.admin-event-applications-wrap {
+  margin-top: 0.65rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--gray-300);
+}
+
+.admin-event-applications-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.admin-event-application-item {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  background: var(--gray-50);
+  padding: 0.7rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.admin-event-application-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.admin-event-application-badge {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--forest-green-dark);
+  background: var(--forest-green-muted);
+  border: 1px solid var(--forest-green-soft);
+  border-radius: var(--radius-full);
+  padding: 0.2rem 0.55rem;
+}
+
+.admin-event-application-answers {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.3rem;
+}
+
+.admin-event-application-answer {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  background: var(--cream);
+  padding: 0.5rem 0.6rem;
 }
 
 @media (max-width: 768px) {
