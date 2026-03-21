@@ -8,6 +8,7 @@ const ALLOWED_PARTICIPATION_OPTIONS = [
   'sponsorship',
   'organizing_committee',
 ];
+const ALLOWED_APPLICATION_STATUSES = ['approved', 'rejected'];
 
 const normalizeParticipationOptions = (value) => {
   if (!value) return [];
@@ -131,6 +132,8 @@ const getAll = async (req, res, next) => {
         application: application.application,
         appliedAt: application.createdAt,
         status: application.status,
+        reviewedAt: application.reviewedAt,
+        reviewedBy: application.reviewedBy,
       });
 
       return acc;
@@ -385,6 +388,82 @@ const applyForParticipation = async (req, res, next) => {
       message: 'Application submitted successfully.',
       eventId: item._id,
       option,
+      status: 'pending',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get logged-in student's participation applications across events
+const getMyApplications = async (req, res, next) => {
+  try {
+    const applications = await ParticipationApplication.find({
+      student: req.user._id,
+    })
+      .select('event option status createdAt reviewedAt')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const mapped = applications.map((entry) => ({
+      id: entry._id,
+      eventId: entry.event,
+      option: entry.option,
+      status: entry.status,
+      appliedAt: entry.createdAt,
+      reviewedAt: entry.reviewedAt,
+    }));
+
+    res.json(mapped);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update participation application status by admin roles
+const updateApplicationStatus = async (req, res, next) => {
+  try {
+    const { id: eventId, applicationId } = req.params;
+    const nextStatus = String(req.body?.status || '').trim().toLowerCase();
+
+    if (!ALLOWED_APPLICATION_STATUSES.includes(nextStatus)) {
+      return res.status(400).json({
+        message: 'Invalid status. Allowed statuses are approved or rejected.',
+      });
+    }
+
+    const application = await ParticipationApplication.findById(applicationId)
+      .populate('student', 'fullName email idNumber')
+      .lean();
+
+    if (!application || String(application.event) !== String(eventId)) {
+      return res.status(404).json({ message: 'Application not found for this event.' });
+    }
+
+    const updated = await ParticipationApplication.findByIdAndUpdate(
+      applicationId,
+      {
+        status: nextStatus,
+        reviewedBy: req.user._id,
+        reviewedAt: new Date(),
+      },
+      { new: true }
+    )
+      .populate('student', 'fullName email idNumber')
+      .lean();
+
+    res.json({
+      message: `Application ${nextStatus} successfully.`,
+      application: {
+        _id: updated._id,
+        event: updated.event,
+        student: updated.student,
+        option: updated.option,
+        application: updated.application,
+        status: updated.status,
+        appliedAt: updated.createdAt,
+        reviewedAt: updated.reviewedAt,
+      },
     });
   } catch (error) {
     next(error);
@@ -399,4 +478,6 @@ module.exports = {
   remove,
   attendEvent,
   applyForParticipation,
+  getMyApplications,
+  updateApplicationStatus,
 };
