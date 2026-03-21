@@ -11,6 +11,7 @@ export default function Navbar() {
   const hideUserGreeting =
     user?.role === 'coach' && location.pathname.startsWith('/admin/coaches');
   const isAdminArea = location.pathname.startsWith('/admin');
+  const isUserArea = location.pathname.startsWith('/user');
   const showUserSectionLinks =
     user?.role === 'student' && location.pathname.startsWith('/user');
 
@@ -20,7 +21,11 @@ export default function Navbar() {
   };
 
   const handleProfileClick = () => {
-    navigate('/admin/profile');
+    if (isAdminArea) {
+      navigate('/admin/profile');
+      return;
+    }
+    navigate('/user/profile');
   };
 
   return (
@@ -55,7 +60,7 @@ export default function Navbar() {
             {!hideUserGreeting && (
               <span className="navbar-user hidden md:inline">{user.fullName}</span>
             )}
-            {isAdminArea ? (
+            {(isAdminArea || isUserArea) ? (
               <button
                 type="button"
                 className="navbar-role"
