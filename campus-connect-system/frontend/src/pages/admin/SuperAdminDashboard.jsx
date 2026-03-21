@@ -1,24 +1,84 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import Button from '@/components/ui/button';
+import { toast } from 'react-toastify';
 
+/* ────── main component ──────────────────────── */
 export default function SuperAdminDashboard() {
   const [pending, setPending] = useState([]);
+  const [moderation, setModeration] = useState({
+    pending_approval: 0,
+    approved: 0,
+    disabled: 0,
+    total: 0,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api('/approvals/pending')
-      .then(setPending)
-      .catch(() => setPending([]))
+    Promise.allSettled([api('/approvals/pending'), api('/clubs-sports/admin/all')])
+      .then(([approvalsResult, clubsResult]) => {
+        if (approvalsResult.status === 'fulfilled') {
+          setPending(approvalsResult.value);
+        } else {
+          setPending([]);
+        }
+
+        if (clubsResult.status === 'fulfilled') {
+          const clubs = Array.isArray(clubsResult.value) ? clubsResult.value : [];
+          const counts = clubs.reduce(
+            (acc, club) => {
+              const status = club?.status;
+              if (status === 'pending_approval') acc.pending_approval += 1;
+              else if (status === 'approved') acc.approved += 1;
+              else if (status === 'disabled') acc.disabled += 1;
+              return acc;
+            },
+            { pending_approval: 0, approved: 0, disabled: 0 }
+          );
+
+          setModeration({
+            ...counts,
+            total: clubs.length,
+          });
+        } else {
+          setModeration({ pending_approval: 0, approved: 0, disabled: 0, total: 0 });
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
+
+  const moderationSeries = [
+    {
+      key: 'pending_approval',
+      label: 'Pending Approval',
+      value: moderation.pending_approval,
+      barClass: 'bg-amber-500',
+      textClass: 'text-amber-700',
+    },
+    {
+      key: 'approved',
+      label: 'Approved',
+      value: moderation.approved,
+      barClass: 'bg-emerald-500',
+      textClass: 'text-emerald-700',
+    },
+    {
+      key: 'disabled',
+      label: 'Disabled',
+      value: moderation.disabled,
+      barClass: 'bg-rose-500',
+      textClass: 'text-rose-700',
+    },
+  ];
+
+  const maxBar = Math.max(...moderationSeries.map((item) => item.value), 1);
 
   const handleApprove = async (id) => {
     try {
       await api(`/approvals/${id}/approve`, { method: 'PATCH' });
       setPending((p) => p.filter((u) => u._id !== id));
     } catch (e) {
-      alert(e.message);
+      toast.error(e.message);
     }
   };
 
@@ -27,7 +87,7 @@ export default function SuperAdminDashboard() {
       await api(`/approvals/${id}/reject`, { method: 'DELETE' });
       setPending((p) => p.filter((u) => u._id !== id));
     } catch (e) {
-      alert(e.message);
+      toast.error(e.message);
     }
   };
 
@@ -35,16 +95,43 @@ export default function SuperAdminDashboard() {
     <>
       <div className="flex items-center gap-4 mb-8 animate-fade-in-up">
         <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-primary-light flex items-center justify-center shadow-lg">
-          <span className="text-white font-heading font-black text-2xl">
-            ⚙️
-          </span>
+          <span className="text-white font-heading font-black text-2xl">⚙️</span>
         </div>
         <div>
           <h1 className="mb-1">Super Admin Dashboard</h1>
           <p className="lead !mb-0">Review and manage user sign-up requests</p>
         </div>
       </div>
-      
+
+      <div className="mb-6 card animate-fade-in-up">
+        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+          <div>
+            <h3 className="mb-1">Club Moderation Overview</h3>
+            <p className="text-sm text-muted-foreground">Status distribution of clubs and sports entries</p>
+          </div>
+          <span className="badge">Total: {moderation.total}</span>
+        </div>
+
+        <div className="rounded-xl border border-border bg-muted/30 p-4">
+          <div className="h-56 grid grid-cols-3 gap-4 items-end">
+            {moderationSeries.map((item) => (
+              <div key={item.key} className="h-full flex flex-col justify-end items-center">
+                <span className={`text-sm font-bold mb-2 ${item.textClass}`}>{item.value}</span>
+                <div className="w-full max-w-[90px] h-[82%] rounded-lg bg-muted flex items-end overflow-hidden">
+                  <div
+                    className={`w-full rounded-lg transition-all duration-500 ${item.barClass}`}
+                    style={{ height: `${(item.value / maxBar) * 100}%` }}
+                  />
+                </div>
+                <span className="text-xs sm:text-sm text-muted-foreground text-center mt-2 leading-tight">
+                  {item.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {loading ? (
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
@@ -71,7 +158,7 @@ export default function SuperAdminDashboard() {
               </div>
             </div>
           </div>
-          
+
           <div className="table-wrapper animate-fade-in">
             <table className="data-table">
               <thead>
@@ -94,19 +181,10 @@ export default function SuperAdminDashboard() {
                     </td>
                     <td>
                       <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => handleApprove(u._id)}
-                        >
+                        <Button type="button" size="sm" onClick={() => handleApprove(u._id)}>
                           ✔ Approve
                         </Button>
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleReject(u._id)}
-                        >
+                        <Button type="button" variant="destructive" size="sm" onClick={() => handleReject(u._id)}>
                           ✖ Reject
                         </Button>
                       </div>

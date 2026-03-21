@@ -14,7 +14,18 @@ export const api = async (endpoint, options = {}) => {
 
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+  // automatically stringify body if it's a plain object
+  let body = options.body;
+  if (
+    body &&
+    typeof body === 'object' &&
+    !(body instanceof FormData) &&
+    !(body instanceof Blob)
+  ) {
+    body = JSON.stringify(body);
+  }
+
+  const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers, body });
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
