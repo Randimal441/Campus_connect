@@ -48,10 +48,7 @@ export default function SuperAdminClubsDashboard() {
   return (
     <>
       {/* header */}
-      <div className="flex items-center gap-4 mb-8 animate-fade-in-up">
-        <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-primary-light flex items-center justify-center shadow-lg">
-          <span className="text-white font-heading font-black text-2xl">🏆</span>
-        </div>
+      <div className="mb-8 animate-fade-in-up">
         <div>
           <h1 className="mb-1">Clubs &amp; Sports Oversight</h1>
           <p className="lead !mb-0">Approve, disable or re-enable clubs and sports teams</p>
@@ -130,7 +127,7 @@ export default function SuperAdminClubsDashboard() {
                       )}
                       {c.status !== 'disabled' && (
                         <Button size="sm" variant="destructive" onClick={() => setStatus(c._id, 'disabled')}>
-                          ⛔ Disable
+                          Disable
                         </Button>
                       )}
                       {c.status === 'disabled' && (
