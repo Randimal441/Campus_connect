@@ -122,7 +122,7 @@ export default function SuperAdminClubsDashboard() {
                     <div className="flex gap-2">
                       {c.status !== 'approved' && (
                         <Button size="sm" onClick={() => setStatus(c._id, 'approved')}>
-                          ✔ Approve
+                          Approve
                         </Button>
                       )}
                       {c.status !== 'disabled' && (

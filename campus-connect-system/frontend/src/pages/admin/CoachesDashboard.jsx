@@ -126,7 +126,7 @@ function ClubsOversightPanel() {
                   <td>
                     <div className="flex gap-2">
                       {c.status !== 'approved' && (
-                        <Button size="sm" onClick={() => setStatus(c._id, 'approved')}>✔ Approve</Button>
+                        <Button size="sm" onClick={() => setStatus(c._id, 'approved')}>Approve</Button>
                       )}
                       {c.status !== 'disabled' && (
                         <Button size="sm" variant="destructive" onClick={() => setStatus(c._id, 'disabled')}>Disable</Button>
@@ -626,7 +626,7 @@ function ClubManagePanel({ club, onClose, onClubUpdated }) {
                             </span>
                             {r.status === 'pending' && (
                               <div className="flex gap-2">
-                                <button className="btn btn-xs btn-primary" onClick={() => handleRequest(r._id, 'approved')}>✔ Approve</button>
+                                <button className="btn btn-xs btn-primary" onClick={() => handleRequest(r._id, 'approved')}>Approve</button>
                                 <button className="btn btn-xs btn-destructive" onClick={() => handleRequest(r._id, 'rejected')}>✖ Reject</button>
                               </div>
                             )}
