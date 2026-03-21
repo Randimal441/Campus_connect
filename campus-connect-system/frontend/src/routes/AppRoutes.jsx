@@ -125,7 +125,6 @@ export default function AppRoutes() {
                 </div>
                 <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto text-center">
                   <div className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
-                    <div className="text-4xl mb-2">🏆</div>
                     <p className="font-semibold text-sm text-foreground">Clubs & Sports</p>
                   </div>
                   <div className="animate-fade-in" style={{ animationDelay: '0.3s' }}>
