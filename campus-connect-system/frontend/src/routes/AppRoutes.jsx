@@ -2,6 +2,7 @@ import { Routes, Route, Link } from 'react-router-dom';
 import SignIn from '../pages/auth/SignIn';
 import SignUp from '../pages/auth/SignUp';
 import UserHome from '../pages/user/UserHome';
+import UserProfile from '../pages/user/UserProfile';
 import ClubsSports from '../pages/user/ClubsSports';
 import MedicleSupport from '../pages/user/MedicleSupport';
 import ResourceSharing from '../pages/user/ResourceSharing';
@@ -26,6 +27,7 @@ export default function AppRoutes() {
       <Route path="/signup" element={<SignUp />} />
 
       <Route path="/user" element={<UserHome />} />
+      <Route path="/user/profile" element={<UserProfile />} />
       <Route path="/user/clubs-sports" element={<ClubsSports />} />
       <Route path="/user/clubs-sports/medicle-support" element={<MedicleSupport />} />
       <Route path="/user/resource-sharing" element={<ResourceSharing />} />
