@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { applyForParticipation, getUpcomingEvents } from '../../services/eventsService';
+import {
+  applyForParticipation,
+  getMyEventApplications,
+  getUpcomingEvents,
+} from '../../services/eventsService';
 import Navbar from '../../components/common/Navbar';
 import Footer from '../../components/common/Footer';
 import { useAuth } from '../../hooks/useAuth';
@@ -52,6 +56,38 @@ const getCountdownData = (eventDate, now) => {
   };
 };
 
+const getApplicationKey = (eventId, option) => `${eventId}:${option}`;
+
+const getStatusMeta = (status) => {
+  const normalized = String(status || '').toLowerCase();
+
+  if (normalized === 'approved') {
+    return {
+      label: 'Approved',
+      className: 'bg-emerald-100 text-emerald-800 border border-emerald-300',
+    };
+  }
+
+  if (normalized === 'rejected') {
+    return {
+      label: 'Rejected',
+      className: 'bg-red-100 text-red-800 border border-red-300',
+    };
+  }
+
+  if (normalized === 'pending') {
+    return {
+      label: 'Pending',
+      className: 'bg-amber-100 text-amber-800 border border-amber-300',
+    };
+  }
+
+  return {
+    label: '',
+    className: '',
+  };
+};
+
 export default function EventsChill() {
   const { user } = useAuth();
   const normalizedUserRole = String(user?.role || '').trim().toLowerCase();
@@ -63,7 +99,7 @@ export default function EventsChill() {
   const [applyMessage, setApplyMessage] = useState('');
   const [applyError, setApplyError] = useState('');
   const [applyingKey, setApplyingKey] = useState('');
-  const [appliedMap, setAppliedMap] = useState({});
+  const [applicationStatusMap, setApplicationStatusMap] = useState({});
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [applicationAnswersByOption, setApplicationAnswersByOption] = useState({});
@@ -78,17 +114,42 @@ export default function EventsChill() {
   );
 
   useEffect(() => {
-    getUpcomingEvents()
-      .then((events) => {
+    let isCancelled = false;
+
+    const loadEventData = async () => {
+      setLoading(true);
+      try {
+        const [events, myApplications] = await Promise.all([
+          getUpcomingEvents(),
+          isStudent ? getMyEventApplications() : Promise.resolve([]),
+        ]);
+
+        if (isCancelled) return;
+
+        const statusMap = {};
+        myApplications.forEach((entry) => {
+          statusMap[getApplicationKey(entry.eventId, entry.option)] = entry.status;
+        });
+
         setItems(events);
+        setApplicationStatusMap(statusMap);
         setError('');
-      })
-      .catch((err) => {
+      } catch (err) {
+        if (isCancelled) return;
         setItems([]);
+        setApplicationStatusMap({});
         setError(err.message || 'Unable to load upcoming events right now.');
-      })
-      .finally(() => setLoading(false));
-  }, []);
+      } finally {
+        if (!isCancelled) setLoading(false);
+      }
+    };
+
+    loadEventData();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isStudent]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -97,6 +158,35 @@ export default function EventsChill() {
 
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!isStudent) return undefined;
+
+    let isCancelled = false;
+    const refreshStatuses = async () => {
+      try {
+        const myApplications = await getMyEventApplications();
+        if (isCancelled) return;
+
+        const statusMap = {};
+        myApplications.forEach((entry) => {
+          statusMap[getApplicationKey(entry.eventId, entry.option)] = entry.status;
+        });
+
+        setApplicationStatusMap(statusMap);
+      } catch {
+        // Keep the last known status map if polling fails.
+      }
+    };
+
+    const intervalId = setInterval(refreshStatuses, 15000);
+    refreshStatuses();
+
+    return () => {
+      isCancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [isStudent]);
 
   const upcomingItems = useMemo(() => {
     const todayStart = new Date();
@@ -136,20 +226,22 @@ export default function EventsChill() {
     };
   };
 
-  const hasStudentApplied = (eventItem, option) => {
-    if (!user?._id) return false;
+  const getStudentApplicationStatus = (eventItem, option) => {
+    if (!user?._id) return '';
 
-    const alreadyAppliedInSession = !!appliedMap[`${eventItem._id}:${option}`];
-    if (alreadyAppliedInSession) return true;
+    const statusFromMap = applicationStatusMap[getApplicationKey(eventItem._id, option)];
+    if (statusFromMap) return statusFromMap;
 
     const applications = Array.isArray(eventItem.participationApplications)
       ? eventItem.participationApplications
       : [];
 
-    return applications.some((entry) => {
+    const matched = applications.find((entry) => {
       const studentId = typeof entry.student === 'object' ? entry.student?._id : entry.student;
       return String(studentId) === String(user._id) && entry.option === option;
     });
+
+    return matched?.status || '';
   };
 
   const openEventDetails = (eventItem) => {
@@ -265,11 +357,13 @@ export default function EventsChill() {
         });
       }
 
-      const appliedKeys = validatedSubmissions.map((submission) => `${eventId}:${submission.option}`);
-      setAppliedMap((prev) => {
+      const appliedKeys = validatedSubmissions.map((submission) =>
+        getApplicationKey(eventId, submission.option)
+      );
+      setApplicationStatusMap((prev) => {
         const next = { ...prev };
         appliedKeys.forEach((key) => {
-          next[key] = true;
+          next[key] = 'pending';
         });
         return next;
       });
@@ -283,6 +377,7 @@ export default function EventsChill() {
         option: submission.option,
         application: submission.application,
         appliedAt: new Date().toISOString(),
+        status: 'pending',
       }));
 
       setItems((prev) =>
@@ -330,9 +425,6 @@ export default function EventsChill() {
               <div className="text-4xl">🎉</div>
               <h1 className="!mb-0 !text-white">Event Dashboard</h1>
             </div>
-            <p className="!mb-0 text-white/90 text-base md:text-lg">
-              Discover upcoming campus events including Viramaya (විරාමය), competitions, Leo Club events, and MS Club events.
-            </p>
           </div>
         </div>
 
@@ -433,6 +525,27 @@ export default function EventsChill() {
                       View More
                     </button>
                   </div>
+
+                  {isStudent ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {(item.participationOptions || []).map((option) => {
+                        const status = getStudentApplicationStatus(item, option);
+                        if (!status) return null;
+
+                        const statusMeta = getStatusMeta(status);
+                        return (
+                          <button
+                            key={`${item._id}-${option}-status`}
+                            type="button"
+                            className={`px-3 py-1 rounded-full text-xs font-semibold cursor-default ${statusMeta.className}`}
+                            disabled
+                          >
+                            {formatOptionLabel(option)}: {statusMeta.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
@@ -464,17 +577,29 @@ export default function EventsChill() {
                     <p className="event-participation-title mb-2">Available Participation Options (Click to select)</p>
                     <div className="event-option-list">
                       {selectedEvent.participationOptions.map((option) => {
-                        const applied = hasStudentApplied(selectedEvent, option);
+                        const status = getStudentApplicationStatus(selectedEvent, option);
+                        const applied = !!status;
                         const selected = selectedOptions.includes(option);
+                        const statusMeta = getStatusMeta(status);
+
                         return (
                           <button
                             key={`selected-${option}`}
                             type="button"
-                            className={`event-option-btn ${selected ? 'selected' : ''}`}
+                            className={
+                              applied
+                                ? `px-3 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
+                                : `event-option-btn ${selected ? 'selected' : ''}`
+                            }
                             onClick={() => toggleApplicationOption(option)}
                             disabled={applied}
                           >
-                            {formatOptionLabel(option)} {applied ? '(Applied)' : selected ? '(Selected)' : ''}
+                            {formatOptionLabel(option)}{' '}
+                            {applied
+                              ? `(${statusMeta.label})`
+                              : selected
+                                ? '(Selected)'
+                                : ''}
                           </button>
                         );
                       })}
@@ -642,17 +767,29 @@ export default function EventsChill() {
                     {Array.isArray(selectedEvent.participationOptions) && selectedEvent.participationOptions.length > 0 ? (
                       <div className="event-option-list">
                         {selectedEvent.participationOptions.map((option) => {
-                          const applied = hasStudentApplied(selectedEvent, option);
+                          const status = getStudentApplicationStatus(selectedEvent, option);
+                          const applied = !!status;
                           const selected = selectedOptions.includes(option);
+                          const statusMeta = getStatusMeta(status);
+
                           return (
                             <button
                               key={option}
                               type="button"
-                              className={`event-option-btn ${selected ? 'selected' : ''}`}
+                              className={
+                                applied
+                                  ? `px-3 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
+                                  : `event-option-btn ${selected ? 'selected' : ''}`
+                              }
                               onClick={() => toggleApplicationOption(option)}
                               disabled={applied}
                             >
-                              {formatOptionLabel(option)} {applied ? '(Applied)' : selected ? '(Selected)' : ''}
+                              {formatOptionLabel(option)}{' '}
+                              {applied
+                                ? `(${statusMeta.label})`
+                                : selected
+                                  ? '(Selected)'
+                                  : ''}
                             </button>
                           );
                         })}

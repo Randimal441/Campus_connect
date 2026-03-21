@@ -16,6 +16,7 @@ import {
   createEvent,
   deleteEvent,
   getAllEvents,
+  updateEventApplicationStatus,
   updateEvent,
 } from '../../services/adminEventsService';
 import { PARTICIPATION_OPTIONS } from '../../utils/constants';
@@ -56,6 +57,29 @@ const formatCardTime = (event) => {
   });
 };
 
+const getApplicationStatusMeta = (status) => {
+  const normalized = String(status || 'pending').toLowerCase();
+
+  if (normalized === 'approved') {
+    return {
+      label: 'Approved',
+      className: 'bg-emerald-100 text-emerald-800 border border-emerald-300',
+    };
+  }
+
+  if (normalized === 'rejected') {
+    return {
+      label: 'Rejected',
+      className: 'bg-red-100 text-red-800 border border-red-300',
+    };
+  }
+
+  return {
+    label: 'Pending',
+    className: 'bg-amber-100 text-amber-800 border border-amber-300',
+  };
+};
+
 export default function EventCoordinatorDashboard() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -68,6 +92,7 @@ export default function EventCoordinatorDashboard() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [imageFile, setImageFile] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [reviewingKey, setReviewingKey] = useState('');
 
   const sortedItems = useMemo(
     () => [...items].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
@@ -317,6 +342,61 @@ export default function EventCoordinatorDashboard() {
     setIsViewOpen(true);
   };
 
+  const handleApplicationStatusUpdate = async (eventId, applicationId, nextStatus) => {
+    const requestKey = `${applicationId}:${nextStatus}`;
+    setReviewingKey(requestKey);
+    setMessage('');
+    setError('');
+
+    try {
+      await updateEventApplicationStatus(eventId, applicationId, nextStatus);
+
+      setItems((prev) =>
+        prev.map((eventItem) => {
+          if (String(eventItem._id) !== String(eventId)) return eventItem;
+
+          const updatedApplications = (eventItem.participationApplications || []).map((entry) => {
+            if (String(entry._id) !== String(applicationId)) return entry;
+            return {
+              ...entry,
+              status: nextStatus,
+              reviewedAt: new Date().toISOString(),
+            };
+          });
+
+          return {
+            ...eventItem,
+            participationApplications: updatedApplications,
+          };
+        })
+      );
+
+      setSelectedItem((prev) => {
+        if (!prev || String(prev._id) !== String(eventId)) return prev;
+
+        const updatedApplications = (prev.participationApplications || []).map((entry) => {
+          if (String(entry._id) !== String(applicationId)) return entry;
+          return {
+            ...entry,
+            status: nextStatus,
+            reviewedAt: new Date().toISOString(),
+          };
+        });
+
+        return {
+          ...prev,
+          participationApplications: updatedApplications,
+        };
+      });
+
+      setMessage(`Application status updated to ${nextStatus}.`);
+    } catch (err) {
+      setError(err.message || 'Unable to update application status.');
+    } finally {
+      setReviewingKey('');
+    }
+  };
+
   return (
     <>
       <section className="admin-events-header">
@@ -561,6 +641,9 @@ export default function EventCoordinatorDashboard() {
                         const submittedAnswers = Array.isArray(entry.application?.answers)
                           ? entry.application.answers
                           : [];
+                        const statusMeta = getApplicationStatusMeta(entry.status);
+                        const approveKey = `${entry._id}:approved`;
+                        const rejectKey = `${entry._id}:rejected`;
 
                         return (
                           <div key={`${entry._id || entry.option}-${index}`} className="admin-event-application-item">
@@ -571,6 +654,38 @@ export default function EventCoordinatorDashboard() {
                               <span className="admin-event-application-badge">
                                 {optionLabelMap[entry.option] || entry.option}
                               </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2 mt-2">
+                              <button
+                                type="button"
+                                className={`px-3 py-1 rounded-full text-xs font-semibold cursor-default ${statusMeta.className}`}
+                                disabled
+                              >
+                                {statusMeta.label}
+                              </button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="!bg-emerald-600 hover:!bg-emerald-700 !text-white"
+                                onClick={() =>
+                                  handleApplicationStatusUpdate(selectedItem._id, entry._id, 'approved')
+                                }
+                                disabled={reviewingKey === approveKey}
+                              >
+                                {reviewingKey === approveKey ? 'Updating...' : 'Approve'}
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="!bg-red-600 hover:!bg-red-700 !text-white"
+                                onClick={() =>
+                                  handleApplicationStatusUpdate(selectedItem._id, entry._id, 'rejected')
+                                }
+                                disabled={reviewingKey === rejectKey}
+                              >
+                                {reviewingKey === rejectKey ? 'Updating...' : 'Reject'}
+                              </Button>
                             </div>
 
                             <p className="mb-0 text-sm text-muted-foreground">
