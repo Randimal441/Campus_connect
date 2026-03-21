@@ -5,43 +5,48 @@ import { useAuth } from '../../context/AuthContext';
 import Navbar from '../../components/common/Navbar';
 import Footer from '../../components/common/Footer';
 
-/* ─── helpers ─────────────────────────────────── */
+const heroImage = 'https://img.freepik.com/free-vector/active-people-concept-illustration_114360-9025.jpg';
+const connectImage = 'https://img.freepik.com/free-vector/team-spirit-concept-illustration_114360-1676.jpg';
+const supportImage = 'https://img.freepik.com/free-vector/doctor-concept-illustration_114360-1781.jpg';
+
 const STATUS_COLORS = {
-  pending:  'bg-yellow-100 text-yellow-800',
+  pending: 'bg-yellow-100 text-yellow-800',
   approved: 'bg-green-100 text-green-800',
   rejected: 'bg-red-100 text-red-800',
 };
 
-const CATEGORY_ICONS = { club: '', sport: '' };
-
 function formatDate(d) {
   if (!d) return '';
-  return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  return new Date(d).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
-/* ─── ClubDetailModal ─────────────────────────── */
 function ClubDetailModal({ club, onClose, onJoin, onLeave, myRequests }) {
-  const [teams, setTeams]         = useState([]);
+  const [teams, setTeams] = useState([]);
   const [schedules, setSchedules] = useState([]);
-  const [joinMsg, setJoinMsg]     = useState('');
-  const [busy, setBusy]           = useState(false);
-  const [feedback, setFeedback]   = useState('');
+  const [joinMsg, setJoinMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState('');
 
   const myReq = myRequests.find((r) => r.club?._id === club._id || r.club === club._id);
   const isMember = myReq?.status === 'approved';
 
   useEffect(() => {
-    api(`/clubs-sports/${club._id}/teams`).then(setTeams).catch(() => {});
-    api(`/clubs-sports/${club._id}/schedules`).then(setSchedules).catch(() => {});
+    api(`/clubs-sports/${club._id}/teams`).then(setTeams).catch(() => setTeams([]));
+    api(`/clubs-sports/${club._id}/schedules`).then(setSchedules).catch(() => setSchedules([]));
   }, [club._id]);
 
   const handleJoin = async () => {
-    setBusy(true); setFeedback('');
+    setBusy(true);
+    setFeedback('');
     try {
       await onJoin(club._id, joinMsg);
-      setFeedback('Join request sent!');
+      setFeedback('Join request sent successfully.');
     } catch (e) {
-      setFeedback(e.message);
+      setFeedback(e.message || 'Failed to send join request.');
     } finally {
       setBusy(false);
     }
@@ -49,144 +54,146 @@ function ClubDetailModal({ club, onClose, onJoin, onLeave, myRequests }) {
 
   const handleLeave = async () => {
     if (!window.confirm('Leave this club?')) return;
-    setBusy(true); setFeedback('');
+    setBusy(true);
+    setFeedback('');
     try {
       await onLeave(club._id);
-      setFeedback('You have left the club.');
+      setFeedback('You have left this club.');
     } catch (e) {
-      setFeedback(e.message);
+      setFeedback(e.message || 'Failed to leave this club.');
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* header */}
-        <div className="bg-gradient-to-r from-primary to-primary-light p-6 rounded-t-2xl text-white">
-          <div className="flex items-start justify-between">
+        <div className="bg-gradient-to-r from-green-600 to-emerald-500 p-6 rounded-t-2xl text-white">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-3xl">{CATEGORY_ICONS[club.category] || '🏆'}</span>
-                <span className="uppercase text-xs font-bold tracking-widest bg-white/20 px-2 py-0.5 rounded-full">
-                  {club.category}
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <span className="uppercase text-xs font-semibold tracking-wide bg-white/20 px-2 py-1 rounded-full">
+                  {club.category || 'club'}
                 </span>
                 {club.sportType && (
-                  <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">{club.sportType}</span>
+                  <span className="text-xs bg-white/20 px-2 py-1 rounded-full">{club.sportType}</span>
                 )}
               </div>
-              <h2 className="text-2xl font-heading font-bold">{club.title}</h2>
-              <p className="text-white/80 text-sm mt-1">Created by {club.createdBy?.fullName}</p>
+              <h2 className="text-2xl font-bold">{club.title}</h2>
+              <p className="text-sm text-white/80 mt-1">Hosted by {club.createdBy?.fullName || 'Campus Team'}</p>
             </div>
-            <button onClick={onClose} className="text-white/70 hover:text-white text-2xl leading-none">✕</button>
+            <button onClick={onClose} className="text-2xl text-white/80 hover:text-white" aria-label="Close dialog">
+              x
+            </button>
           </div>
         </div>
 
         <div className="p-6 space-y-6">
-          {/* description */}
           {club.description && (
             <div>
-              <h4 className="font-semibold text-foreground mb-1">About</h4>
-              <p className="text-muted-foreground text-sm leading-relaxed">{club.description}</p>
+              <h3 className="font-semibold text-gray-800 mb-2">About this club</h3>
+              <p className="text-gray-600 text-sm leading-relaxed">{club.description}</p>
             </div>
           )}
 
-          {/* coach info */}
           {club.coachInfo && (
-            <div className="bg-muted rounded-xl p-4">
-              <h4 className="font-semibold text-foreground mb-1 flex items-center gap-2">
-                Coach Information
-              </h4>
-              <p className="text-sm text-muted-foreground">{club.coachInfo}</p>
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+              <h3 className="font-semibold text-gray-800 mb-1">Coach Information</h3>
+              <p className="text-sm text-gray-600">{club.coachInfo}</p>
             </div>
           )}
 
-          {/* practice schedules */}
           <div>
-            <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
-              <span>📅</span> Practice Schedules
-            </h4>
+            <h3 className="font-semibold text-gray-800 mb-3">Practice Schedules</h3>
             {schedules.length === 0 ? (
-              <p className="text-sm text-muted-foreground italic">No schedules added yet.</p>
+              <p className="text-sm text-gray-500">No schedules have been published yet.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {schedules.map((s) => (
-                  <div key={s._id} className="border border-border rounded-lg p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-sm">{s.title}</span>
-                      <span className="text-xs text-muted-foreground">{formatDate(s.date)} · {s.time}</span>
-                    </div>
-                    {s.location && <p className="text-xs text-muted-foreground mt-0.5"> {s.location}</p>}
-                    {s.description && <p className="text-xs text-muted-foreground mt-0.5">{s.description}</p>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* teams */}
-          <div>
-            <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
-              <span>👥</span> Teams
-            </h4>
-            {teams.length === 0 ? (
-              <p className="text-sm text-muted-foreground italic">No teams listed yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {teams.map((t) => (
-                  <div key={t._id} className="border border-border rounded-lg p-3">
-                    <p className="font-medium text-sm">{t.name}</p>
-                    {t.description && <p className="text-xs text-muted-foreground mt-0.5">{t.description}</p>}
-                    {t.members?.length > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {t.members.length} member{t.members.length !== 1 ? 's' : ''}
+                  <div key={s._id} className="border border-gray-100 rounded-xl p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium text-gray-800 text-sm">{s.title}</p>
+                      <p className="text-xs text-gray-500">
+                        {formatDate(s.date)} {s.time ? `- ${s.time}` : ''}
                       </p>
-                    )}
+                    </div>
+                    {s.location && <p className="text-xs text-gray-500 mt-1">{s.location}</p>}
+                    {s.description && <p className="text-xs text-gray-500 mt-1">{s.description}</p>}
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          {/* join / leave */}
+          <div>
+            <h3 className="font-semibold text-gray-800 mb-3">Teams</h3>
+            {teams.length === 0 ? (
+              <p className="text-sm text-gray-500">No team records yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {teams.map((t) => (
+                  <div key={t._id} className="border border-gray-100 rounded-xl p-3">
+                    <p className="font-medium text-gray-800 text-sm">{t.name}</p>
+                    {t.description && <p className="text-xs text-gray-500 mt-1">{t.description}</p>}
+                    <p className="text-xs text-gray-500 mt-1">
+                      {t.members?.length || 0} member{(t.members?.length || 0) !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {feedback && (
-            <p className={`text-sm font-medium px-3 py-2 rounded-lg ${feedback.includes('sent') || feedback.includes('left') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+            <p
+              className={`text-sm px-3 py-2 rounded-lg ${
+                feedback.toLowerCase().includes('failed') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
+              }`}
+            >
               {feedback}
             </p>
           )}
 
           {!myReq && (
-            <div className="border-t border-border pt-4">
-              <h4 className="font-semibold mb-2">Send Join Request</h4>
+            <div className="border-t border-gray-100 pt-4">
+              <h3 className="font-semibold text-gray-800 mb-2">Send Join Request</h3>
               <textarea
                 value={joinMsg}
                 onChange={(e) => setJoinMsg(e.target.value)}
-                placeholder="Introduce yourself (optional)…"
-                className="input w-full h-20 resize-none text-sm"
+                placeholder="Introduce yourself to the club (optional)"
+                className="w-full h-24 border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               />
-              <button onClick={handleJoin} disabled={busy} className="btn btn-primary mt-2 w-full">
-                {busy ? 'Sending…' : ' Send Join Request'}
+              <button
+                onClick={handleJoin}
+                disabled={busy}
+                className="w-full mt-3 bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-60"
+              >
+                {busy ? 'Sending...' : 'Send Join Request'}
               </button>
             </div>
           )}
 
           {myReq && !isMember && (
-            <div className={`border-t border-border pt-4`}>
-              <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold ${STATUS_COLORS[myReq.status]}`}>
+            <div className="border-t border-gray-100 pt-4">
+              <span className={`inline-flex px-3 py-1.5 rounded-full text-xs font-semibold ${STATUS_COLORS[myReq.status]}`}>
                 Request status: {myReq.status}
-              </div>
-              {myReq.adminNote && <p className="text-xs text-muted-foreground mt-2">Note: {myReq.adminNote}</p>}
+              </span>
+              {myReq.adminNote && <p className="text-xs text-gray-500 mt-2">Note: {myReq.adminNote}</p>}
             </div>
           )}
 
           {isMember && (
-            <div className="border-t border-border pt-4 flex items-center justify-between">
-              <span className="text-sm font-semibold text-green-600">✅ You are a member</span>
-              <button onClick={handleLeave} disabled={busy} className="btn btn-sm btn-destructive">
+            <div className="border-t border-gray-100 pt-4 flex items-center justify-between gap-4">
+              <p className="text-sm font-semibold text-green-700">You are an approved member.</p>
+              <button
+                onClick={handleLeave}
+                disabled={busy}
+                className="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+              >
                 Leave Club
               </button>
             </div>
@@ -197,16 +204,15 @@ function ClubDetailModal({ club, onClose, onJoin, onLeave, myRequests }) {
   );
 }
 
-/* ─── main page ───────────────────────────────── */
 export default function ClubsSports() {
   const { user } = useAuth();
-  const [items, setItems]           = useState([]);
+  const [items, setItems] = useState([]);
   const [myRequests, setMyRequests] = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [search, setSearch]         = useState('');
-  const [category, setCategory]     = useState('');
-  const [selected, setSelected]     = useState(null);
-  const [activeTab, setActiveTab]   = useState('clubs'); // 'clubs' | 'my-requests'
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('');
+  const [selected, setSelected] = useState(null);
+  const [activeTab, setActiveTab] = useState('clubs');
 
   const fetchClubs = useCallback(async () => {
     const params = new URLSearchParams();
@@ -214,13 +220,16 @@ export default function ClubsSports() {
     if (category) params.set('category', category);
     const qs = params.toString();
     const data = await api(`/clubs-sports${qs ? `?${qs}` : ''}`).catch(() => []);
-    setItems(data);
+    setItems(Array.isArray(data) ? data : []);
   }, [search, category]);
 
   const fetchMyRequests = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setMyRequests([]);
+      return;
+    }
     const data = await api('/clubs-sports/my-requests').catch(() => []);
-    setMyRequests(data);
+    setMyRequests(Array.isArray(data) ? data : []);
   }, [user]);
 
   useEffect(() => {
@@ -229,7 +238,10 @@ export default function ClubsSports() {
   }, [fetchClubs, fetchMyRequests]);
 
   const handleJoin = async (clubId, message) => {
-    const req = await api(`/clubs-sports/${clubId}/join`, { method: 'POST', body: { message } });
+    const req = await api(`/clubs-sports/${clubId}/join`, {
+      method: 'POST',
+      body: { message },
+    });
     await fetchMyRequests();
     return req;
   };
@@ -240,106 +252,145 @@ export default function ClubsSports() {
   };
 
   const getReqStatus = (clubId) => {
-    const r = myRequests.find((r) => r.club?._id === clubId || r.club === clubId);
-    return r?.status || null;
+    const req = myRequests.find((r) => r.club?._id === clubId || r.club === clubId);
+    return req?.status || null;
   };
 
   return (
-    <div className="page">
+    <div className="min-h-screen bg-white">
       <Navbar />
-      <main className="main-content clubs-full-width">
-        {/* ── header ── */}
-        <div className="mb-8 animate-fade-in-up text-center">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div>
-              <h1>Clubs &amp; Sports</h1>
-              <p className="lead !mb-0">Discover and join exciting clubs and sports activities on campus</p>
-            </div>
-          </div>
 
-          {/* tabs */}
-          <div className="flex flex-wrap justify-center gap-2 mt-4">
-            {['clubs', 'my-requests'].map((t) => (
-              <button
-                key={t}
-                onClick={() => setActiveTab(t)}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${activeTab === t ? 'bg-primary text-white' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
-              >
-                {t === 'clubs' ? '🏟️ All Clubs' : '📋 My Requests'}
-              </button>
-            ))}
-            <Link
-              to="/user/clubs-sports/medicle-support"
-              className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-muted text-muted-foreground hover:bg-muted/70"
+      <section className="bg-gradient-to-br from-green-50 to-white py-16 px-4">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-12">
+          <div className="flex-1">
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-6 leading-tight">
+              How does
+              <br />
+              <span className="text-green-600">Clubs and Sports Connect</span>
+              <br />
+              work?
+            </h1>
+            <p className="text-gray-600 mb-8 text-lg leading-relaxed">
+              Find clubs and sports that match your interests, request to join in seconds, and stay connected to
+              practices, teams, and campus activities all in one place.
+            </p>
+            <button
+              onClick={() => document.getElementById('clubs-list').scrollIntoView({ behavior: 'smooth' })}
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
             >
-              🩺 MEdicle Support
-            </Link>
+              Explore Clubs
+            </button>
+          </div>
+          <div className="flex-1">
+            <img src={heroImage} alt="Clubs and Sports" className="w-full max-w-md mx-auto rounded-2xl shadow-lg" />
           </div>
         </div>
+      </section>
 
-        {/* ── clubs tab ── */}
-        {activeTab === 'clubs' && (
-          <>
-            {/* search & filter */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-6">
-              <input
-                className="input flex-1"
-                placeholder="Search by name or sport type…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              <select
-                className="input sm:w-44"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
+      <section id="clubs-list" className="py-16 px-4 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">Clubs and Sports Directory</h2>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              Browse available communities, view details, and track your participation requests.
+            </p>
+          </div>
+
+          <div className="bg-gray-50 rounded-2xl p-5 md:p-6 mb-8 border border-gray-100">
+            <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setActiveTab('clubs')}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    activeTab === 'clubs' ? 'bg-green-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  All Clubs
+                </button>
+                <button
+                  onClick={() => setActiveTab('my-requests')}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    activeTab === 'my-requests' ? 'bg-green-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  My Requests
+                </button>
+              </div>
+              <Link
+                to="/user/clubs-sports/medicle-support"
+                className="inline-flex items-center justify-center bg-white border border-gray-200 hover:border-green-200 hover:bg-green-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
               >
-                <option value="">All Categories</option>
-                <option value="club">Clubs</option>
-                <option value="sport">Sports</option>
-              </select>
+                Medical Support
+              </Link>
             </div>
 
-            {loading ? (
-              <div className="flex items-center justify-center min-h-[400px]">
-                <div className="text-center">
-                  <div className="loader mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">Loading clubs and sports…</p>
-                </div>
+            {activeTab === 'clubs' && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by title or sport type"
+                  className="md:col-span-2 w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="">All Categories</option>
+                  <option value="club">Clubs</option>
+                  <option value="sport">Sports</option>
+                </select>
               </div>
-            ) : items.length === 0 ? (
-              <div className="text-center py-16 bg-muted rounded-2xl">
-                <div className="text-6xl mb-4">🎯</div>
-                <p className="text-xl font-semibold text-muted-foreground mb-2">No clubs or sports found</p>
-                <p className="text-muted-foreground">Try a different search or check back soon!</p>
+            )}
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center items-center py-16">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+            </div>
+          ) : activeTab === 'clubs' ? (
+            items.length === 0 ? (
+              <div className="text-center py-16 bg-gray-50 rounded-2xl border border-gray-100">
+                <p className="text-xl font-semibold text-gray-700 mb-2">No clubs or sports found</p>
+                <p className="text-gray-500">Try a different search or category.</p>
               </div>
             ) : (
-              <div className="card-grid">
-                {items.map((item, index) => {
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
+                {items.map((item) => {
                   const status = getReqStatus(item._id);
                   return (
                     <div
                       key={item._id}
-                      className="card cursor-pointer hover:shadow-lg transition-shadow animate-fade-in"
-                      style={{ animationDelay: `${index * 0.05}s` }}
-                      onClick={() => setSelected(item)}
+                      className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-300"
                     >
-                      <div className="flex items-start justify-between mb-3">
-                        <h3 className="flex-1 leading-snug">{item.title}</h3>
-                        <span className="badge ml-2 shrink-0">{item.category}</span>
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <h3 className="text-xl font-semibold text-gray-800">{item.title}</h3>
+                        <span className="text-xs font-semibold uppercase bg-green-50 text-green-700 px-2 py-1 rounded-full">
+                          {item.category || 'club'}
+                        </span>
                       </div>
+
                       {item.sportType && (
-                        <p className="text-xs text-primary font-semibold mb-2">🏷 {item.sportType}</p>
+                        <p className="text-sm text-green-600 font-medium mb-2">{item.sportType}</p>
                       )}
-                      <p className="text-sm text-muted-foreground line-clamp-3 mb-4">{item.description}</p>
-                      {item.createdBy && (
-                        <p className="text-xs text-muted-foreground mb-4">{item.createdBy.fullName}</p>
-                      )}
-                      <div className="flex items-center justify-between mt-auto">
-                        <button className="btn btn-sm btn-outline" onClick={(e) => { e.stopPropagation(); setSelected(item); }}>
+
+                      <p className="text-sm text-gray-600 mb-3 leading-relaxed">
+                        {(item.description || 'No description provided').slice(0, 180)}
+                        {(item.description || '').length > 180 ? '...' : ''}
+                      </p>
+
+                      <p className="text-xs text-gray-500 mb-5">Hosted by {item.createdBy?.fullName || 'Campus Team'}</p>
+
+                      <div className="flex items-center justify-between gap-2">
+                        <button
+                          onClick={() => setSelected(item)}
+                          className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2.5 px-5 rounded-lg transition-colors"
+                        >
                           View Details
                         </button>
                         {status && (
-                          <span className={`text-xs font-semibold px-2 py-1 rounded-full ${STATUS_COLORS[status]}`}>
+                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_COLORS[status]}`}>
                             {status}
                           </span>
                         )}
@@ -348,47 +399,76 @@ export default function ClubsSports() {
                   );
                 })}
               </div>
-            )}
-          </>
-        )}
-
-        {/* ── my requests tab ── */}
-        {activeTab === 'my-requests' && (
-          <div>
-            {myRequests.length === 0 ? (
-              <div className="text-center py-16 bg-muted rounded-2xl">
-                <div className="text-6xl mb-4">📋</div>
-                <p className="text-xl font-semibold text-muted-foreground mb-2">No join requests yet</p>
-                <p className="text-muted-foreground">Browse clubs and send a join request!</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {myRequests.map((r) => (
-                  <div key={r._id} className="card flex items-center justify-between gap-4">
-                    <div>
-                      <p className="font-semibold">{r.club?.title || 'Unknown club'}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {r.club?.category} {r.club?.sportType ? `· ${r.club.sportType}` : ''}
-                      </p>
-                      {r.adminNote && (
-                        <p className="text-xs text-muted-foreground mt-1">Note: {r.adminNote}</p>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Requested on {formatDate(r.createdAt)}
-                      </p>
-                    </div>
-                    <span className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-full ${STATUS_COLORS[r.status]}`}>
-                      {r.status}
-                    </span>
+            )
+          ) : myRequests.length === 0 ? (
+            <div className="text-center py-16 bg-gray-50 rounded-2xl border border-gray-100">
+              <p className="text-xl font-semibold text-gray-700 mb-2">No join requests yet</p>
+              <p className="text-gray-500">Open All Clubs and send your first request.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {myRequests.map((r) => (
+                <div key={r._id} className="bg-white border border-gray-100 rounded-xl p-4 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-semibold text-gray-800">{r.club?.title || 'Unknown club'}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {r.club?.category || 'club'} {r.club?.sportType ? `- ${r.club.sportType}` : ''}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">Requested on {formatDate(r.createdAt)}</p>
+                    {r.adminNote && <p className="text-xs text-gray-500 mt-1">Note: {r.adminNote}</p>}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </main>
+                  <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${STATUS_COLORS[r.status]}`}>
+                    {r.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
-      {/* club detail modal */}
+      <section className="py-16 px-4 bg-gray-50">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-12">
+          <div className="flex-1 flex justify-center">
+            <img src={connectImage} alt="Campus community" className="w-full max-w-sm rounded-2xl shadow-lg" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-3xl font-bold text-gray-800 mb-6">Build your campus circle</h2>
+            <p className="text-gray-600 mb-6 leading-relaxed">
+              Join communities that push you to grow, collaborate with teammates, and stay active through organized
+              practices and events.
+            </p>
+            <button
+              onClick={() => document.getElementById('clubs-list').scrollIntoView({ behavior: 'smooth' })}
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
+            >
+              Join a Community
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16 px-4 bg-gradient-to-br from-green-50 to-white">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-12">
+          <div className="flex-1">
+            <h2 className="text-3xl font-bold text-gray-800 mb-6">Need extra support for training?</h2>
+            <p className="text-gray-600 mb-6 leading-relaxed">
+              Access campus medical support resources for advice, guidance, and safer participation in sports and
+              physical activities.
+            </p>
+            <Link
+              to="/user/clubs-sports/medicle-support"
+              className="inline-block bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
+            >
+              View Medical Support
+            </Link>
+          </div>
+          <div className="flex-1 flex justify-center">
+            <img src={supportImage} alt="Medical support" className="w-full max-w-sm rounded-2xl shadow-lg" />
+          </div>
+        </div>
+      </section>
+
       {selected && (
         <ClubDetailModal
           club={selected}
