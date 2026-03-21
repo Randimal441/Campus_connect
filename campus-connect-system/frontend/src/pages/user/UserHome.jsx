@@ -7,7 +7,7 @@ export default function UserHome() {
   const sectionIcons = {
     'clubs-sports': '🏆',
     'consulting': '💬',
-    'events': '🎉',
+    'events-chill': '🎉',
     'resource-sharing': '📚'
   };
 

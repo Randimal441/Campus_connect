@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Button from '@/components/ui/button';
 import { SECTIONS } from '../../utils/constants';
@@ -6,10 +6,26 @@ import { SECTIONS } from '../../utils/constants';
 export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const hideUserGreeting =
+    user?.role === 'coach' && location.pathname.startsWith('/admin/coaches');
+  const isAdminArea = location.pathname.startsWith('/admin');
+  const isUserArea = location.pathname.startsWith('/user');
+  const showUserSectionLinks =
+    user?.role === 'student' && location.pathname.startsWith('/user');
 
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  const handleProfileClick = () => {
+    if (isAdminArea) {
+      navigate('/admin/profile');
+      return;
+    }
+    navigate('/user/profile');
   };
 
   return (
@@ -24,23 +40,37 @@ export default function Navbar() {
       </Link>
       
       {/* Section Navigation Links */}
-      <div className="hidden lg:flex items-center gap-2">
-        {SECTIONS.map((section) => (
-          <Link
-            key={section.id}
-            to={section.path}
-            className="px-3 py-2 rounded-lg hover:bg-white/10 transition-colors font-medium text-sm text-white/90 hover:text-white"
-          >
-            {section.label}
-          </Link>
-        ))}
-      </div>
+      {showUserSectionLinks && (
+        <div className="hidden lg:flex items-center gap-2">
+          {SECTIONS.map((section) => (
+            <Link
+              key={section.id}
+              to={section.path}
+              className="px-3 py-2 rounded-lg hover:bg-white/10 transition-colors font-medium text-sm text-white/90 hover:text-white"
+            >
+              {section.label}
+            </Link>
+          ))}
+        </div>
+      )}
       
       <div className="navbar-menu">
         {user ? (
           <>
-            <span className="navbar-user hidden md:inline">👋 {user.fullName}</span>
-            <span className="navbar-role">{user.role}</span>
+            {!hideUserGreeting && (
+              <span className="navbar-user hidden md:inline">{user.fullName}</span>
+            )}
+            {(isAdminArea || isUserArea) ? (
+              <button
+                type="button"
+                className="navbar-role"
+                onClick={handleProfileClick}
+              >
+                Profile
+              </button>
+            ) : (
+              <span className="navbar-role">{user.role}</span>
+            )}
             <Button
               variant="outline"
               size="sm"

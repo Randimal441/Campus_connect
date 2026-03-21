@@ -5,7 +5,6 @@ import AdminLayout from '../components/admin/AdminLayout';
 import CoachesDashboard from '../pages/admin/CoachesDashboard';
 import ResourceCoordinatorDashboard from '../pages/admin/ResourceCoordinatorDashboard';
 import ConsultantDashboard from '../pages/admin/ConsultantDashboard';
-import EventCoordinatorDashboard from '../pages/admin/EventCoordinatorDashboard';
 import UserHome from '../pages/user/UserHome';
 
 export default function RoleRoutes() {
@@ -23,7 +22,7 @@ export default function RoleRoutes() {
     case ROLES.CONSULTANT:
       return <AdminLayout><ConsultantDashboard /></AdminLayout>;
     case ROLES.EVENT_COORDINATOR:
-      return <AdminLayout><EventCoordinatorDashboard /></AdminLayout>;
+      return <UserHome />;
     case ROLES.STUDENT:
     default:
       return <UserHome />;

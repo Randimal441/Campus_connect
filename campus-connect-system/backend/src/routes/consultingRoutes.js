@@ -1,21 +1,22 @@
 const express = require('express');
-const {
-  getAll,
-  create,
-  bookSession,
-  update,
-  remove,
-} = require('../controllers/consultingController');
-const { protect } = require('../middlewares/authMiddleware');
+const {getAllConsultants,getConsultantById,createSession,getSessionBookings,getPublicSessionsByCounselor,updateSession,deleteSession,getMentalHealthQuestions,bookSlot,cancelBooking,getMyBookings,getCounselorSessions} = require('../controllers/consultingController.js');
+const { protect, optionalAuth } = require('../middlewares/authMiddleware');
 const { restrictTo } = require('../middlewares/roleMiddleware');
-
 const router = express.Router();
 
-router.get('/', getAll);
-router.use(protect);
-router.post('/', restrictTo('consultant', 'super_admin'), create);
-router.patch('/:id/book', restrictTo('student'), bookSession);
-router.patch('/:id', restrictTo('consultant', 'super_admin'), update);
-router.delete('/:id', restrictTo('consultant', 'super_admin'), remove);
+// Public routes (students can see consultants)
+router.get('/', getAllConsultants);             // list all consultants
+router.get('/questions', getMentalHealthQuestions);  // fetch mental health questions
+router.post('/sessions/:sessionId/slots/:slotId/book',protect,restrictTo('student'),bookSlot);   // book a slot (students only)
+router.post('/sessions',protect,restrictTo('consultant'),createSession);
+router.get('/sessions',protect,restrictTo('consultant'),getCounselorSessions)     // create session (consultants only)
+router.get('/sessions/:sessionId/bookings',protect,restrictTo('consultant'),getSessionBookings);  //get respective consultant created session
+router.put('/sessions/:sessionId',protect,restrictTo('consultant'),updateSession)  //update session
+router.delete('/sessions/:sessionId',protect,restrictTo('consultant'),deleteSession)  //delete session
+router.get('/sessions/public/:counselorId', protect, getPublicSessionsByCounselor);  //get student view of consultant's sessions
+router.get('/my-bookings', protect, restrictTo('student'), getMyBookings);
+router.get('/:id', getConsultantById); //get consultant by id (for profile view)
+router.delete('/sessions/:sessionId/slots/:slotId/cancel',protect,restrictTo('student'),cancelBooking)
+
 
 module.exports = router;
