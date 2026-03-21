@@ -14,6 +14,8 @@ import ConsultantDashboard from '../pages/admin/ConsultantDashboard';
 import EventCoordinatorDashboard from '../pages/admin/EventCoordinatorDashboard';
 import CoachProfile from '../pages/admin/CoachProfile';
 import AdminLayout from '../components/admin/AdminLayout';
+import ProtectedRoute from '../components/protected/ProtectedRoute';
+import { ROLES } from '../utils/constants';
 import ConsultantDetails from '../pages/user/ConsultingDetails';
 import ConsultingReviewDashboard from '../pages/admin/ConsultingReviewDasboard';
 
