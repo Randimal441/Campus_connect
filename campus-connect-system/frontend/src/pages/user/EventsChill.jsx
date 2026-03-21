@@ -54,6 +54,8 @@ const getCountdownData = (eventDate, now) => {
 
 export default function EventsChill() {
   const { user } = useAuth();
+  const normalizedUserRole = String(user?.role || '').trim().toLowerCase();
+  const isStudent = normalizedUserRole === ROLES.STUDENT;
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -470,7 +472,7 @@ export default function EventsChill() {
                             type="button"
                             className={`event-option-btn ${selected ? 'selected' : ''}`}
                             onClick={() => toggleApplicationOption(option)}
-                              disabled={applied}
+                            disabled={applied}
                           >
                             {formatOptionLabel(option)} {applied ? '(Applied)' : selected ? '(Selected)' : ''}
                           </button>
@@ -630,6 +632,12 @@ export default function EventsChill() {
 
                   <div className="event-modal-participation-wrap">
                     <p className="event-participation-title mb-2">Available Participation Options</p>
+
+                    {!isStudent ? (
+                      <p className="event-participation-empty mb-2">
+                        Participation applications can be submitted by student accounts only.
+                      </p>
+                    ) : null}
 
                     {Array.isArray(selectedEvent.participationOptions) && selectedEvent.participationOptions.length > 0 ? (
                       <div className="event-option-list">

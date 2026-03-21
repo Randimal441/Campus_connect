@@ -1,4 +1,5 @@
 const Events = require('../models/EventsModel');
+const ParticipationApplication = require('../models/ParticipationApplicationModel');
 
 const ALLOWED_PARTICIPATION_OPTIONS = [
   'audition_singing',
@@ -107,10 +108,40 @@ const getAll = async (req, res, next) => {
   try {
     const items = await Events.find({ isActive: true })
       .populate('createdBy', 'fullName email')
-      .populate('participationApplications.student', 'fullName email idNumber')
-      .sort({ date: 1 });
+      .sort({ date: 1 })
+      .lean();
 
-    res.json(items);
+    const eventIds = items.map((item) => item._id);
+
+    const applications = await ParticipationApplication.find({
+      event: { $in: eventIds },
+    })
+      .populate('student', 'fullName email idNumber')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const groupedApplications = applications.reduce((acc, application) => {
+      const eventId = String(application.event);
+      if (!acc[eventId]) acc[eventId] = [];
+
+      acc[eventId].push({
+        _id: application._id,
+        student: application.student,
+        option: application.option,
+        application: application.application,
+        appliedAt: application.createdAt,
+        status: application.status,
+      });
+
+      return acc;
+    }, {});
+
+    const enrichedItems = items.map((item) => ({
+      ...item,
+      participationApplications: groupedApplications[String(item._id)] || [],
+    }));
+
+    res.json(enrichedItems);
   } catch (error) {
     next(error);
   }
@@ -231,6 +262,8 @@ const remove = async (req, res, next) => {
   try {
     const item = await Events.findByIdAndDelete(req.params.id);
     if (!item) return res.status(404).json({ message: 'Not found.' });
+
+    await ParticipationApplication.deleteMany({ event: req.params.id });
     res.json({ message: 'Removed successfully.' });
   } catch (error) {
     next(error);
@@ -283,11 +316,11 @@ const applyForParticipation = async (req, res, next) => {
       ? participationForm.questions
       : [];
 
-    const alreadyApplied = item.participationApplications.some(
-      (entry) =>
-        String(entry.student) === String(req.user._id) &&
-        entry.option === option
-    );
+    const alreadyApplied = await ParticipationApplication.findOne({
+      event: item._id,
+      student: req.user._id,
+      option,
+    });
 
     if (alreadyApplied) {
       return res.status(400).json({ message: 'You have already applied for this role.' });
@@ -333,7 +366,8 @@ const applyForParticipation = async (req, res, next) => {
     const phone = sanitizeApplicationField(application?.phone);
     const notes = sanitizeApplicationField(application?.notes);
 
-    item.participationApplications.push({
+    await ParticipationApplication.create({
+      event: item._id,
       student: req.user._id,
       option,
       application: {
@@ -345,10 +379,7 @@ const applyForParticipation = async (req, res, next) => {
           (entry) => entry.questionKey && entry.label && entry.answer
         ),
       },
-      appliedAt: new Date(),
     });
-
-    await item.save();
 
     return res.json({
       message: 'Application submitted successfully.',
