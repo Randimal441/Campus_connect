@@ -264,11 +264,7 @@ export default function ClubsSports() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-12">
           <div className="flex-1">
             <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-6 leading-tight">
-              How does
-              <br />
-              <span className="text-green-600">Clubs and Sports Connect</span>
-              <br />
-              work?
+              Welcome to <span className="text-green-600">Clubs and Sports Connect</span>
             </h1>
             <p className="text-gray-600 mb-8 text-lg leading-relaxed">
               Find clubs and sports that match your interests, request to join in seconds, and stay connected to
