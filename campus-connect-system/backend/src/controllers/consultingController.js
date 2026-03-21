@@ -284,7 +284,10 @@ const bookSlot = async (req, res, next) => {
     if (slot.isBooked) return res.status(400).json({ message: 'Slot already booked.' });
 
     // Call Gemini to analyze mental status
-    const { riskLevel, riskSummary } = await analyzeMentalStatus(answers);
+    //following line comment to stop work of gemini api key
+    //const { riskLevel, riskSummary } = await analyzeMentalStatus(answers);
+    const riskLevel = 'medium'; // this one is tempory
+    const riskSummary = 'AI summary temporarily unavailable. Manual review required.'; //this one is tempory
 
     // Use authenticated user info (fullName) for student name; avoid an extra DB call
     const studentName = req.user.fullName || 'Unknown';

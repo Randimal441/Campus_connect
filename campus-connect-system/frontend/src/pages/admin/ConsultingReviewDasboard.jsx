@@ -3,52 +3,46 @@ import React from 'react';
 const CONSULTANTS = [
   {
     id: 'consultant-1',
-    name: 'Dr. Sarah Mitchell',
+    name: 'Dr. Saman Rathnayaka',
     title: 'Licensed Clinical Psychologist',
-    location: 'New York, NY',
+    location: 'No 25,Thilaka Mawatha, Colombo 07',
     experience: '12 years experience',
     availability: 'Available today',
     avatarGradient: 'from-amber-200 via-orange-200 to-orange-300',
     iconColor: 'text-amber-700',
     accentBar: 'from-amber-300 via-orange-300 to-teal-300',
-    phone: '(555) 234-5678',
-    phoneHref: 'tel:+15552345678',
-    email: 'dr.mitchell@therapy.com',
-    emailHref: 'mailto:dr.mitchell@therapy.com',
+    phone: '(+94) 705578439',
+    email: 'saman@gmail.com',
     specialties: ['Anxiety & Depression', 'Trauma Recovery', 'Couples Therapy', 'CBT'],
     bio: 'Dedicated to providing compassionate, evidence-based therapy to help individuals navigate life challenges and achieve lasting well-being.',
   },
   {
     id: 'consultant-2',
-    name: 'Dr. Daniel Kim',
+    name: 'Ms. Nethmi Kuruppuge',
     title: 'Student Wellness Consultant',
-    location: 'Boston, MA',
+    location: 'No 25,Thilaka Mawatha, Colombo 07',
     experience: '9 years experience',
     availability: 'Open for booking',
     avatarGradient: 'from-sky-200 via-cyan-200 to-teal-300',
     iconColor: 'text-cyan-700',
     accentBar: 'from-sky-300 via-cyan-300 to-teal-300',
-    phone: '(555) 347-8890',
-    phoneHref: 'tel:+15553478890',
-    email: 'daniel.kim@campuscare.com',
-    emailHref: 'mailto:daniel.kim@campuscare.com',
+    phone: '(+94) 705578439',
+    email: 'nethmi@gmail.com',
     specialties: ['Academic Stress', 'Career Guidance', 'Burnout Recovery', 'Mindfulness'],
     bio: 'Supports students and young professionals with practical strategies for stress management, confidence building, and healthy routines.',
   },
   {
     id: 'consultant-3',
-    name: 'Ms. Ayesha Khan',
+    name: 'Mr. Ravindu Peris',
     title: 'Senior Counseling Specialist',
-    location: 'Colombo, Sri Lanka',
+    location: 'No 25,Thilaka Mawatha, Colombo 07',
     experience: '8 years experience',
     availability: 'Few evening slots left',
     avatarGradient: 'from-violet-200 via-fuchsia-200 to-pink-300',
     iconColor: 'text-violet-700',
     accentBar: 'from-violet-300 via-fuchsia-300 to-pink-300',
-    phone: '(555) 902-4411',
-    phoneHref: 'tel:+15559024411',
-    email: 'ayesha.khan@wellnesshub.com',
-    emailHref: 'mailto:ayesha.khan@wellnesshub.com',
+    phone: '(+94) 705578439',
+    email: 'ravindu@gmail.com',
     specialties: ['Exam Anxiety', 'Conflict Resolution', 'Confidence Building', 'Family Support'],
     bio: 'Works closely with clients to create a calm, structured path toward emotional clarity, resilience, and better day-to-day balance.',
   },
@@ -112,26 +106,15 @@ function ConsultantCard({ consultant, index }) {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        <a
-          href={consultant.phoneHref}
-          className="flex items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600 transition hover:border-teal-100 hover:bg-teal-50 hover:text-teal-700"
-        >
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-teal-500 shadow-sm ring-1 ring-teal-100">
-            <PhoneIcon />
-          </span>
-          <span className="truncate">{consultant.phone}</span>
-        </a>
-
-        <a
-          href={consultant.emailHref}
-          className="flex items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600 transition hover:border-teal-100 hover:bg-teal-50 hover:text-teal-700"
-        >
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-teal-500 shadow-sm ring-1 ring-teal-100">
-            <MailIcon />
-          </span>
-          <span className="truncate">{consultant.email}</span>
-        </a>
+      <div className="mt-4 space-y-1.5 text-xs text-slate-600">
+        <p className="break-all">
+          <span className="font-semibold text-slate-700">Email: </span>
+          {consultant.email}
+        </p>
+        <p className="break-all">
+          <span className="font-semibold text-slate-700">Phone: </span>
+          {consultant.phone}
+        </p>
       </div>
 
       <p
@@ -152,7 +135,7 @@ function ConsultantCard({ consultant, index }) {
 const REVIEWS = [
   {
     id: 'review-1',
-    consultantName: 'Dr. Sarah Mitchell',
+    consultantName: 'Dr. Saman Rathnayaka',
     studentName: 'Alex Johnson',
     sessionId: 'SES-001-2024',
     review: 'Very helpful session. Great advice on managing anxiety.',
@@ -160,7 +143,7 @@ const REVIEWS = [
   },
   {
     id: 'review-2',
-    consultantName: 'Dr. Daniel Kim',
+    consultantName: 'Ms. Nethmi Kuruppuge',
     studentName: 'Emma Wilson',
     sessionId: 'SES-002-2024',
     review: 'Excellent guidance on career planning and stress management.',
@@ -168,7 +151,7 @@ const REVIEWS = [
   },
   {
     id: 'review-3',
-    consultantName: 'Ms. Ayesha Khan',
+    consultantName: 'Mr. Ravindu Peris',
     studentName: 'Michael Chen',
     sessionId: 'SES-003-2024',
     review: 'Very professional and supportive consultant.',
@@ -176,7 +159,7 @@ const REVIEWS = [
   },
   {
     id: 'review-4',
-    consultantName: 'Dr. Sarah Mitchell',
+    consultantName: 'Dr. Saman Rathnayaka',
     studentName: 'Sarah Davis',
     sessionId: 'SES-004-2024',
     review: 'Helped me understand my exam anxiety better.',
