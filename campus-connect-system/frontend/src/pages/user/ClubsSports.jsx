@@ -15,6 +15,18 @@ const STATUS_COLORS = {
   rejected: 'bg-red-100 text-red-800',
 };
 
+function getEntityLabel(category) {
+  const normalized = String(category || '').toLowerCase();
+  return normalized.startsWith('sport') ? 'sport' : 'club';
+}
+
+function getCategoryBadgeLabel(category) {
+  const normalized = String(category || '').toLowerCase();
+  if (normalized.startsWith('sport')) return 'sport';
+  if (normalized.startsWith('club')) return 'club';
+  return 'club';
+}
+
 function formatDate(d) {
   if (!d) return '';
   return new Date(d).toLocaleDateString('en-US', {
@@ -33,6 +45,7 @@ function ClubDetailModal({ club, onClose, onJoin, onLeave, myRequests }) {
 
   const myReq = myRequests.find((r) => r.club?._id === club._id || r.club === club._id);
   const isMember = myReq?.status === 'approved';
+  const entityLabel = getEntityLabel(club.category);
 
   useEffect(() => {
     api(`/clubs-sports/${club._id}/teams`).then(setTeams).catch(() => setTeams([]));
@@ -53,14 +66,14 @@ function ClubDetailModal({ club, onClose, onJoin, onLeave, myRequests }) {
   };
 
   const handleLeave = async () => {
-    if (!window.confirm('Leave this club?')) return;
+    if (!window.confirm(`Leave this ${entityLabel}?`)) return;
     setBusy(true);
     setFeedback('');
     try {
       await onLeave(club._id);
-      setFeedback('You have left this club.');
+      setFeedback(`You have left this ${entityLabel}.`);
     } catch (e) {
-      setFeedback(e.message || 'Failed to leave this club.');
+      setFeedback(e.message || `Failed to leave this ${entityLabel}.`);
     } finally {
       setBusy(false);
     }
@@ -77,7 +90,7 @@ function ClubDetailModal({ club, onClose, onJoin, onLeave, myRequests }) {
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 <span className="uppercase text-xs font-semibold tracking-wide bg-white/20 px-2 py-1 rounded-full">
-                  {club.category || 'club'}
+                  {getCategoryBadgeLabel(club.category)}
                 </span>
                 {club.sportType && (
                   <span className="text-xs bg-white/20 px-2 py-1 rounded-full">{club.sportType}</span>
@@ -95,7 +108,7 @@ function ClubDetailModal({ club, onClose, onJoin, onLeave, myRequests }) {
         <div className="p-6 space-y-6">
           {club.description && (
             <div>
-              <h3 className="font-semibold text-gray-800 mb-2">About this club</h3>
+              <h3 className="font-semibold text-gray-800 mb-2">About this {entityLabel}</h3>
               <p className="text-gray-600 text-sm leading-relaxed">{club.description}</p>
             </div>
           )}
@@ -164,7 +177,7 @@ function ClubDetailModal({ club, onClose, onJoin, onLeave, myRequests }) {
               <textarea
                 value={joinMsg}
                 onChange={(e) => setJoinMsg(e.target.value)}
-                placeholder="Introduce yourself to the club (optional)"
+                placeholder={`Introduce yourself to the ${entityLabel} (optional)`}
                 className="w-full h-24 border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               />
               <button
@@ -363,7 +376,7 @@ export default function ClubsSports() {
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <h3 className="text-xl font-semibold text-gray-800">{item.title}</h3>
                         <span className="text-xs font-semibold uppercase bg-green-50 text-green-700 px-2 py-1 rounded-full">
-                          {item.category || 'club'}
+                          {getCategoryBadgeLabel(item.category)}
                         </span>
                       </div>
 
