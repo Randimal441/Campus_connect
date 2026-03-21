@@ -416,136 +416,163 @@ export default function EventsChill() {
   };
 
   return (
-    <div className="page">
+    <div className="min-h-screen bg-white flex flex-col">
       <Navbar />
-      <main className="main-content">
-        <div className="mb-8 animate-fade-in-up">
-          <div className="rounded-3xl bg-gradient-to-r from-primary to-primary-light p-6 md:p-8 shadow-lg border border-white/30">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="text-4xl">🎉</div>
-              <h1 className="!mb-0 !text-white">Event Dashboard</h1>
+      <main className="flex-1 px-4 py-8">
+        {/* Hero Section */}
+        <section className="mb-12 rounded-2xl bg-gradient-to-br from-green-50 to-white p-8 md:p-12 border border-green-100 animate-fade-in-up">
+          <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-12">
+            <div className="flex-1">
+              <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-6 leading-tight">
+                Discover and Join<br />
+                <span className="text-green-600">Campus Events</span>
+              </h1>
+              <p className="text-gray-600 mb-8 text-lg leading-relaxed">
+                Experience the vibrant campus life! Browse and participate in exciting events, 
+                workshops, competitions, and social gatherings. Connect with fellow students, 
+                develop new skills, and create lasting memories. Find the perfect event that 
+                matches your interests and join our growing community today.
+              </p>
+              <button
+                onClick={() => document.getElementById('events-grid').scrollIntoView({ behavior: 'smooth' })}
+                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                Explore Events
+              </button>
             </div>
           </div>
-        </div>
+        </section>
 
         {loading ? (
-          <div className="flex items-center justify-center min-h-[400px]">
+          <div className="flex items-center justify-center min-h-[400px] max-w-6xl mx-auto">
             <div className="text-center">
-              <div className="loader mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading upcoming events...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+              <p className="text-gray-500">Loading upcoming events...</p>
             </div>
           </div>
         ) : error ? (
-          <div className="text-center py-16 bg-muted rounded-2xl">
+          <div className="max-w-6xl mx-auto text-center py-16 bg-gray-50 rounded-2xl border border-gray-200 p-8">
             <div className="text-5xl mb-4">⚠️</div>
-            <p className="text-xl font-semibold text-muted-foreground mb-2">Unable to load events</p>
-            <p className="text-muted-foreground">{error}</p>
+            <p className="text-xl font-semibold text-gray-800 mb-2">Unable to load events</p>
+            <p className="text-gray-600">{error}</p>
           </div>
         ) : upcomingItems.length === 0 ? (
-          <div className="text-center py-16 bg-muted rounded-2xl">
+          <div className="max-w-6xl mx-auto text-center py-16 bg-gray-50 rounded-2xl border border-gray-200 p-8">
             <div className="text-6xl mb-4">🎪</div>
-            <p className="text-xl font-semibold text-muted-foreground mb-2">No upcoming events available</p>
-            <p className="text-muted-foreground">Stay tuned for the next campus event!</p>
+            <p className="text-xl font-semibold text-gray-800 mb-2">No upcoming events available</p>
+            <p className="text-gray-600">Stay tuned for the next campus event!</p>
           </div>
         ) : (
-          <div>
-            {applyMessage ? <p className="event-apply-success">{applyMessage}</p> : null}
-            {applyError ? <p className="event-apply-error">{applyError}</p> : null}
+          <div className="max-w-6xl mx-auto">
+            {applyMessage ? <p className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">{applyMessage}</p> : null}
+            {applyError ? <p className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{applyError}</p> : null}
 
-            <div className="event-dashboard-grid">
+            <div id="events-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {upcomingItems.map((item, index) => {
               const countdown = getCountdownData(item.date, now);
 
               return (
                 <div
                   key={item._id}
-                  className="event-card animate-fade-in"
+                  className="bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden animate-fade-in"
                   style={{ animationDelay: `${index * 0.05}s` }}
                 >
-                  <div className="event-card-image-wrap">
+                  {/* Card Image */}
+                  <div className="w-full h-48 bg-gray-100 overflow-hidden rounded-t-2xl">
                     {resolveImageUrl(item.image) ? (
                       <img
                         src={resolveImageUrl(item.image)}
                         alt={item.title}
-                        className="event-card-image"
+                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                       />
                     ) : (
-                      <div className="event-card-image-placeholder">No Image</div>
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-400">
+                        <span className="text-sm">No Image</span>
+                      </div>
                     )}
                   </div>
 
-                  <div className="event-card-header">
-                    <span className="event-card-type capitalize">{(item.eventType || 'event').replace('_', ' ')}</span>
-                    <h3 className="event-card-title text-sinhala">{item.title}</h3>
-                  </div>
-
-                  <p className="event-card-description text-sinhala">
-                    {item.description || 'No description provided for this event.'}
-                  </p>
-
-                  <div className="event-card-meta-list">
-                    <div className="event-card-meta-item">
-                      <span className="event-card-meta-label">Date</span>
-                      <span className="event-card-meta-value">
-                        {new Date(item.date).toLocaleDateString('en-GB', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
+                  {/* Card Body */}
+                  <div className="p-6">
+                    {/* Event Type Badge */}
+                    <div className="inline-block mb-3">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
+                        {(item.eventType || 'event').replace('_', ' ')}
                       </span>
                     </div>
-                  </div>
 
-                  <div className="event-countdown-wrap">
-                    <p className="event-countdown-label mb-2">{countdown.label}</p>
-                    {countdown.status === 'upcoming' ? (
-                      <div className="event-countdown-chips">
-                        <div className="countdown-chip">
-                          <span className="countdown-chip-value">{countdown.days}</span>
-                          <span className="countdown-chip-unit">Days</span>
+                    {/* Title */}
+                    <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2 text-sinhala">{item.title}</h3>
+
+                    {/* Description */}
+                    <p className="text-sm text-gray-600 mb-4 line-clamp-3 text-sinhala">
+                      {item.description || 'No description provided for this event.'}
+                    </p>
+
+                    {/* Countdown & Date */}
+                    <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-100">
+                      <p className="text-xs font-semibold text-green-600 mb-2">{countdown.label}</p>
+                      {countdown.status === 'upcoming' ? (
+                        <div className="flex gap-3">
+                          <div className="text-center">
+                            <div className="text-lg font-bold text-green-700">{countdown.days}</div>
+                            <div className="text-xs text-green-600">Days</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-lg font-bold text-green-700">{countdown.hours}</div>
+                            <div className="text-xs text-green-600">Hours</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-lg font-bold text-green-700">{countdown.minutes}</div>
+                            <div className="text-xs text-green-600">Minutes</div>
+                          </div>
                         </div>
-                        <div className="countdown-chip">
-                          <span className="countdown-chip-value">{countdown.hours}</span>
-                          <span className="countdown-chip-unit">Hours</span>
-                        </div>
-                        <div className="countdown-chip">
-                          <span className="countdown-chip-value">{countdown.minutes}</span>
-                          <span className="countdown-chip-unit">Minutes</span>
-                        </div>
+                      ) : (
+                        <div className="text-sm font-semibold text-green-700">{countdown.label}</div>
+                      )}
+                    </div>
+
+                    {/* Date */}
+                    <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600 border border-gray-100">
+                      <span className="font-semibold text-gray-700">📅 </span>
+                      {new Date(item.date).toLocaleDateString('en-GB', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </div>
+
+                    {/* Status Badges */}
+                    {isStudent ? (
+                      <div className="mb-4 flex flex-wrap gap-2">
+                        {(item.participationOptions || []).map((option) => {
+                          const status = getStudentApplicationStatus(item, option);
+                          if (!status) return null;
+
+                          const statusMeta = getStatusMeta(status);
+                          return (
+                            <button
+                              key={`${item._id}-${option}-status`}
+                              type="button"
+                              className={`px-3 py-1 rounded-full text-xs font-semibold cursor-default ${statusMeta.className}`}
+                              disabled
+                            >
+                              {formatOptionLabel(option)}: {statusMeta.label}
+                            </button>
+                          );
+                        })}
                       </div>
                     ) : null}
-                  </div>
 
-                  <div className="event-card-actions">
+                    {/* View More Button */}
                     <button
                       type="button"
-                      className="event-view-more-btn"
+                      className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-300"
                       onClick={() => openEventDetails(item)}
                     >
                       View More
                     </button>
                   </div>
-
-                  {isStudent ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {(item.participationOptions || []).map((option) => {
-                        const status = getStudentApplicationStatus(item, option);
-                        if (!status) return null;
-
-                        const statusMeta = getStatusMeta(status);
-                        return (
-                          <button
-                            key={`${item._id}-${option}-status`}
-                            type="button"
-                            className={`px-3 py-1 rounded-full text-xs font-semibold cursor-default ${statusMeta.className}`}
-                            disabled
-                          >
-                            {formatOptionLabel(option)}: {statusMeta.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
                 </div>
               );
             })}
@@ -554,28 +581,41 @@ export default function EventsChill() {
         )}
 
         {selectedEvent ? (
-          <div className="event-modal-backdrop" onClick={closeEventDetails}>
-            <div className="event-modal" onClick={(event) => event.stopPropagation()}>
-              <div className="event-modal-header">
-                <h3 className="mb-0">{selectedOptions.length > 0 ? 'Participation Application Forms' : 'Event Details'}</h3>
-                <button type="button" className="event-modal-close-btn" onClick={closeEventDetails}>X</button>
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in overflow-y-auto" onClick={closeEventDetails}>
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-2xl my-8 animate-scale-in" onClick={(event) => event.stopPropagation()}>
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
+                <h3 className="text-xl font-semibold text-gray-800 mb-0">
+                  {selectedOptions.length > 0 ? 'Application Form' : 'Event Details'}
+                </h3>
+                <button 
+                  type="button" 
+                  className="text-gray-400 hover:text-gray-600 text-2xl w-8 h-8 flex items-center justify-center"
+                  onClick={closeEventDetails}
+                >
+                  ×
+                </button>
               </div>
 
-              {selectedOptions.length > 0 ? (
+              {/* Modal Body */}
+              <div className="overflow-y-auto max-h-[calc(100vh-200px)]">
+
+                {selectedOptions.length > 0 ? (
                 <form
-                  className="event-application-form"
+                  className="p-6 space-y-6"
                   onSubmit={(event) => {
                     event.preventDefault();
                     handleApplySelected(selectedEvent._id);
                   }}
                 >
-                  <p className="event-application-subtitle">
-                    Fill and submit all selected participation applications for <strong>{selectedEvent.title}</strong>.
+                  <p className="text-gray-600">
+                    Fill and submit all selected participation applications for <strong className="text-gray-800">{selectedEvent.title}</strong>.
                   </p>
 
-                  <div className="event-modal-participation-wrap">
-                    <p className="event-participation-title mb-2">Available Participation Options (Click to select)</p>
-                    <div className="event-option-list">
+                  {/* Participation Options */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Select Participation Options</h4>
+                    <div className="flex flex-wrap gap-2">
                       {selectedEvent.participationOptions.map((option) => {
                         const status = getStudentApplicationStatus(selectedEvent, option);
                         const applied = !!status;
@@ -588,8 +628,8 @@ export default function EventsChill() {
                             type="button"
                             className={
                               applied
-                                ? `px-3 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
-                                : `event-option-btn ${selected ? 'selected' : ''}`
+                                ? `px-4 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
+                                : `px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-200 ${selected ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-200 bg-white text-gray-700 hover:border-green-500'}`
                             }
                             onClick={() => toggleApplicationOption(option)}
                             disabled={applied}
@@ -598,7 +638,7 @@ export default function EventsChill() {
                             {applied
                               ? `(${statusMeta.label})`
                               : selected
-                                ? '(Selected)'
+                                ? '✓'
                                 : ''}
                           </button>
                         );
@@ -606,22 +646,23 @@ export default function EventsChill() {
                     </div>
                   </div>
 
+                  {/* Form Fields for Selected Options */}
                   {selectedOptions.map((option) => {
                     const templateQuestions = getParticipationTemplate(selectedEvent, option);
                     const optionAnswers = applicationAnswersByOption[option] || {};
 
                     return (
-                      <div key={option} className="event-selected-option-section">
-                        <h4 className="event-selected-option-title mb-1">{formatOptionLabel(option)}</h4>
+                      <div key={option} className="pt-4 border-t border-gray-100">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-4">{formatOptionLabel(option)} Details</h4>
 
                         {templateQuestions.length > 0 ? (
-                          <div className="event-application-grid">
+                          <div className="space-y-4">
                             {templateQuestions.map((question) => (
-                              <label key={`${option}-${question.key}`} className="event-application-field">
-                                <span>
+                              <div key={`${option}-${question.key}`}>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
                                   {question.label}
-                                  {question.required ? ' *' : ''}
-                                </span>
+                                  {question.required ? <span className="text-red-500 ml-1">*</span> : ''}
+                                </label>
                                 <textarea
                                   rows={3}
                                   value={optionAnswers[question.key] || ''}
@@ -629,15 +670,19 @@ export default function EventsChill() {
                                     handleApplicationFieldChange(option, question.key, event.target.value)
                                   }
                                   required={question.required !== false}
+                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                 />
-                              </label>
+                              </div>
                             ))}
                           </div>
                         ) : (
                           <>
-                            <div className="event-application-grid">
-                              <label className="event-application-field">
-                                <span>Full Name</span>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Full Name
+                                  <span className="text-red-500 ml-1">*</span>
+                                </label>
                                 <input
                                   type="text"
                                   value={optionAnswers.fullName || ''}
@@ -645,11 +690,15 @@ export default function EventsChill() {
                                     handleApplicationFieldChange(option, 'fullName', event.target.value)
                                   }
                                   required
+                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                 />
-                              </label>
+                              </div>
 
-                              <label className="event-application-field">
-                                <span>Email</span>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Email
+                                  <span className="text-red-500 ml-1">*</span>
+                                </label>
                                 <input
                                   type="email"
                                   value={optionAnswers.email || ''}
@@ -657,11 +706,15 @@ export default function EventsChill() {
                                     handleApplicationFieldChange(option, 'email', event.target.value)
                                   }
                                   required
+                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                 />
-                              </label>
+                              </div>
 
-                              <label className="event-application-field">
-                                <span>Phone Number</span>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Phone Number
+                                  <span className="text-red-500 ml-1">*</span>
+                                </label>
                                 <input
                                   type="text"
                                   value={optionAnswers.phone || ''}
@@ -670,12 +723,16 @@ export default function EventsChill() {
                                   }
                                   placeholder="07X XXX XXXX"
                                   required
+                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                 />
-                              </label>
+                              </div>
                             </div>
 
-                            <label className="event-application-field">
-                              <span>Why are you applying for this role?</span>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Why are you applying for this role?
+                                <span className="text-red-500 ml-1">*</span>
+                              </label>
                               <textarea
                                 rows={4}
                                 value={optionAnswers.notes || ''}
@@ -684,18 +741,20 @@ export default function EventsChill() {
                                 }
                                 placeholder="Share your relevant skills, interest, or experience."
                                 required
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                               />
-                            </label>
+                            </div>
                           </>
                         )}
                       </div>
                     );
                   })}
 
-                  <div className="event-application-actions">
+                  {/* Form Actions */}
+                  <div className="flex gap-3 pt-6 border-t border-gray-100">
                     <button
                       type="button"
-                      className="event-secondary-btn"
+                      className="flex-1 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all duration-300"
                       onClick={() => {
                         setSelectedOptions([]);
                         setApplicationAnswersByOption({});
@@ -705,7 +764,7 @@ export default function EventsChill() {
                     </button>
                     <button
                       type="submit"
-                      className="event-primary-btn"
+                      className="flex-1 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                       disabled={applyingKey === selectedEvent._id}
                     >
                       {applyingKey === selectedEvent._id
@@ -715,57 +774,69 @@ export default function EventsChill() {
                   </div>
                 </form>
               ) : (
-                <div className="event-modal-content">
+                <div className="p-6 space-y-6">
+                  {/* Event Image */}
                   {resolveImageUrl(selectedEvent.image) ? (
-                    <img
-                      src={resolveImageUrl(selectedEvent.image)}
-                      alt={selectedEvent.title}
-                      className="event-modal-image"
-                    />
+                    <div className="w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
+                      <img
+                        src={resolveImageUrl(selectedEvent.image)}
+                        alt={selectedEvent.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                   ) : null}
 
-                  <h3 className="event-modal-title text-sinhala">{selectedEvent.title}</h3>
-                  <p className="event-modal-description text-sinhala">
-                    {selectedEvent.description || 'No description provided for this event.'}
-                  </p>
+                  {/* Event Title */}
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-800 text-sinhala">{selectedEvent.title}</h3>
+                  </div>
 
-                  <div className="event-card-meta-list">
-                    <div className="event-card-meta-item">
-                      <span className="event-card-meta-label">Date</span>
-                      <span className="event-card-meta-value">
+                  {/* Event Description */}
+                  <div>
+                    <p className="text-gray-600 text-sinhala leading-relaxed">
+                      {selectedEvent.description || 'No description provided for this event.'}
+                    </p>
+                  </div>
+
+                  {/* Event Details */}
+                  <div className="space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                    <div>
+                      <span className="text-xs font-semibold text-gray-500 uppercase">Date</span>
+                      <p className="text-gray-700 font-medium">
                         {new Date(selectedEvent.date).toLocaleDateString('en-GB', {
                           year: 'numeric',
                           month: 'long',
                           day: 'numeric',
                         })}
-                      </span>
+                      </p>
                     </div>
-                    <div className="event-card-meta-item">
-                      <span className="event-card-meta-label">Time</span>
-                      <span className="event-card-meta-value">
+                    <div className="border-t border-gray-200 pt-3">
+                      <span className="text-xs font-semibold text-gray-500 uppercase">Time</span>
+                      <p className="text-gray-700 font-medium">
                         {new Date(selectedEvent.date).toLocaleTimeString('en-GB', {
                           hour: '2-digit',
                           minute: '2-digit',
                         })}
-                      </span>
+                      </p>
                     </div>
-                    <div className="event-card-meta-item">
-                      <span className="event-card-meta-label">Location</span>
-                      <span className="event-card-meta-value text-sinhala">{selectedEvent.location || 'TBA'}</span>
+                    <div className="border-t border-gray-200 pt-3">
+                      <span className="text-xs font-semibold text-gray-500 uppercase">Location</span>
+                      <p className="text-gray-700 font-medium text-sinhala">{selectedEvent.location || 'TBA'}</p>
                     </div>
                   </div>
 
-                  <div className="event-modal-participation-wrap">
-                    <p className="event-participation-title mb-2">Available Participation Options</p>
+                  {/* Participation Options */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Participation Opportunities</h4>
 
                     {!isStudent ? (
-                      <p className="event-participation-empty mb-2">
+                      <p className="text-gray-500 text-sm bg-blue-50 border border-blue-100 rounded-lg p-3">
                         Participation applications can be submitted by student accounts only.
                       </p>
                     ) : null}
 
                     {Array.isArray(selectedEvent.participationOptions) && selectedEvent.participationOptions.length > 0 ? (
-                      <div className="event-option-list">
+                      <div className="flex flex-wrap gap-2">
                         {selectedEvent.participationOptions.map((option) => {
                           const status = getStudentApplicationStatus(selectedEvent, option);
                           const applied = !!status;
@@ -778,8 +849,8 @@ export default function EventsChill() {
                               type="button"
                               className={
                                 applied
-                                  ? `px-3 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
-                                  : `event-option-btn ${selected ? 'selected' : ''}`
+                                  ? `px-4 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
+                                  : `px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-200 ${selected ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-200 bg-white text-gray-700 hover:border-green-500'}`
                               }
                               onClick={() => toggleApplicationOption(option)}
                               disabled={applied}
@@ -788,19 +859,44 @@ export default function EventsChill() {
                               {applied
                                 ? `(${statusMeta.label})`
                                 : selected
-                                  ? '(Selected)'
+                                  ? '✓'
                                   : ''}
                             </button>
                           );
                         })}
                       </div>
                     ) : (
-                      <p className="event-participation-empty mb-0">No participation roles are open for this event.</p>
+                      <p className="text-gray-500 text-sm">No participation roles are open for this event.</p>
                     )}
                   </div>
+
+                  {/* Action Buttons */}
+                  {isStudent && selectedEvent.participationOptions && selectedEvent.participationOptions.length > 0 && (
+                    <div className="flex gap-3 pt-4 border-t border-gray-100">
+                      <button
+                        type="button"
+                        className="flex-1 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all duration-300"
+                        onClick={closeEventDetails}
+                      >
+                        Close
+                      </button>
+                      {selectedOptions.length > 0 && (
+                        <button
+                          type="button"
+                          className="flex-1 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300"
+                          onClick={() => {
+                            // Form section will now show
+                          }}
+                        >
+                          Apply Now
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
+          </div>
           </div>
         ) : null}
       </main>
