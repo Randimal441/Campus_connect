@@ -206,8 +206,8 @@ const getPublicSessionsByCounselor = async (req, res, next) => {
         _id:       slot._id,
         startTime: slot.startTime,
         endTime:   slot.endTime,
-        isBooked:  slot.isBooked,  // student only needs to know if slot is taken
-        // booking details are NOT included
+        isBooked:  slot.isBooked, 
+        bookedBy: req.user && slot.bookedBy && slot.bookedBy.toString() === req.user._id.toString() ? slot.bookedBy : null,
       })),
     }));
 
@@ -284,7 +284,10 @@ const bookSlot = async (req, res, next) => {
     if (slot.isBooked) return res.status(400).json({ message: 'Slot already booked.' });
 
     // Call Gemini to analyze mental status
-    const { riskLevel, riskSummary } = await analyzeMentalStatus(answers);
+    //following line comment to stop work of gemini api key
+    //const { riskLevel, riskSummary } = await analyzeMentalStatus(answers);
+    const riskLevel = 'medium'; // this one is tempory
+    const riskSummary = 'AI summary temporarily unavailable. Manual review required.'; //this one is tempory
 
     // Use authenticated user info (fullName) for student name; avoid an extra DB call
     const studentName = req.user.fullName || 'Unknown';

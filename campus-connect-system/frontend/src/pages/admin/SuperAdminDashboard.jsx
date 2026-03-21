@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import Button from '@/components/ui/button';
+import { toast } from 'react-toastify';
 
 /* ────── main component ──────────────────────── */
 export default function SuperAdminDashboard() {
@@ -77,7 +78,7 @@ export default function SuperAdminDashboard() {
       await api(`/approvals/${id}/approve`, { method: 'PATCH' });
       setPending((p) => p.filter((u) => u._id !== id));
     } catch (e) {
-      alert(e.message);
+      toast.error(e.message);
     }
   };
 
@@ -86,7 +87,7 @@ export default function SuperAdminDashboard() {
       await api(`/approvals/${id}/reject`, { method: 'DELETE' });
       setPending((p) => p.filter((u) => u._id !== id));
     } catch (e) {
-      alert(e.message);
+      toast.error(e.message);
     }
   };
 
