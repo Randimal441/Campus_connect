@@ -9,6 +9,7 @@ const ALLOWED_PARTICIPATION_OPTIONS = [
   'organizing_committee',
 ];
 const ALLOWED_APPLICATION_STATUSES = ['approved', 'rejected'];
+const EMAIL_HAS_AT_REGEX = /^[^\s@]+@[^\s@]+$/;
 
 const normalizeParticipationOptions = (value) => {
   if (!value) return [];
@@ -40,6 +41,62 @@ const normalizeParticipationOptions = (value) => {
 };
 
 const sanitizeApplicationField = (value) => String(value || '').trim();
+
+const normalizeSubmittedAnswers = (rawAnswers) => (
+  Array.isArray(rawAnswers)
+    ? rawAnswers.map((answer) => ({
+        questionKey: sanitizeApplicationField(answer?.questionKey),
+        label: sanitizeApplicationField(answer?.label),
+        answer: sanitizeApplicationField(answer?.answer),
+      }))
+    : []
+);
+
+const validateApplicationPayload = (application, formQuestions) => {
+  const submittedAnswers = normalizeSubmittedAnswers(application?.answers);
+
+  if (formQuestions.length > 0) {
+    const answersMap = new Map(
+      submittedAnswers.map((entry) => [entry.questionKey, entry.answer])
+    );
+
+    const missingRequired = formQuestions.some(
+      (question) => question.required && !sanitizeApplicationField(answersMap.get(question.key))
+    );
+
+    if (missingRequired) {
+      throw new Error('Please complete all required questions in the application form.');
+    }
+  } else {
+    const fullName = sanitizeApplicationField(application?.fullName);
+    const email = sanitizeApplicationField(application?.email);
+    const phone = sanitizeApplicationField(application?.phone);
+    const notes = sanitizeApplicationField(application?.notes);
+
+    if (!fullName || !email || !phone || !notes) {
+      throw new Error('Please complete the participation application form.');
+    }
+
+    if (!EMAIL_HAS_AT_REGEX.test(email)) {
+      throw new Error('Email address must include @.');
+    }
+  }
+
+  const fullName = sanitizeApplicationField(application?.fullName);
+  const email = sanitizeApplicationField(application?.email);
+  const phone = sanitizeApplicationField(application?.phone);
+  const notes = sanitizeApplicationField(application?.notes);
+
+  return {
+    fullName,
+    email,
+    phone,
+    notes,
+    answers: submittedAnswers.filter(
+      (entry) => entry.questionKey && entry.label && entry.answer
+    ),
+  };
+};
 
 const normalizeParticipationForms = (value, selectedOptions = []) => {
   if (!value) return [];
@@ -329,68 +386,27 @@ const applyForParticipation = async (req, res, next) => {
       return res.status(400).json({ message: 'You have already applied for this role.' });
     }
 
-    const submittedAnswers = Array.isArray(application?.answers)
-      ? application.answers.map((answer) => ({
-          questionKey: sanitizeApplicationField(answer?.questionKey),
-          label: sanitizeApplicationField(answer?.label),
-          answer: sanitizeApplicationField(answer?.answer),
-        }))
-      : [];
+    const validatedApplication = validateApplicationPayload(application, formQuestions);
 
-    if (formQuestions.length > 0) {
-      const answersMap = new Map(
-        submittedAnswers.map((entry) => [entry.questionKey, entry.answer])
-      );
-
-      const missingRequired = formQuestions.some(
-        (question) => question.required && !sanitizeApplicationField(answersMap.get(question.key))
-      );
-
-      if (missingRequired) {
-        return res.status(400).json({
-          message: 'Please complete all required questions in the application form.',
-        });
-      }
-    } else {
-      const fullName = sanitizeApplicationField(application?.fullName);
-      const email = sanitizeApplicationField(application?.email);
-      const phone = sanitizeApplicationField(application?.phone);
-      const notes = sanitizeApplicationField(application?.notes);
-
-      if (!fullName || !email || !phone || !notes) {
-        return res.status(400).json({
-          message: 'Please complete the participation application form.',
-        });
-      }
-    }
-
-    const fullName = sanitizeApplicationField(application?.fullName);
-    const email = sanitizeApplicationField(application?.email);
-    const phone = sanitizeApplicationField(application?.phone);
-    const notes = sanitizeApplicationField(application?.notes);
-
-    await ParticipationApplication.create({
+    const created = await ParticipationApplication.create({
       event: item._id,
       student: req.user._id,
       option,
-      application: {
-        fullName,
-        email,
-        phone,
-        notes,
-        answers: submittedAnswers.filter(
-          (entry) => entry.questionKey && entry.label && entry.answer
-        ),
-      },
+      application: validatedApplication,
     });
 
     return res.json({
       message: 'Application submitted successfully.',
       eventId: item._id,
+      applicationId: created._id,
       option,
       status: 'pending',
+      application: created.application,
     });
   } catch (error) {
+    if (error.message?.includes('Please complete') || error.message?.includes('must include @')) {
+      return res.status(400).json({ message: error.message });
+    }
     next(error);
   }
 };
@@ -401,7 +417,7 @@ const getMyApplications = async (req, res, next) => {
     const applications = await ParticipationApplication.find({
       student: req.user._id,
     })
-      .select('event option status createdAt reviewedAt')
+      .select('event option status application createdAt reviewedAt')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -410,6 +426,7 @@ const getMyApplications = async (req, res, next) => {
       eventId: entry.event,
       option: entry.option,
       status: entry.status,
+      application: entry.application,
       appliedAt: entry.createdAt,
       reviewedAt: entry.reviewedAt,
     }));
@@ -470,6 +487,85 @@ const updateApplicationStatus = async (req, res, next) => {
   }
 };
 
+const updateOwnParticipationApplication = async (req, res, next) => {
+  try {
+    const { id: eventId, applicationId } = req.params;
+    const item = await Events.findById(eventId);
+    if (!item) return res.status(404).json({ message: 'Event not found.' });
+
+    const participationApplication = await ParticipationApplication.findOne({
+      _id: applicationId,
+      event: eventId,
+      student: req.user._id,
+    });
+
+    if (!participationApplication) {
+      return res.status(404).json({ message: 'Application not found.' });
+    }
+
+    if (participationApplication.status !== 'pending') {
+      return res.status(400).json({ message: 'Only pending applications can be updated.' });
+    }
+
+    const participationForm = (item.participationForms || []).find(
+      (form) => form.option === participationApplication.option
+    );
+    const formQuestions = Array.isArray(participationForm?.questions)
+      ? participationForm.questions
+      : [];
+
+    const validatedApplication = validateApplicationPayload(req.body?.application, formQuestions);
+
+    participationApplication.application = validatedApplication;
+    await participationApplication.save();
+
+    return res.json({
+      message: 'Application updated successfully.',
+      eventId,
+      applicationId: participationApplication._id,
+      option: participationApplication.option,
+      status: participationApplication.status,
+      application: participationApplication.application,
+    });
+  } catch (error) {
+    if (error.message?.includes('Please complete') || error.message?.includes('must include @')) {
+      return res.status(400).json({ message: error.message });
+    }
+    next(error);
+  }
+};
+
+const removeOwnParticipationApplication = async (req, res, next) => {
+  try {
+    const { id: eventId, applicationId } = req.params;
+
+    const participationApplication = await ParticipationApplication.findOne({
+      _id: applicationId,
+      event: eventId,
+      student: req.user._id,
+    });
+
+    if (!participationApplication) {
+      return res.status(404).json({ message: 'Application not found.' });
+    }
+
+    if (participationApplication.status !== 'pending') {
+      return res.status(400).json({ message: 'Only pending applications can be removed.' });
+    }
+
+    await ParticipationApplication.deleteOne({ _id: participationApplication._id });
+
+    return res.json({
+      message: 'Application removed successfully.',
+      eventId,
+      applicationId,
+      option: participationApplication.option,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAll,
   getUpcoming,
@@ -479,5 +575,7 @@ module.exports = {
   attendEvent,
   applyForParticipation,
   getMyApplications,
+  updateOwnParticipationApplication,
+  removeOwnParticipationApplication,
   updateApplicationStatus,
 };

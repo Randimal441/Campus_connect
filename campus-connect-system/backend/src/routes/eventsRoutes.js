@@ -8,6 +8,8 @@ const {
   remove,
   attendEvent,
   applyForParticipation,
+  updateOwnParticipationApplication,
+  removeOwnParticipationApplication,
   updateApplicationStatus,
 } = require('../controllers/eventsController');
 const { protect } = require('../middlewares/authMiddleware');
@@ -42,6 +44,16 @@ router.patch(
   '/:id/applications/:applicationId/status',
   restrictTo('super_admin', 'event_coordinator'),
   updateApplicationStatus
+);
+router.patch(
+  '/:id/applications/:applicationId',
+  restrictTo('student'),
+  updateOwnParticipationApplication
+);
+router.delete(
+  '/:id/applications/:applicationId',
+  restrictTo('student'),
+  removeOwnParticipationApplication
 );
 router.delete('/:id', restrictTo('super_admin', 'event_coordinator'), remove);
 router.post('/:id/attend', restrictTo('student'), attendEvent);
