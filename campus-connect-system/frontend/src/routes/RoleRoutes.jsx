@@ -23,7 +23,7 @@ export default function RoleRoutes() {
     case ROLES.CONSULTANT:
       return <AdminLayout><ConsultantDashboard /></AdminLayout>;
     case ROLES.EVENT_COORDINATOR:
-      return <AdminLayout><EventCoordinatorDashboard /></AdminLayout>;
+      return <UserHome />;
     case ROLES.STUDENT:
     default:
       return <UserHome />;

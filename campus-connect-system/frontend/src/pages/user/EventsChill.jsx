@@ -104,25 +104,10 @@ export default function EventsChill() {
   const [applyMessage, setApplyMessage] = useState('');
   const [applyError, setApplyError] = useState('');
   const [applyingKey, setApplyingKey] = useState('');
-  const [applicationStatusMap, setApplicationStatusMap] = useState({});
-  const [applicationMetaMap, setApplicationMetaMap] = useState({});
+  const [appliedMap, setAppliedMap] = useState({});
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [applicationAnswersByOption, setApplicationAnswersByOption] = useState({});
-  const [participationFieldErrors, setParticipationFieldErrors] = useState({});
-  const [participationFieldTouched, setParticipationFieldTouched] = useState({});
-  const [participationSubmitAttempted, setParticipationSubmitAttempted] = useState(false);
-  const [isAskPanelOpen, setIsAskPanelOpen] = useState(false);
-  const [askForm, setAskForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    question: '',
-  });
-  const [askFormErrors, setAskFormErrors] = useState({});
-  const [askFormMessage, setAskFormMessage] = useState('');
-  const [askFormTouched, setAskFormTouched] = useState({});
-  const [askSubmitAttempted, setAskSubmitAttempted] = useState(false);
 
   const optionLabelMap = useMemo(
     () =>
@@ -134,51 +119,17 @@ export default function EventsChill() {
   );
 
   useEffect(() => {
-    let isCancelled = false;
-
-    const loadEventData = async () => {
-      setLoading(true);
-      try {
-        const [events, myApplications] = await Promise.all([
-          getUpcomingEvents(),
-          isStudent ? getMyEventApplications() : Promise.resolve([]),
-        ]);
-
-        if (isCancelled) return;
-
-        const statusMap = {};
-        const metadataMap = {};
-        myApplications.forEach((entry) => {
-          const key = getApplicationKey(entry.eventId, entry.option);
-          statusMap[key] = entry.status;
-          metadataMap[key] = {
-            id: entry.id,
-            status: entry.status,
-            application: entry.application || {},
-          };
-        });
-
+    getUpcomingEvents()
+      .then((events) => {
         setItems(events);
-        setApplicationStatusMap(statusMap);
-        setApplicationMetaMap(metadataMap);
         setError('');
-      } catch (err) {
-        if (isCancelled) return;
+      })
+      .catch((err) => {
         setItems([]);
-        setApplicationStatusMap({});
-        setApplicationMetaMap({});
         setError(err.message || 'Unable to load upcoming events right now.');
-      } finally {
-        if (!isCancelled) setLoading(false);
-      }
-    };
-
-    loadEventData();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [isStudent]);
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -187,43 +138,6 @@ export default function EventsChill() {
 
     return () => clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    if (!isStudent) return undefined;
-
-    let isCancelled = false;
-    const refreshStatuses = async () => {
-      try {
-        const myApplications = await getMyEventApplications();
-        if (isCancelled) return;
-
-        const statusMap = {};
-        const metadataMap = {};
-        myApplications.forEach((entry) => {
-          const key = getApplicationKey(entry.eventId, entry.option);
-          statusMap[key] = entry.status;
-          metadataMap[key] = {
-            id: entry.id,
-            status: entry.status,
-            application: entry.application || {},
-          };
-        });
-
-        setApplicationStatusMap(statusMap);
-        setApplicationMetaMap(metadataMap);
-      } catch {
-        // Keep the last known status map if polling fails.
-      }
-    };
-
-    const intervalId = setInterval(refreshStatuses, 15000);
-    refreshStatuses();
-
-    return () => {
-      isCancelled = true;
-      clearInterval(intervalId);
-    };
-  }, [isStudent]);
 
   const upcomingItems = useMemo(() => {
     const todayStart = new Date();
@@ -331,31 +245,26 @@ export default function EventsChill() {
     };
   };
 
-  const getStudentApplicationStatus = (eventItem, option) => {
-    if (!user?._id) return '';
+  const hasStudentApplied = (eventItem, option) => {
+    if (!user?._id) return false;
 
-    const statusFromMap = applicationStatusMap[getApplicationKey(eventItem._id, option)];
-    if (statusFromMap) return statusFromMap;
+    const alreadyAppliedInSession = !!appliedMap[`${eventItem._id}:${option}`];
+    if (alreadyAppliedInSession) return true;
 
     const applications = Array.isArray(eventItem.participationApplications)
       ? eventItem.participationApplications
       : [];
 
-    const matched = applications.find((entry) => {
+    return applications.some((entry) => {
       const studentId = typeof entry.student === 'object' ? entry.student?._id : entry.student;
       return String(studentId) === String(user._id) && entry.option === option;
     });
-
-    return matched?.status || '';
   };
 
   const openEventDetails = (eventItem) => {
     setSelectedEvent(eventItem);
     setSelectedOptions([]);
     setApplicationAnswersByOption({});
-    setParticipationFieldErrors({});
-    setParticipationFieldTouched({});
-    setParticipationSubmitAttempted(false);
     setApplyError('');
     setApplyMessage('');
   };
@@ -364,9 +273,6 @@ export default function EventsChill() {
     setSelectedEvent(null);
     setSelectedOptions([]);
     setApplicationAnswersByOption({});
-    setParticipationFieldErrors({});
-    setParticipationFieldTouched({});
-    setParticipationSubmitAttempted(false);
     setApplyingKey('');
   };
 
@@ -379,20 +285,6 @@ export default function EventsChill() {
         setApplicationAnswersByOption((answersPrev) => {
           const next = { ...answersPrev };
           delete next[option];
-          return next;
-        });
-        setParticipationFieldErrors((errorsPrev) => {
-          const next = { ...errorsPrev };
-          Object.keys(next).forEach((key) => {
-            if (key.startsWith(`${option}.`)) delete next[key];
-          });
-          return next;
-        });
-        setParticipationFieldTouched((touchedPrev) => {
-          const next = { ...touchedPrev };
-          Object.keys(next).forEach((key) => {
-            if (key.startsWith(`${option}.`)) delete next[key];
-          });
           return next;
         });
         return prev.filter((value) => value !== option);
@@ -653,6 +545,18 @@ export default function EventsChill() {
         const next = { ...prev };
         appliedKeys.forEach((key) => {
           next[key] = 'pending';
+      for (const submission of validatedSubmissions) {
+        await applyForParticipation(eventId, {
+          option: submission.option,
+          application: submission.application,
+        });
+      }
+
+      const appliedKeys = validatedSubmissions.map((submission) => `${eventId}:${submission.option}`);
+      setAppliedMap((prev) => {
+        const next = { ...prev };
+        appliedKeys.forEach((key) => {
+          next[key] = true;
         });
         return next;
       });
@@ -708,7 +612,7 @@ export default function EventsChill() {
 
           return {
             ...eventItem,
-            participationApplications: [...filteredExisting, ...newApplications],
+            participationApplications: [...existingApps, ...newApplications],
           };
         })
       );
@@ -728,7 +632,7 @@ export default function EventsChill() {
 
         return {
           ...prev,
-          participationApplications: [...filteredExisting, ...newApplications],
+          participationApplications: [...existingApps, ...newApplications],
         };
       });
 
@@ -888,7 +792,16 @@ export default function EventsChill() {
               >
                 Explore Events
               </button>
+      <main className="main-content">
+        <div className="mb-8 animate-fade-in-up">
+          <div className="rounded-3xl bg-gradient-to-r from-primary to-primary-light p-6 md:p-8 shadow-lg border border-white/30">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="text-4xl">🎉</div>
+              <h1 className="!mb-0 !text-white">Event Dashboard</h1>
             </div>
+            <p className="!mb-0 text-white/90 text-base md:text-lg">
+              Discover upcoming campus events including Viramaya (විරාමය), competitions, Leo Club events, and MS Club events.
+            </p>
           </div>
         </section>
 
@@ -1017,6 +930,28 @@ export default function EventsChill() {
             ) : null}
 
             <div id="events-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="loader mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading upcoming events...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="text-center py-16 bg-muted rounded-2xl">
+            <div className="text-5xl mb-4">⚠️</div>
+            <p className="text-xl font-semibold text-muted-foreground mb-2">Unable to load events</p>
+            <p className="text-muted-foreground">{error}</p>
+          </div>
+        ) : upcomingItems.length === 0 ? (
+          <div className="text-center py-16 bg-muted rounded-2xl">
+            <div className="text-6xl mb-4">🎪</div>
+            <p className="text-xl font-semibold text-muted-foreground mb-2">No upcoming events available</p>
+            <p className="text-muted-foreground">Stay tuned for the next campus event!</p>
+          </div>
+        ) : (
+          <div>
+            {applyMessage ? <p className="event-apply-success">{applyMessage}</p> : null}
+            {applyError ? <p className="event-apply-error">{applyError}</p> : null}
+
+            <div className="event-dashboard-grid">
             {upcomingItems.map((item, index) => {
               const countdown = getCountdownData(item.date, now);
 
@@ -1028,6 +963,10 @@ export default function EventsChill() {
                 >
                   {/* Card Image */}
                   <div className="w-full h-48 bg-gray-100 overflow-hidden rounded-t-2xl">
+                  className="event-card animate-fade-in"
+                  style={{ animationDelay: `${index * 0.05}s` }}
+                >
+                  <div className="event-card-image-wrap">
                     {resolveImageUrl(item.image) ? (
                       <img
                         src={resolveImageUrl(item.image)}
@@ -1406,6 +1345,27 @@ export default function EventsChill() {
                       <span className="text-xs font-semibold text-gray-500 uppercase">Date</span>
                       <p className="text-gray-700 font-medium">
                         {new Date(selectedEvent.date).toLocaleDateString('en-GB', {
+                        className="event-card-image"
+                      />
+                    ) : (
+                      <div className="event-card-image-placeholder">No Image</div>
+                    )}
+                  </div>
+
+                  <div className="event-card-header">
+                    <span className="event-card-type capitalize">{(item.eventType || 'event').replace('_', ' ')}</span>
+                    <h3 className="event-card-title text-sinhala">{item.title}</h3>
+                  </div>
+
+                  <p className="event-card-description text-sinhala">
+                    {item.description || 'No description provided for this event.'}
+                  </p>
+
+                  <div className="event-card-meta-list">
+                    <div className="event-card-meta-item">
+                      <span className="event-card-meta-label">Date</span>
+                      <span className="event-card-meta-value">
+                        {new Date(item.date).toLocaleDateString('en-GB', {
                           year: 'numeric',
                           month: 'long',
                           day: 'numeric',
@@ -1523,6 +1483,270 @@ export default function EventsChill() {
               )}
             </div>
           </div>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="event-countdown-wrap">
+                    <p className="event-countdown-label mb-2">{countdown.label}</p>
+                    {countdown.status === 'upcoming' ? (
+                      <div className="event-countdown-chips">
+                        <div className="countdown-chip">
+                          <span className="countdown-chip-value">{countdown.days}</span>
+                          <span className="countdown-chip-unit">Days</span>
+                        </div>
+                        <div className="countdown-chip">
+                          <span className="countdown-chip-value">{countdown.hours}</span>
+                          <span className="countdown-chip-unit">Hours</span>
+                        </div>
+                        <div className="countdown-chip">
+                          <span className="countdown-chip-value">{countdown.minutes}</span>
+                          <span className="countdown-chip-unit">Minutes</span>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="event-card-actions">
+                    <button
+                      type="button"
+                      className="event-view-more-btn"
+                      onClick={() => openEventDetails(item)}
+                    >
+                      View More
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            </div>
+          </div>
+        )}
+
+        {selectedEvent ? (
+          <div className="event-modal-backdrop" onClick={closeEventDetails}>
+            <div className="event-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="event-modal-header">
+                <h3 className="mb-0">{selectedOptions.length > 0 ? 'Participation Application Forms' : 'Event Details'}</h3>
+                <button type="button" className="event-modal-close-btn" onClick={closeEventDetails}>X</button>
+              </div>
+
+              {selectedOptions.length > 0 ? (
+                <form
+                  className="event-application-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    handleApplySelected(selectedEvent._id);
+                  }}
+                >
+                  <p className="event-application-subtitle">
+                    Fill and submit all selected participation applications for <strong>{selectedEvent.title}</strong>.
+                  </p>
+
+                  <div className="event-modal-participation-wrap">
+                    <p className="event-participation-title mb-2">Available Participation Options (Click to select)</p>
+                    <div className="event-option-list">
+                      {selectedEvent.participationOptions.map((option) => {
+                        const applied = hasStudentApplied(selectedEvent, option);
+                        const selected = selectedOptions.includes(option);
+                        return (
+                          <button
+                            key={`selected-${option}`}
+                            type="button"
+                            className={`event-option-btn ${selected ? 'selected' : ''}`}
+                            onClick={() => toggleApplicationOption(option)}
+                            disabled={applied}
+                          >
+                            {formatOptionLabel(option)} {applied ? '(Applied)' : selected ? '(Selected)' : ''}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {selectedOptions.map((option) => {
+                    const templateQuestions = getParticipationTemplate(selectedEvent, option);
+                    const optionAnswers = applicationAnswersByOption[option] || {};
+
+                    return (
+                      <div key={option} className="event-selected-option-section">
+                        <h4 className="event-selected-option-title mb-1">{formatOptionLabel(option)}</h4>
+
+                        {templateQuestions.length > 0 ? (
+                          <div className="event-application-grid">
+                            {templateQuestions.map((question) => (
+                              <label key={`${option}-${question.key}`} className="event-application-field">
+                                <span>
+                                  {question.label}
+                                  {question.required ? ' *' : ''}
+                                </span>
+                                <textarea
+                                  rows={3}
+                                  value={optionAnswers[question.key] || ''}
+                                  onChange={(event) =>
+                                    handleApplicationFieldChange(option, question.key, event.target.value)
+                                  }
+                                  required={question.required !== false}
+                                />
+                              </label>
+                            ))}
+                          </div>
+                        ) : (
+                          <>
+                            <div className="event-application-grid">
+                              <label className="event-application-field">
+                                <span>Full Name</span>
+                                <input
+                                  type="text"
+                                  value={optionAnswers.fullName || ''}
+                                  onChange={(event) =>
+                                    handleApplicationFieldChange(option, 'fullName', event.target.value)
+                                  }
+                                  required
+                                />
+                              </label>
+
+                              <label className="event-application-field">
+                                <span>Email</span>
+                                <input
+                                  type="email"
+                                  value={optionAnswers.email || ''}
+                                  onChange={(event) =>
+                                    handleApplicationFieldChange(option, 'email', event.target.value)
+                                  }
+                                  required
+                                />
+                              </label>
+
+                              <label className="event-application-field">
+                                <span>Phone Number</span>
+                                <input
+                                  type="text"
+                                  value={optionAnswers.phone || ''}
+                                  onChange={(event) =>
+                                    handleApplicationFieldChange(option, 'phone', event.target.value)
+                                  }
+                                  placeholder="07X XXX XXXX"
+                                  required
+                                />
+                              </label>
+                            </div>
+
+                            <label className="event-application-field">
+                              <span>Why are you applying for this role?</span>
+                              <textarea
+                                rows={4}
+                                value={optionAnswers.notes || ''}
+                                onChange={(event) =>
+                                  handleApplicationFieldChange(option, 'notes', event.target.value)
+                                }
+                                placeholder="Share your relevant skills, interest, or experience."
+                                required
+                              />
+                            </label>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  <div className="event-application-actions">
+                    <button
+                      type="button"
+                      className="event-secondary-btn"
+                      onClick={() => {
+                        setSelectedOptions([]);
+                        setApplicationAnswersByOption({});
+                      }}
+                    >
+                      Back to Details
+                    </button>
+                    <button
+                      type="submit"
+                      className="event-primary-btn"
+                      disabled={applyingKey === selectedEvent._id}
+                    >
+                      {applyingKey === selectedEvent._id
+                        ? 'Submitting...'
+                        : `Submit ${selectedOptions.length} Application${selectedOptions.length > 1 ? 's' : ''}`}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="event-modal-content">
+                  {resolveImageUrl(selectedEvent.image) ? (
+                    <img
+                      src={resolveImageUrl(selectedEvent.image)}
+                      alt={selectedEvent.title}
+                      className="event-modal-image"
+                    />
+                  ) : null}
+
+                  <h3 className="event-modal-title text-sinhala">{selectedEvent.title}</h3>
+                  <p className="event-modal-description text-sinhala">
+                    {selectedEvent.description || 'No description provided for this event.'}
+                  </p>
+
+                  <div className="event-card-meta-list">
+                    <div className="event-card-meta-item">
+                      <span className="event-card-meta-label">Date</span>
+                      <span className="event-card-meta-value">
+                        {new Date(selectedEvent.date).toLocaleDateString('en-GB', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                      </span>
+                    </div>
+                    <div className="event-card-meta-item">
+                      <span className="event-card-meta-label">Time</span>
+                      <span className="event-card-meta-value">
+                        {new Date(selectedEvent.date).toLocaleTimeString('en-GB', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                    <div className="event-card-meta-item">
+                      <span className="event-card-meta-label">Location</span>
+                      <span className="event-card-meta-value text-sinhala">{selectedEvent.location || 'TBA'}</span>
+                    </div>
+                  </div>
+
+                  <div className="event-modal-participation-wrap">
+                    <p className="event-participation-title mb-2">Available Participation Options</p>
+
+                    {!isStudent ? (
+                      <p className="event-participation-empty mb-2">
+                        Participation applications can be submitted by student accounts only.
+                      </p>
+                    ) : null}
+
+                    {Array.isArray(selectedEvent.participationOptions) && selectedEvent.participationOptions.length > 0 ? (
+                      <div className="event-option-list">
+                        {selectedEvent.participationOptions.map((option) => {
+                          const applied = hasStudentApplied(selectedEvent, option);
+                          const selected = selectedOptions.includes(option);
+                          return (
+                            <button
+                              key={option}
+                              type="button"
+                              className={`event-option-btn ${selected ? 'selected' : ''}`}
+                              onClick={() => toggleApplicationOption(option)}
+                              disabled={applied}
+                            >
+                              {formatOptionLabel(option)} {applied ? '(Applied)' : selected ? '(Selected)' : ''}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="event-participation-empty mb-0">No participation roles are open for this event.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         ) : null}
       </main>

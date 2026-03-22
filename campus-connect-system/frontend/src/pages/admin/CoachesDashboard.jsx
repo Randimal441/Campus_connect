@@ -61,8 +61,7 @@ function ClubsOversightPanel() {
       <div className="flex items-center gap-3 mb-6">
         <div className="h-px flex-1 bg-border"></div>
         <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20">
-          <span className="text-lg">🛡️</span>
-          <span className="text-sm font-bold text-primary">Super Admin – Club Moderation</span>
+          <span className="text-sm font-bold text-primary">Club Moderation</span>
         </div>
         <div className="h-px flex-1 bg-border"></div>
       </div>
@@ -127,10 +126,10 @@ function ClubsOversightPanel() {
                   <td>
                     <div className="flex gap-2">
                       {c.status !== 'approved' && (
-                        <Button size="sm" onClick={() => setStatus(c._id, 'approved')}>✔ Approve</Button>
+                        <Button size="sm" onClick={() => setStatus(c._id, 'approved')}>Approve</Button>
                       )}
                       {c.status !== 'disabled' && (
-                        <Button size="sm" variant="destructive" onClick={() => setStatus(c._id, 'disabled')}>⛔ Disable</Button>
+                        <Button size="sm" variant="destructive" onClick={() => setStatus(c._id, 'disabled')}>Disable</Button>
                       )}
                       {c.status === 'disabled' && (
                         <Button size="sm" variant="outline" onClick={() => setStatus(c._id, 'approved')}>✅ Re‑enable</Button>
@@ -471,7 +470,7 @@ function ClubManagePanel({ club, onClose, onClubUpdated }) {
                           </div>
                           <div className="flex gap-2 shrink-0">
                             <button className="btn btn-xs btn-outline" onClick={() => setScheduleModal(s)}>Edit</button>
-                            <button className="btn btn-xs btn-destructive" onClick={() => deleteSchedule(s._id)}>Del</button>
+                            <button className="btn btn-xs btn-destructive" onClick={() => deleteSchedule(s._id)}>Delete</button>
                           </div>
                         </div>
                       ))}
@@ -540,7 +539,7 @@ function ClubManagePanel({ club, onClose, onClubUpdated }) {
                               </div>
                               <div className="flex gap-2 shrink-0">
                                 <button className="btn btn-xs btn-outline" onClick={() => setTeamModal(team)}>Edit</button>
-                                <button className="btn btn-xs btn-destructive" onClick={() => deleteTeam(team._id)}>Del</button>
+                                <button className="btn btn-xs btn-destructive" onClick={() => deleteTeam(team._id)}>Delete</button>
                               </div>
                             </div>
 
@@ -627,7 +626,7 @@ function ClubManagePanel({ club, onClose, onClubUpdated }) {
                             </span>
                             {r.status === 'pending' && (
                               <div className="flex gap-2">
-                                <button className="btn btn-xs btn-primary" onClick={() => handleRequest(r._id, 'approved')}>✔ Approve</button>
+                                <button className="btn btn-xs btn-primary" onClick={() => handleRequest(r._id, 'approved')}>Approve</button>
                                 <button className="btn btn-xs btn-destructive" onClick={() => handleRequest(r._id, 'rejected')}>✖ Reject</button>
                               </div>
                             )}
@@ -703,14 +702,9 @@ export default function CoachesDashboard() {
   return (
     <>
       <div className="flex items-center justify-between mb-8 animate-fade-in-up">
-        <div className="flex items-center gap-4">
-          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-primary-light flex items-center justify-center shadow-lg">
-            <span className="text-white font-heading text-2xl">🏆</span>
-          </div>
-          <div>
-            <h1 className="mb-1">Clubs &amp; Sports</h1>
-            <p className="lead !mb-0">Manage your clubs, teams, schedules &amp; memberships</p>
-          </div>
+        <div>
+          <h1 className="mb-1">Clubs &amp; Sports</h1>
+          <p className="lead !mb-0">Manage your clubs, teams, schedules &amp; memberships</p>
         </div>
         <button className="btn btn-primary" onClick={() => setClubModal('new')}>
           + New Club / Sport
@@ -763,7 +757,7 @@ export default function CoachesDashboard() {
                   className="btn btn-sm btn-destructive"
                   onClick={() => deleteClub(item._id)}
                 >
-                  Del
+                  Delete
                 </button>
               </div>
             </div>

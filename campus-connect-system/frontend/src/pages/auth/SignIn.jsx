@@ -8,7 +8,7 @@ import SignInForm from '../../components/forms/SignInForm';
 export default function SignIn() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const { loginUser, refreshUser } = useAuth();
+  const { refreshUser } = useAuth();
   const navigate = useNavigate();
 
   const getRedirectPath = (role) => {
@@ -22,10 +22,10 @@ export default function SignIn() {
       case ROLES.CONSULTANT:
         return '/admin/consulting';
       case ROLES.EVENT_COORDINATOR:
-        return '/admin/events';
+        return '/user/events-chill';
       case ROLES.STUDENT:
       default:
-        return '/user';
+        return '/user/events-chill';
     }
   };
 
@@ -37,7 +37,7 @@ export default function SignIn() {
       setMessage('Login successful.');
       await refreshUser();
       const redirectPath = getRedirectPath(res.user.role);
-      navigate(redirectPath);
+      navigate(redirectPath, { replace: true });
     } catch (err) {
       setMessage(err.message);
     } finally {

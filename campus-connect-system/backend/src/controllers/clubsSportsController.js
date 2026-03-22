@@ -14,9 +14,19 @@ const JoinRequest = require('../models/JoinRequestModel');
 const getAll = async (req, res, next) => {
   try {
     const { search, category } = req.query;
-    const filter = { status: 'approved', isActive: true };
+    const filter = {
+      isActive: true,
+      status: { $in: ['approved', 'pending_approval'] },
+    };
 
-    if (category && ['club', 'sport'].includes(category)) filter.category = category;
+    if (category) {
+      const normalizedCategory = String(category).toLowerCase();
+      if (['club', 'clubs'].includes(normalizedCategory)) {
+        filter.category = { $regex: '^club', $options: 'i' };
+      } else if (['sport', 'sports'].includes(normalizedCategory)) {
+        filter.category = { $regex: '^sport', $options: 'i' };
+      }
+    }
     if (search) {
       filter.$or = [
         { title: { $regex: search, $options: 'i' } },

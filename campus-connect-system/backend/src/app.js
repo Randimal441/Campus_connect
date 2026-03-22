@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
 const path = require('path');
+const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const approvalRoutes = require('./routes/approvalRoutes');
@@ -9,6 +9,7 @@ const clubsSportsRoutes = require('./routes/clubsSportsRoutes');
 const resourceRoutes = require('./routes/resourceRoutes');
 const consultingRoutes = require('./routes/consultingRoutes');
 const eventsRoutes = require('./routes/eventsRoutes');
+const studyMaterialRoutes = require('./routes/studyMaterialRoutes');
 const { errorHandler } = require('./middlewares/errorMiddleware');
 
 const app = express();
@@ -24,6 +25,7 @@ app.use('/api/clubs-sports', clubsSportsRoutes);
 app.use('/api/resources', resourceRoutes);
 app.use('/api/consulting', consultingRoutes);
 app.use('/api/events', eventsRoutes);
+app.use('/api/study-materials', studyMaterialRoutes);
 
 app.use(errorHandler);
 

@@ -5,7 +5,7 @@ import Footer from '../../components/common/Footer';
 
 export default function UserHome() {
   const sectionIcons = {
-    'clubs-sports': '🏆',
+    'clubs-sports': '',
     'consulting': '💬',
     'events-chill': '🎉',
     'resource-sharing': '📚'

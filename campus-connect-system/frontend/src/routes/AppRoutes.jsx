@@ -2,6 +2,7 @@ import { Routes, Route, Link } from 'react-router-dom';
 import SignIn from '../pages/auth/SignIn';
 import SignUp from '../pages/auth/SignUp';
 import UserHome from '../pages/user/UserHome';
+import UserProfile from '../pages/user/UserProfile';
 import ClubsSports from '../pages/user/ClubsSports';
 import MedicleSupport from '../pages/user/MedicleSupport';
 import ResourceSharing from '../pages/user/ResourceSharing';
@@ -14,6 +15,8 @@ import ConsultantDashboard from '../pages/admin/ConsultantDashboard';
 import EventCoordinatorDashboard from '../pages/admin/EventCoordinatorDashboard';
 import CoachProfile from '../pages/admin/CoachProfile';
 import AdminLayout from '../components/admin/AdminLayout';
+import ProtectedRoute from '../components/protected/ProtectedRoute';
+import { ROLES } from '../utils/constants';
 import ConsultantDetails from '../pages/user/ConsultingDetails';
 import ConsultingReviewDashboard from '../pages/admin/ConsultingReviewDasboard';
 import ProtectedRoute from '../components/protected/ProtectedRoute';
@@ -26,6 +29,7 @@ export default function AppRoutes() {
       <Route path="/signup" element={<SignUp />} />
 
       <Route path="/user" element={<UserHome />} />
+      <Route path="/user/profile" element={<UserProfile />} />
       <Route path="/user/clubs-sports" element={<ClubsSports />} />
       <Route path="/user/clubs-sports/medicle-support" element={<MedicleSupport />} />
       <Route path="/user/resource-sharing" element={<ResourceSharing />} />
@@ -123,7 +127,6 @@ export default function AppRoutes() {
                 </div>
                 <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto text-center">
                   <div className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
-                    <div className="text-4xl mb-2">🏆</div>
                     <p className="font-semibold text-sm text-foreground">Clubs & Sports</p>
                   </div>
                   <div className="animate-fade-in" style={{ animationDelay: '0.3s' }}>

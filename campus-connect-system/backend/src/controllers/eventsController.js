@@ -393,6 +393,59 @@ const applyForParticipation = async (req, res, next) => {
       student: req.user._id,
       option,
       application: validatedApplication,
+    const submittedAnswers = Array.isArray(application?.answers)
+      ? application.answers.map((answer) => ({
+          questionKey: sanitizeApplicationField(answer?.questionKey),
+          label: sanitizeApplicationField(answer?.label),
+          answer: sanitizeApplicationField(answer?.answer),
+        }))
+      : [];
+
+    if (formQuestions.length > 0) {
+      const answersMap = new Map(
+        submittedAnswers.map((entry) => [entry.questionKey, entry.answer])
+      );
+
+      const missingRequired = formQuestions.some(
+        (question) => question.required && !sanitizeApplicationField(answersMap.get(question.key))
+      );
+
+      if (missingRequired) {
+        return res.status(400).json({
+          message: 'Please complete all required questions in the application form.',
+        });
+      }
+    } else {
+      const fullName = sanitizeApplicationField(application?.fullName);
+      const email = sanitizeApplicationField(application?.email);
+      const phone = sanitizeApplicationField(application?.phone);
+      const notes = sanitizeApplicationField(application?.notes);
+
+      if (!fullName || !email || !phone || !notes) {
+        return res.status(400).json({
+          message: 'Please complete the participation application form.',
+        });
+      }
+    }
+
+    const fullName = sanitizeApplicationField(application?.fullName);
+    const email = sanitizeApplicationField(application?.email);
+    const phone = sanitizeApplicationField(application?.phone);
+    const notes = sanitizeApplicationField(application?.notes);
+
+    await ParticipationApplication.create({
+      event: item._id,
+      student: req.user._id,
+      option,
+      application: {
+        fullName,
+        email,
+        phone,
+        notes,
+        answers: submittedAnswers.filter(
+          (entry) => entry.questionKey && entry.label && entry.answer
+        ),
+      },
     });
 
     return res.json({

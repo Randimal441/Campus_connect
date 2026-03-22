@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ROLES } from '../../utils/constants';
 
 const MENU_ITEMS = [
-  { path: '/admin/super', label: 'Approvals' },
+  { path: '/admin/super', label: 'Superadmin dashboard' },
   { path: '/admin/coaches', label: 'Clubs & Sports' },
   { path: '/admin/resources', label: 'Resource Sharing' },
   { path: '/admin/consulting/reviews', label: 'Consulting' },

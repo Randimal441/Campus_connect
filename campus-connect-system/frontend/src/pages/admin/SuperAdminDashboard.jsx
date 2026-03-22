@@ -12,15 +12,43 @@ export default function SuperAdminDashboard() {
     disabled: 0,
     total: 0,
   });
+  const [consultantReviewStats, setConsultantReviewStats] = useState({
+    review: 0,
+    approve: 0,
+    total: 0,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.allSettled([api('/approvals/pending'), api('/clubs-sports/admin/all')])
-      .then(([approvalsResult, clubsResult]) => {
+    Promise.allSettled([api('/approvals/pending'), api('/clubs-sports/admin/all'), api('/consulting')])
+      .then(([approvalsResult, clubsResult, consultantsResult]) => {
         if (approvalsResult.status === 'fulfilled') {
-          setPending(approvalsResult.value);
+          const pendingApprovals = Array.isArray(approvalsResult.value) ? approvalsResult.value : [];
+          setPending(pendingApprovals);
+
+          const consultantsPendingReview = pendingApprovals.filter((user) => user?.role === 'consultant').length;
+          const approvedConsultants =
+            consultantsResult.status === 'fulfilled' && Array.isArray(consultantsResult.value)
+              ? consultantsResult.value.length
+              : 0;
+
+          setConsultantReviewStats({
+            review: consultantsPendingReview,
+            approve: approvedConsultants,
+            total: consultantsPendingReview + approvedConsultants,
+          });
         } else {
           setPending([]);
+          const approvedConsultants =
+            consultantsResult.status === 'fulfilled' && Array.isArray(consultantsResult.value)
+              ? consultantsResult.value.length
+              : 0;
+
+          setConsultantReviewStats({
+            review: 0,
+            approve: approvedConsultants,
+            total: approvedConsultants,
+          });
         }
 
         if (clubsResult.status === 'fulfilled') {
@@ -72,6 +100,9 @@ export default function SuperAdminDashboard() {
   ];
 
   const maxBar = Math.max(...moderationSeries.map((item) => item.value), 1);
+  const consultantPie = consultantReviewStats.total
+    ? `conic-gradient(#f59e0b 0deg ${(consultantReviewStats.review / consultantReviewStats.total) * 360}deg, #10b981 ${(consultantReviewStats.review / consultantReviewStats.total) * 360}deg 360deg)`
+    : 'conic-gradient(#e5e7eb 0deg 360deg)';
 
   const handleApprove = async (id) => {
     try {
@@ -103,31 +134,72 @@ export default function SuperAdminDashboard() {
         </div>
       </div>
 
-      <div className="mb-6 card animate-fade-in-up">
-        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-          <div>
-            <h3 className="mb-1">Club Moderation Overview</h3>
-            <p className="text-sm text-muted-foreground">Status distribution of clubs and sports entries</p>
+      <div className="mb-6 grid grid-cols-1 xl:grid-cols-2 gap-6 animate-fade-in-up">
+        <div className="card">
+          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+            <div>
+              <h3 className="mb-1">Club Moderation Overview</h3>
+              <p className="text-sm text-muted-foreground">Status distribution of clubs and sports entries</p>
+            </div>
+            <span className="badge">Total: {moderation.total}</span>
           </div>
-          <span className="badge">Total: {moderation.total}</span>
+
+          <div className="rounded-xl border border-border bg-muted/30 p-4">
+            <div className="h-56 grid grid-cols-3 gap-4 items-end">
+              {moderationSeries.map((item) => (
+                <div key={item.key} className="h-full flex flex-col justify-end items-center">
+                  <span className={`text-sm font-bold mb-2 ${item.textClass}`}>{item.value}</span>
+                  <div className="w-full max-w-[90px] h-[82%] rounded-lg bg-muted flex items-end overflow-hidden">
+                    <div
+                      className={`w-full rounded-lg transition-all duration-500 ${item.barClass}`}
+                      style={{ height: `${(item.value / maxBar) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-xs sm:text-sm text-muted-foreground text-center mt-2 leading-tight">
+                    {item.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-muted/30 p-4">
-          <div className="h-56 grid grid-cols-3 gap-4 items-end">
-            {moderationSeries.map((item) => (
-              <div key={item.key} className="h-full flex flex-col justify-end items-center">
-                <span className={`text-sm font-bold mb-2 ${item.textClass}`}>{item.value}</span>
-                <div className="w-full max-w-[90px] h-[82%] rounded-lg bg-muted flex items-end overflow-hidden">
-                  <div
-                    className={`w-full rounded-lg transition-all duration-500 ${item.barClass}`}
-                    style={{ height: `${(item.value / maxBar) * 100}%` }}
-                  />
+        <div className="card">
+          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+            <div>
+              <h3 className="mb-1">Consultant Review &amp; Approve</h3>
+              <p className="text-sm text-muted-foreground">Live split of consultant records under review vs approved</p>
+            </div>
+            <span className="badge">Total: {consultantReviewStats.total}</span>
+          </div>
+
+          <div className="rounded-xl border border-border bg-muted/30 p-4 min-h-[260px] flex flex-col sm:flex-row items-center justify-center gap-8">
+            <div
+              className="h-44 w-44 rounded-full border border-border shadow-inner"
+              style={{ background: consultantPie }}
+            />
+
+            <div className="space-y-3 w-full sm:w-auto">
+              <div className="flex items-center justify-between sm:justify-start sm:gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full bg-amber-500" />
+                  <span className="text-sm text-muted-foreground">Review</span>
                 </div>
-                <span className="text-xs sm:text-sm text-muted-foreground text-center mt-2 leading-tight">
-                  {item.label}
-                </span>
+                <span className="text-sm font-bold text-amber-700">{consultantReviewStats.review}</span>
               </div>
-            ))}
+
+              <div className="flex items-center justify-between sm:justify-start sm:gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full bg-emerald-500" />
+                  <span className="text-sm text-muted-foreground">Approve</span>
+                </div>
+                <span className="text-sm font-bold text-emerald-700">{consultantReviewStats.approve}</span>
+              </div>
+
+              {consultantReviewStats.total === 0 && (
+                <p className="text-xs text-muted-foreground">No consultant review data available yet.</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
