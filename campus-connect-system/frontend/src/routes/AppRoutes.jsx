@@ -19,6 +19,8 @@ import ProtectedRoute from '../components/protected/ProtectedRoute';
 import { ROLES } from '../utils/constants';
 import ConsultantDetails from '../pages/user/ConsultingDetails';
 import ConsultingReviewDashboard from '../pages/admin/ConsultingReviewDasboard';
+import ProtectedRoute from '../components/protected/ProtectedRoute';
+import { ROLES } from '../utils/constants';
 
 export default function AppRoutes() {
   return (
@@ -78,7 +80,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/events"
         element={
-          <ProtectedRoute allowedRoles={[ROLES.SUPER_ADMIN]}>
+          <ProtectedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.EVENT_COORDINATOR]}>
             <AdminLayout>
               <EventCoordinatorDashboard />
             </AdminLayout>
