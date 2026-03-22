@@ -233,9 +233,6 @@ export default function ResourceSharing() {
       {/* subject badge */}
       <div className="flex items-start justify-between mb-4 gap-2">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center flex-shrink-0 shadow-sm border border-green-200">
-            <span className="text-2xl">{fileIcon(item.fileName)}</span>
-          </div>
           <h3 className="truncate text-lg font-bold text-gray-800">{item.title}</h3>
         </div>
         <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-xs font-semibold whitespace-nowrap border border-green-200">{item.subject}</span>
@@ -246,9 +243,9 @@ export default function ResourceSharing() {
 
       {/* meta row */}
       <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-gray-500 mb-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
-        <span className="flex items-center gap-1.5"><span className="text-gray-400">👤</span> {item.uploadedBy?.fullName || 'Unknown'}</span>
-        <span className="flex items-center gap-1.5"><span className="text-gray-400">📥</span> {item.downloadCount ?? 0}</span>
-        <span className="flex items-center gap-1.5"><span className="text-gray-400">💾</span> {formatSize(item.fileSize)}</span>
+        <span className="flex items-center gap-1.5">{item.uploadedBy?.fullName || 'Unknown'}</span>
+        <span className="flex items-center gap-1.5">{item.downloadCount ?? 0} Downloads</span>
+        <span className="flex items-center gap-1.5">{formatSize(item.fileSize)}</span>
       </div>
 
       {/* rating */}
@@ -269,30 +266,28 @@ export default function ResourceSharing() {
           className="flex-1 min-w-[100px] bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-lg transition-all duration-300 text-sm shadow-md"
           onClick={() => handleDownload(item)}
         >
-          ⬇ Download
+          Download
         </button>
         <button
           className="flex-1 min-w-[100px] bg-green-50 text-green-700 hover:bg-green-100 font-semibold py-2 px-3 rounded-lg transition-all duration-300 text-sm border border-green-200"
           onClick={() => handleSummarize(item)}
         >
-          🤖 Summarize
+          Summarize
         </button>
         {!isOwn && (
           <button
-            className="px-3 py-2 rounded-lg bg-red-50 text-red-500 font-semibold hover:bg-red-100 transition-all duration-300 text-sm border border-red-200"
-            title="Report"
+            className="px-4 py-2 rounded-lg bg-red-50 text-red-500 font-semibold hover:bg-red-100 transition-all duration-300 text-sm border border-red-200"
             onClick={() => setReportOpen(item._id)}
           >
-            🚩
+            Report
           </button>
         )}
         {isOwn && (
           <button
-            className="px-3 py-2 rounded-lg bg-red-50 text-red-500 font-semibold hover:bg-red-100 transition-all duration-300 text-sm border border-red-200"
-            title="Delete"
+            className="px-4 py-2 rounded-lg bg-red-50 text-red-500 font-semibold hover:bg-red-100 transition-all duration-300 text-sm border border-red-200"
             onClick={() => setDeleteConfirm(item._id)}
           >
-            🗑
+            Delete
           </button>
         )}
       </div>
@@ -344,13 +339,13 @@ export default function ResourceSharing() {
                 className={`px-6 py-2.5 rounded-full font-semibold text-sm transition-all duration-300 ${tab === 'all' ? 'bg-green-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                 onClick={() => setTab('all')}
               >
-                📖 All Resources
+                All Resources
               </button>
               <button
                 className={`px-6 py-2.5 rounded-full font-semibold text-sm transition-all duration-300 ${tab === 'my' ? 'bg-green-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                 onClick={() => setTab('my')}
               >
-                📁 My Uploads
+                My Uploads
               </button>
             </div>
             <div className="flex-1" />
