@@ -3,6 +3,8 @@ import {
   applyForParticipation,
   getMyEventApplications,
   getUpcomingEvents,
+  removeParticipationApplication,
+  updateParticipationApplication,
 } from '../../services/eventsService';
 import Navbar from '../../components/common/Navbar';
 import Footer from '../../components/common/Footer';
@@ -57,6 +59,9 @@ const getCountdownData = (eventDate, now) => {
 };
 
 const getApplicationKey = (eventId, option) => `${eventId}:${option}`;
+const askNameRegex = /^[A-Za-z\s]+$/;
+const askPhoneRegex = /^\d{10}$/;
+const emailHasAtRegex = /^[^\s@]+@[^\s@]+$/;
 
 const getStatusMeta = (status) => {
   const normalized = String(status || '').toLowerCase();
@@ -100,9 +105,24 @@ export default function EventsChill() {
   const [applyError, setApplyError] = useState('');
   const [applyingKey, setApplyingKey] = useState('');
   const [applicationStatusMap, setApplicationStatusMap] = useState({});
+  const [applicationMetaMap, setApplicationMetaMap] = useState({});
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [applicationAnswersByOption, setApplicationAnswersByOption] = useState({});
+  const [participationFieldErrors, setParticipationFieldErrors] = useState({});
+  const [participationFieldTouched, setParticipationFieldTouched] = useState({});
+  const [participationSubmitAttempted, setParticipationSubmitAttempted] = useState(false);
+  const [isAskPanelOpen, setIsAskPanelOpen] = useState(false);
+  const [askForm, setAskForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    question: '',
+  });
+  const [askFormErrors, setAskFormErrors] = useState({});
+  const [askFormMessage, setAskFormMessage] = useState('');
+  const [askFormTouched, setAskFormTouched] = useState({});
+  const [askSubmitAttempted, setAskSubmitAttempted] = useState(false);
 
   const optionLabelMap = useMemo(
     () =>
@@ -127,17 +147,26 @@ export default function EventsChill() {
         if (isCancelled) return;
 
         const statusMap = {};
+        const metadataMap = {};
         myApplications.forEach((entry) => {
-          statusMap[getApplicationKey(entry.eventId, entry.option)] = entry.status;
+          const key = getApplicationKey(entry.eventId, entry.option);
+          statusMap[key] = entry.status;
+          metadataMap[key] = {
+            id: entry.id,
+            status: entry.status,
+            application: entry.application || {},
+          };
         });
 
         setItems(events);
         setApplicationStatusMap(statusMap);
+        setApplicationMetaMap(metadataMap);
         setError('');
       } catch (err) {
         if (isCancelled) return;
         setItems([]);
         setApplicationStatusMap({});
+        setApplicationMetaMap({});
         setError(err.message || 'Unable to load upcoming events right now.');
       } finally {
         if (!isCancelled) setLoading(false);
@@ -169,11 +198,19 @@ export default function EventsChill() {
         if (isCancelled) return;
 
         const statusMap = {};
+        const metadataMap = {};
         myApplications.forEach((entry) => {
-          statusMap[getApplicationKey(entry.eventId, entry.option)] = entry.status;
+          const key = getApplicationKey(entry.eventId, entry.option);
+          statusMap[key] = entry.status;
+          metadataMap[key] = {
+            id: entry.id,
+            status: entry.status,
+            application: entry.application || {},
+          };
         });
 
         setApplicationStatusMap(statusMap);
+        setApplicationMetaMap(metadataMap);
       } catch {
         // Keep the last known status map if polling fails.
       }
@@ -199,6 +236,8 @@ export default function EventsChill() {
 
   const formatOptionLabel = (option) => optionLabelMap[option] || option;
 
+  const getParticipationErrorKey = (option, fieldKey) => `${option}.${fieldKey}`;
+
   const getParticipationTemplate = (eventItem, option) => {
     const forms = Array.isArray(eventItem?.participationForms)
       ? eventItem.participationForms
@@ -206,6 +245,72 @@ export default function EventsChill() {
 
     const matched = forms.find((form) => form.option === option);
     return Array.isArray(matched?.questions) ? matched.questions : [];
+  };
+
+  const validateParticipationField = (eventItem, option, fieldKey, value) => {
+    const trimmed = String(value || '').trim();
+    const templateQuestions = getParticipationTemplate(eventItem, option);
+    const hasTemplate = templateQuestions.length > 0;
+
+    if (hasTemplate) {
+      const question = templateQuestions.find((entry) => entry.key === fieldKey);
+      if (question?.required && !trimmed) {
+        return `${question.label} is required.`;
+      }
+      return '';
+    }
+
+    if (fieldKey === 'fullName') {
+      if (!trimmed) return 'Full name is required.';
+      if (!askNameRegex.test(trimmed)) return 'Name must contain only letters.';
+      return '';
+    }
+
+    if (fieldKey === 'email') {
+      if (!trimmed) return 'Email is required.';
+      if (!emailHasAtRegex.test(trimmed)) return 'Email must include @.';
+      return '';
+    }
+
+    if (fieldKey === 'phone') {
+      if (!trimmed) return 'Phone number is required.';
+      if (!askPhoneRegex.test(trimmed)) return 'Phone number must contain exactly 10 digits.';
+      return '';
+    }
+
+    if (fieldKey === 'notes') {
+      if (!trimmed) return 'Application note is required.';
+      return '';
+    }
+
+    return '';
+  };
+
+  const getAllParticipationErrors = (eventItem, options, answersByOption) => {
+    const allErrors = {};
+
+    options.forEach((option) => {
+      const optionAnswers = answersByOption[option] || {};
+      const templateQuestions = getParticipationTemplate(eventItem, option);
+      const hasTemplate = templateQuestions.length > 0;
+
+      if (hasTemplate) {
+        templateQuestions.forEach((question) => {
+          const key = getParticipationErrorKey(option, question.key);
+          const error = validateParticipationField(eventItem, option, question.key, optionAnswers[question.key]);
+          if (error) allErrors[key] = error;
+        });
+        return;
+      }
+
+      ['fullName', 'email', 'phone', 'notes'].forEach((fieldKey) => {
+        const key = getParticipationErrorKey(option, fieldKey);
+        const error = validateParticipationField(eventItem, option, fieldKey, optionAnswers[fieldKey]);
+        if (error) allErrors[key] = error;
+      });
+    });
+
+    return allErrors;
   };
 
   const createInitialAnswersForOption = (eventItem, option) => {
@@ -248,6 +353,9 @@ export default function EventsChill() {
     setSelectedEvent(eventItem);
     setSelectedOptions([]);
     setApplicationAnswersByOption({});
+    setParticipationFieldErrors({});
+    setParticipationFieldTouched({});
+    setParticipationSubmitAttempted(false);
     setApplyError('');
     setApplyMessage('');
   };
@@ -256,6 +364,9 @@ export default function EventsChill() {
     setSelectedEvent(null);
     setSelectedOptions([]);
     setApplicationAnswersByOption({});
+    setParticipationFieldErrors({});
+    setParticipationFieldTouched({});
+    setParticipationSubmitAttempted(false);
     setApplyingKey('');
   };
 
@@ -268,6 +379,20 @@ export default function EventsChill() {
         setApplicationAnswersByOption((answersPrev) => {
           const next = { ...answersPrev };
           delete next[option];
+          return next;
+        });
+        setParticipationFieldErrors((errorsPrev) => {
+          const next = { ...errorsPrev };
+          Object.keys(next).forEach((key) => {
+            if (key.startsWith(`${option}.`)) delete next[key];
+          });
+          return next;
+        });
+        setParticipationFieldTouched((touchedPrev) => {
+          const next = { ...touchedPrev };
+          Object.keys(next).forEach((key) => {
+            if (key.startsWith(`${option}.`)) delete next[key];
+          });
           return next;
         });
         return prev.filter((value) => value !== option);
@@ -293,11 +418,142 @@ export default function EventsChill() {
         [fieldKey]: value,
       },
     }));
+
+    if (!selectedEvent) return;
+
+    const errorKey = getParticipationErrorKey(option, fieldKey);
+    const error = validateParticipationField(selectedEvent, option, fieldKey, value);
+    setParticipationFieldErrors((prev) => {
+      const next = { ...prev };
+      if (error) next[errorKey] = error;
+      else delete next[errorKey];
+      return next;
+    });
+  };
+
+  const handleParticipationFieldBlur = (option, fieldKey, value) => {
+    if (!selectedEvent) return;
+
+    const errorKey = getParticipationErrorKey(option, fieldKey);
+    const error = validateParticipationField(selectedEvent, option, fieldKey, value);
+
+    setParticipationFieldTouched((prev) => ({
+      ...prev,
+      [errorKey]: true,
+    }));
+
+    setParticipationFieldErrors((prev) => {
+      const next = { ...prev };
+      if (error) next[errorKey] = error;
+      else delete next[errorKey];
+      return next;
+    });
+  };
+
+  const getExistingPendingApplicationMeta = (eventId, option) => {
+    const key = getApplicationKey(eventId, option);
+    const metadata = applicationMetaMap[key];
+
+    if (!metadata || String(metadata.status || '').toLowerCase() !== 'pending') {
+      return null;
+    }
+
+    return metadata;
+  };
+
+  const buildOptionAnswersFromSavedApplication = (eventItem, option, savedApplication) => {
+    const templateQuestions = getParticipationTemplate(eventItem, option);
+
+    if (templateQuestions.length > 0) {
+      const answersMap = new Map(
+        (savedApplication?.answers || []).map((entry) => [entry.questionKey, entry.answer])
+      );
+
+      return templateQuestions.reduce((acc, question) => {
+        acc[question.key] = String(answersMap.get(question.key) || '');
+        return acc;
+      }, {});
+    }
+
+    return {
+      fullName: savedApplication?.fullName || user?.fullName || '',
+      email: savedApplication?.email || user?.email || '',
+      phone: savedApplication?.phone || '',
+      notes: savedApplication?.notes || '',
+    };
+  };
+
+  const handleEditPendingApplication = (option) => {
+    if (!selectedEvent) return;
+
+    const metadata = getExistingPendingApplicationMeta(selectedEvent._id, option);
+    if (!metadata?.id) return;
+
+    setSelectedOptions([option]);
+    setApplicationAnswersByOption({
+      [option]: buildOptionAnswersFromSavedApplication(selectedEvent, option, metadata.application),
+    });
+    setApplyError('');
+    setApplyMessage(`Editing pending application for ${formatOptionLabel(option)}.`);
+  };
+
+  const handleRemovePendingApplication = async (eventId, option) => {
+    const metadata = getExistingPendingApplicationMeta(eventId, option);
+    if (!metadata?.id) return;
+
+    const applyKey = `${eventId}:${option}:remove`;
+    setApplyingKey(applyKey);
+    setApplyError('');
+    setApplyMessage('');
+
+    try {
+      await removeParticipationApplication(eventId, metadata.id);
+      const key = getApplicationKey(eventId, option);
+
+      setApplicationStatusMap((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+
+      setApplicationMetaMap((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+
+      setSelectedOptions((prev) => prev.filter((value) => value !== option));
+      setApplicationAnswersByOption((prev) => {
+        const next = { ...prev };
+        delete next[option];
+        return next;
+      });
+
+      setApplyMessage(`Removed pending application for ${formatOptionLabel(option)}.`);
+    } catch (err) {
+      setApplyError(err.message || 'Unable to remove pending application right now.');
+    } finally {
+      setApplyingKey('');
+    }
   };
 
   const handleApplySelected = async (eventId) => {
     if (!selectedEvent || selectedOptions.length === 0) {
       setApplyError('Please select at least one participation option.');
+      return;
+    }
+
+    setParticipationSubmitAttempted(true);
+    const allErrors = getAllParticipationErrors(selectedEvent, selectedOptions, applicationAnswersByOption);
+    setParticipationFieldErrors(allErrors);
+
+    if (Object.keys(allErrors).length > 0) {
+      const touchedAll = { ...participationFieldTouched };
+      Object.keys(allErrors).forEach((key) => {
+        touchedAll[key] = true;
+      });
+      setParticipationFieldTouched(touchedAll);
+      setApplyError('Please fix form validation errors before submitting.');
       return;
     }
 
@@ -328,6 +584,18 @@ export default function EventsChill() {
           if (!fullName || !email || !phone || !notes) {
             throw new Error(`Please complete the application form for ${formatOptionLabel(option)}.`);
           }
+
+          if (!askNameRegex.test(fullName)) {
+            throw new Error(`Name must contain only letters for ${formatOptionLabel(option)}.`);
+          }
+
+          if (!emailHasAtRegex.test(email)) {
+            throw new Error(`Email must include @ for ${formatOptionLabel(option)}.`);
+          }
+
+          if (!askPhoneRegex.test(phone)) {
+            throw new Error(`Phone number must contain exactly 10 digits for ${formatOptionLabel(option)}.`);
+          }
         }
 
         const answers = hasTemplate
@@ -350,11 +618,32 @@ export default function EventsChill() {
         };
       });
 
+      const submissionResults = [];
       for (const submission of validatedSubmissions) {
-        await applyForParticipation(eventId, {
-          option: submission.option,
-          application: submission.application,
-        });
+        const metadata = getExistingPendingApplicationMeta(eventId, submission.option);
+
+        if (metadata?.id) {
+          const response = await updateParticipationApplication(eventId, metadata.id, {
+            application: submission.application,
+          });
+
+          submissionResults.push({
+            ...submission,
+            applicationId: response?.applicationId || metadata.id,
+            action: 'updated',
+          });
+        } else {
+          const response = await applyForParticipation(eventId, {
+            option: submission.option,
+            application: submission.application,
+          });
+
+          submissionResults.push({
+            ...submission,
+            applicationId: response?.applicationId || '',
+            action: 'created',
+          });
+        }
       }
 
       const appliedKeys = validatedSubmissions.map((submission) =>
@@ -368,14 +657,37 @@ export default function EventsChill() {
         return next;
       });
 
-      setApplyMessage(
-        `Application submitted for ${validatedSubmissions.length} participation option${validatedSubmissions.length > 1 ? 's' : ''}.`
-      );
+      setApplicationMetaMap((prev) => {
+        const next = { ...prev };
+        submissionResults.forEach((result) => {
+          const key = getApplicationKey(eventId, result.option);
+          next[key] = {
+            id: result.applicationId || next[key]?.id || '',
+            status: 'pending',
+            application: result.application,
+          };
+        });
+        return next;
+      });
 
-      const newApplications = validatedSubmissions.map((submission) => ({
+      const updatedCount = submissionResults.filter((entry) => entry.action === 'updated').length;
+      const createdCount = submissionResults.length - updatedCount;
+
+      if (updatedCount > 0 && createdCount > 0) {
+        setApplyMessage(`Updated ${updatedCount} and submitted ${createdCount} participation application${submissionResults.length > 1 ? 's' : ''}.`);
+      } else if (updatedCount > 0) {
+        setApplyMessage(`Updated ${updatedCount} pending participation application${updatedCount > 1 ? 's' : ''}.`);
+      } else {
+        setApplyMessage(
+          `Application submitted for ${submissionResults.length} participation option${submissionResults.length > 1 ? 's' : ''}.`
+        );
+      }
+
+      const newApplications = submissionResults.map((submission) => ({
         student: user?._id,
         option: submission.option,
         application: submission.application,
+        _id: submission.applicationId || undefined,
         appliedAt: new Date().toISOString(),
         status: 'pending',
       }));
@@ -387,9 +699,16 @@ export default function EventsChill() {
             ? eventItem.participationApplications
             : [];
 
+          const filteredExisting = existingApps.filter((entry) => {
+            const studentId = typeof entry.student === 'object' ? entry.student?._id : entry.student;
+            return !newApplications.some(
+              (submission) => String(studentId) === String(user?._id) && submission.option === entry.option
+            );
+          });
+
           return {
             ...eventItem,
-            participationApplications: [...existingApps, ...newApplications],
+            participationApplications: [...filteredExisting, ...newApplications],
           };
         })
       );
@@ -400,19 +719,149 @@ export default function EventsChill() {
           ? prev.participationApplications
           : [];
 
+        const filteredExisting = existingApps.filter((entry) => {
+          const studentId = typeof entry.student === 'object' ? entry.student?._id : entry.student;
+          return !newApplications.some(
+            (submission) => String(studentId) === String(user?._id) && submission.option === entry.option
+          );
+        });
+
         return {
           ...prev,
-          participationApplications: [...existingApps, ...newApplications],
+          participationApplications: [...filteredExisting, ...newApplications],
         };
       });
 
       setSelectedOptions([]);
       setApplicationAnswersByOption({});
+      setParticipationFieldErrors({});
+      setParticipationFieldTouched({});
+      setParticipationSubmitAttempted(false);
     } catch (err) {
       setApplyError(err.message || 'Unable to submit application right now.');
     } finally {
       setApplyingKey('');
     }
+  };
+
+  const validateAskField = (field, value) => {
+    const trimmed = String(value || '').trim();
+
+    if (!trimmed) {
+      return `${field.charAt(0).toUpperCase()}${field.slice(1)} is required.`;
+    }
+
+    if (field === 'name' && !askNameRegex.test(trimmed)) {
+      return 'Name must contain letters only. Numbers are not allowed.';
+    }
+
+    if (field === 'email' && !trimmed.includes('@')) {
+      return 'Email must include the @ symbol.';
+    }
+
+    if (field === 'phone' && !askPhoneRegex.test(trimmed)) {
+      return 'Phone number must contain exactly 10 digits.';
+    }
+
+    return '';
+  };
+
+  const validateAskForm = (formData) => {
+    const nextErrors = {};
+
+    ['name', 'email', 'phone', 'question'].forEach((field) => {
+      const fieldError = validateAskField(field, formData[field]);
+      if (fieldError) {
+        nextErrors[field] = fieldError;
+      }
+    });
+
+    return nextErrors;
+  };
+
+  const askFormValidationErrors = validateAskForm(askForm);
+  const isAskFormValid = Object.keys(askFormValidationErrors).length === 0;
+
+  const handleAskFieldChange = (field, value) => {
+    let nextValue = value;
+
+    if (field === 'name') {
+      nextValue = value.replace(/[^A-Za-z\s]/g, '');
+    }
+
+    if (field === 'phone') {
+      nextValue = value.replace(/\D/g, '').slice(0, 10);
+    }
+
+    setAskForm((prev) => ({
+      ...prev,
+      [field]: nextValue,
+    }));
+
+    setAskFormMessage('');
+
+    setAskFormErrors((prev) => {
+      const next = { ...prev };
+      const fieldError = validateAskField(field, nextValue);
+
+      if (fieldError) {
+        next[field] = fieldError;
+      } else {
+        delete next[field];
+      }
+
+      return next;
+    });
+  };
+
+  const handleAskFieldBlur = (field) => {
+    setAskFormTouched((prev) => ({
+      ...prev,
+      [field]: true,
+    }));
+
+    setAskFormErrors((prev) => {
+      const next = { ...prev };
+      const fieldError = validateAskField(field, askForm[field]);
+
+      if (fieldError) {
+        next[field] = fieldError;
+      } else {
+        delete next[field];
+      }
+
+      return next;
+    });
+  };
+
+  const handleAskFormSubmit = (event) => {
+    event.preventDefault();
+    setAskSubmitAttempted(true);
+
+    const nextErrors = validateAskForm(askForm);
+    setAskFormErrors(nextErrors);
+    setAskFormTouched({
+      name: true,
+      email: true,
+      phone: true,
+      question: true,
+    });
+
+    if (Object.keys(nextErrors).length > 0) {
+      setAskFormMessage('Please fix the validation errors before submitting.');
+      return;
+    }
+
+    setAskFormMessage('Your question has been captured. Chatbot reply support will be available soon.');
+    setAskForm({
+      name: '',
+      email: '',
+      phone: '',
+      question: '',
+    });
+    setAskFormTouched({});
+    setAskFormErrors({});
+    setAskSubmitAttempted(false);
   };
 
   return (
@@ -466,6 +915,106 @@ export default function EventsChill() {
           <div className="max-w-6xl mx-auto">
             {applyMessage ? <p className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">{applyMessage}</p> : null}
             {applyError ? <p className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{applyError}</p> : null}
+
+            {isStudent ? (
+              <div className="mb-6">
+                <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white border border-green-100 rounded-xl">
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-800">Have a question about an event?</h3>
+                    <p className="text-sm text-gray-600">Use the button to open the upcoming student event chatbot area.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAskPanelOpen((prev) => !prev)}
+                    className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300"
+                  >
+                    Ask About Events
+                  </button>
+                </div>
+
+                {isAskPanelOpen ? (
+                  <div className="mt-3 p-5 bg-green-50 border border-green-200 rounded-xl">
+                    <h4 className="text-sm font-semibold text-green-800 mb-3">Ask About Events</h4>
+
+                    <form className="space-y-4" onSubmit={handleAskFormSubmit} noValidate>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                        <input
+                          type="text"
+                          value={askForm.name}
+                          onChange={(event) => handleAskFieldChange('name', event.target.value)}
+                          onBlur={() => handleAskFieldBlur('name')}
+                          placeholder="Enter your full name"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                        {(askSubmitAttempted || askFormTouched.name) && askFormErrors.name ? (
+                          <p className="text-xs text-red-600 mt-1">{askFormErrors.name}</p>
+                        ) : null}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                        <input
+                          type="text"
+                          value={askForm.email}
+                          onChange={(event) => handleAskFieldChange('email', event.target.value)}
+                          onBlur={() => handleAskFieldBlur('email')}
+                          placeholder="Enter your email"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                        {(askSubmitAttempted || askFormTouched.email) && askFormErrors.email ? (
+                          <p className="text-xs text-red-600 mt-1">{askFormErrors.email}</p>
+                        ) : null}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                        <input
+                          type="text"
+                          value={askForm.phone}
+                          onChange={(event) => handleAskFieldChange('phone', event.target.value)}
+                          onBlur={() => handleAskFieldBlur('phone')}
+                          placeholder="Enter 10-digit phone number"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                        {(askSubmitAttempted || askFormTouched.phone) && askFormErrors.phone ? (
+                          <p className="text-xs text-red-600 mt-1">{askFormErrors.phone}</p>
+                        ) : null}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Question *</label>
+                        <textarea
+                          rows={3}
+                          value={askForm.question}
+                          onChange={(event) => handleAskFieldChange('question', event.target.value)}
+                          onBlur={() => handleAskFieldBlur('question')}
+                          placeholder="Type your question about events"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                        {(askSubmitAttempted || askFormTouched.question) && askFormErrors.question ? (
+                          <p className="text-xs text-red-600 mt-1">{askFormErrors.question}</p>
+                        ) : null}
+                      </div>
+
+                      {askFormMessage ? (
+                        <p className={`text-sm ${Object.keys(askFormErrors).length > 0 ? 'text-red-600' : 'text-green-700'}`}>
+                          {askFormMessage}
+                        </p>
+                      ) : null}
+
+                      <button
+                        type="submit"
+                        disabled={!isAskFormValid}
+                        className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300"
+                      >
+                        Submit Question
+                      </button>
+                    </form>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
 
             <div id="events-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {upcomingItems.map((item, index) => {
@@ -669,9 +1218,18 @@ export default function EventsChill() {
                                   onChange={(event) =>
                                     handleApplicationFieldChange(option, question.key, event.target.value)
                                   }
+                                  onBlur={(event) =>
+                                    handleParticipationFieldBlur(option, question.key, event.target.value)
+                                  }
                                   required={question.required !== false}
                                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                 />
+                                {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, question.key)])
+                                  && participationFieldErrors[getParticipationErrorKey(option, question.key)] ? (
+                                    <p className="text-xs text-red-600 mt-1">
+                                      {participationFieldErrors[getParticipationErrorKey(option, question.key)]}
+                                    </p>
+                                  ) : null}
                               </div>
                             ))}
                           </div>
@@ -689,9 +1247,19 @@ export default function EventsChill() {
                                   onChange={(event) =>
                                     handleApplicationFieldChange(option, 'fullName', event.target.value)
                                   }
+                                  onBlur={(event) =>
+                                    handleParticipationFieldBlur(option, 'fullName', event.target.value)
+                                  }
                                   required
+                                  pattern="[A-Za-z\s]+"
                                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                 />
+                                {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'fullName')])
+                                  && participationFieldErrors[getParticipationErrorKey(option, 'fullName')] ? (
+                                    <p className="text-xs text-red-600 mt-1">
+                                      {participationFieldErrors[getParticipationErrorKey(option, 'fullName')]}
+                                    </p>
+                                  ) : null}
                               </div>
 
                               <div>
@@ -705,9 +1273,19 @@ export default function EventsChill() {
                                   onChange={(event) =>
                                     handleApplicationFieldChange(option, 'email', event.target.value)
                                   }
+                                  onBlur={(event) =>
+                                    handleParticipationFieldBlur(option, 'email', event.target.value)
+                                  }
                                   required
+                                  pattern="[^\s@]+@[^\s@]+"
                                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                 />
+                                {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'email')])
+                                  && participationFieldErrors[getParticipationErrorKey(option, 'email')] ? (
+                                    <p className="text-xs text-red-600 mt-1">
+                                      {participationFieldErrors[getParticipationErrorKey(option, 'email')]}
+                                    </p>
+                                  ) : null}
                               </div>
 
                               <div>
@@ -721,10 +1299,22 @@ export default function EventsChill() {
                                   onChange={(event) =>
                                     handleApplicationFieldChange(option, 'phone', event.target.value)
                                   }
+                                  onBlur={(event) =>
+                                    handleParticipationFieldBlur(option, 'phone', event.target.value)
+                                  }
                                   placeholder="07X XXX XXXX"
                                   required
+                                  pattern="\d{10}"
+                                  minLength={10}
+                                  maxLength={10}
                                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                 />
+                                {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'phone')])
+                                  && participationFieldErrors[getParticipationErrorKey(option, 'phone')] ? (
+                                    <p className="text-xs text-red-600 mt-1">
+                                      {participationFieldErrors[getParticipationErrorKey(option, 'phone')]}
+                                    </p>
+                                  ) : null}
                               </div>
                             </div>
 
@@ -739,10 +1329,19 @@ export default function EventsChill() {
                                 onChange={(event) =>
                                   handleApplicationFieldChange(option, 'notes', event.target.value)
                                 }
+                                onBlur={(event) =>
+                                  handleParticipationFieldBlur(option, 'notes', event.target.value)
+                                }
                                 placeholder="Share your relevant skills, interest, or experience."
                                 required
                                 className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                               />
+                              {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'notes')])
+                                && participationFieldErrors[getParticipationErrorKey(option, 'notes')] ? (
+                                  <p className="text-xs text-red-600 mt-1">
+                                    {participationFieldErrors[getParticipationErrorKey(option, 'notes')]}
+                                  </p>
+                                ) : null}
                             </div>
                           </>
                         )}
@@ -758,6 +1357,9 @@ export default function EventsChill() {
                       onClick={() => {
                         setSelectedOptions([]);
                         setApplicationAnswersByOption({});
+                        setParticipationFieldErrors({});
+                        setParticipationFieldTouched({});
+                        setParticipationSubmitAttempted(false);
                       }}
                     >
                       Back to Details
@@ -842,26 +1444,50 @@ export default function EventsChill() {
                           const applied = !!status;
                           const selected = selectedOptions.includes(option);
                           const statusMeta = getStatusMeta(status);
+                          const metadata = getExistingPendingApplicationMeta(selectedEvent._id, option);
+                          const canManagePending = applied && String(status).toLowerCase() === 'pending' && !!metadata?.id;
+                          const removingCurrent = applyingKey === `${selectedEvent._id}:${option}:remove`;
 
                           return (
-                            <button
-                              key={option}
-                              type="button"
-                              className={
-                                applied
-                                  ? `px-4 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
-                                  : `px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-200 ${selected ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-200 bg-white text-gray-700 hover:border-green-500'}`
-                              }
-                              onClick={() => toggleApplicationOption(option)}
-                              disabled={applied}
-                            >
-                              {formatOptionLabel(option)}{' '}
-                              {applied
-                                ? `(${statusMeta.label})`
-                                : selected
-                                  ? '✓'
-                                  : ''}
-                            </button>
+                            <div key={option} className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                className={
+                                  applied
+                                    ? `px-4 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
+                                    : `px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-200 ${selected ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-200 bg-white text-gray-700 hover:border-green-500'}`
+                                }
+                                onClick={() => toggleApplicationOption(option)}
+                                disabled={applied}
+                              >
+                                {formatOptionLabel(option)}{' '}
+                                {applied
+                                  ? `(${statusMeta.label})`
+                                  : selected
+                                    ? '✓'
+                                    : ''}
+                              </button>
+
+                              {canManagePending ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-100 text-green-700 hover:bg-green-200 transition-all duration-200"
+                                    onClick={() => handleEditPendingApplication(option)}
+                                  >
+                                    Update
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-100 text-red-700 hover:bg-red-200 transition-all duration-200 disabled:opacity-50"
+                                    onClick={() => handleRemovePendingApplication(selectedEvent._id, option)}
+                                    disabled={removingCurrent}
+                                  >
+                                    {removingCurrent ? 'Removing...' : 'Remove'}
+                                  </button>
+                                </>
+                              ) : null}
+                            </div>
                           );
                         })}
                       </div>

@@ -9,3 +9,14 @@ export const applyForParticipation = (eventId, payload) =>
 		method: 'POST',
 		body: JSON.stringify(payload),
 	});
+
+export const updateParticipationApplication = (eventId, applicationId, payload) =>
+	api(`/events/${eventId}/applications/${applicationId}`, {
+		method: 'PATCH',
+		body: JSON.stringify(payload),
+	});
+
+export const removeParticipationApplication = (eventId, applicationId) =>
+	api(`/events/${eventId}/applications/${applicationId}`, {
+		method: 'DELETE',
+	});
