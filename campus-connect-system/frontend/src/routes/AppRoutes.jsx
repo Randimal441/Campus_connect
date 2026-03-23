@@ -19,8 +19,6 @@ import ProtectedRoute from '../components/protected/ProtectedRoute';
 import { ROLES } from '../utils/constants';
 import ConsultantDetails from '../pages/user/ConsultingDetails';
 import ConsultingReviewDashboard from '../pages/admin/ConsultingReviewDasboard';
-import ProtectedRoute from '../components/protected/ProtectedRoute';
-import { ROLES } from '../utils/constants';
 
 export default function AppRoutes() {
   return (

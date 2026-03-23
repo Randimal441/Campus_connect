@@ -387,14 +387,8 @@ const applyForParticipation = async (req, res, next) => {
     }
 
     const validatedApplication = validateApplicationPayload(application, formQuestions);
-
-    const created = await ParticipationApplication.create({
-      event: item._id,
-      student: req.user._id,
-      option,
-      application: validatedApplication,
-    const submittedAnswers = Array.isArray(application?.answers)
-      ? application.answers.map((answer) => ({
+    const submittedAnswers = Array.isArray(validatedApplication?.answers)
+      ? validatedApplication.answers.map((answer) => ({
           questionKey: sanitizeApplicationField(answer?.questionKey),
           label: sanitizeApplicationField(answer?.label),
           answer: sanitizeApplicationField(answer?.answer),
@@ -416,10 +410,10 @@ const applyForParticipation = async (req, res, next) => {
         });
       }
     } else {
-      const fullName = sanitizeApplicationField(application?.fullName);
-      const email = sanitizeApplicationField(application?.email);
-      const phone = sanitizeApplicationField(application?.phone);
-      const notes = sanitizeApplicationField(application?.notes);
+      const fullName = sanitizeApplicationField(validatedApplication?.fullName);
+      const email = sanitizeApplicationField(validatedApplication?.email);
+      const phone = sanitizeApplicationField(validatedApplication?.phone);
+      const notes = sanitizeApplicationField(validatedApplication?.notes);
 
       if (!fullName || !email || !phone || !notes) {
         return res.status(400).json({
@@ -428,20 +422,15 @@ const applyForParticipation = async (req, res, next) => {
       }
     }
 
-    const fullName = sanitizeApplicationField(application?.fullName);
-    const email = sanitizeApplicationField(application?.email);
-    const phone = sanitizeApplicationField(application?.phone);
-    const notes = sanitizeApplicationField(application?.notes);
-
-    await ParticipationApplication.create({
+    const created = await ParticipationApplication.create({
       event: item._id,
       student: req.user._id,
       option,
       application: {
-        fullName,
-        email,
-        phone,
-        notes,
+        fullName: sanitizeApplicationField(validatedApplication?.fullName),
+        email: sanitizeApplicationField(validatedApplication?.email),
+        phone: sanitizeApplicationField(validatedApplication?.phone),
+        notes: sanitizeApplicationField(validatedApplication?.notes),
         answers: submittedAnswers.filter(
           (entry) => entry.questionKey && entry.label && entry.answer
         ),

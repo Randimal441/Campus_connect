@@ -105,9 +105,20 @@ export default function EventsChill() {
   const [applyError, setApplyError] = useState('');
   const [applyingKey, setApplyingKey] = useState('');
   const [appliedMap, setAppliedMap] = useState({});
+  const [applicationStatusMap, setApplicationStatusMap] = useState({});
+  const [applicationMetaMap, setApplicationMetaMap] = useState({});
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [applicationAnswersByOption, setApplicationAnswersByOption] = useState({});
+  const [participationFieldErrors, setParticipationFieldErrors] = useState({});
+  const [participationFieldTouched, setParticipationFieldTouched] = useState({});
+  const [participationSubmitAttempted, setParticipationSubmitAttempted] = useState(false);
+  const [isAskPanelOpen, setIsAskPanelOpen] = useState(false);
+  const [askForm, setAskForm] = useState({ name: '', email: '', phone: '', question: '' });
+  const [askFormErrors, setAskFormErrors] = useState({});
+  const [askFormMessage, setAskFormMessage] = useState('');
+  const [askFormTouched, setAskFormTouched] = useState({});
+  const [askSubmitAttempted, setAskSubmitAttempted] = useState(false);
 
   const optionLabelMap = useMemo(
     () =>
@@ -545,14 +556,10 @@ export default function EventsChill() {
         const next = { ...prev };
         appliedKeys.forEach((key) => {
           next[key] = 'pending';
-      for (const submission of validatedSubmissions) {
-        await applyForParticipation(eventId, {
-          option: submission.option,
-          application: submission.application,
         });
-      }
+        return next;
+      });
 
-      const appliedKeys = validatedSubmissions.map((submission) => `${eventId}:${submission.option}`);
       setAppliedMap((prev) => {
         const next = { ...prev };
         appliedKeys.forEach((key) => {
@@ -792,185 +799,6 @@ export default function EventsChill() {
               >
                 Explore Events
               </button>
-      <main className="main-content">
-        <div className="mb-8 animate-fade-in-up">
-          <div className="rounded-3xl bg-gradient-to-r from-primary to-primary-light p-6 md:p-8 shadow-lg border border-white/30">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="text-4xl">🎉</div>
-              <h1 className="!mb-0 !text-white">Event Dashboard</h1>
-            </div>
-            <p className="!mb-0 text-white/90 text-base md:text-lg">
-              Discover upcoming campus events including Viramaya (විරාමය), competitions, Leo Club events, and MS Club events.
-            </p>
-          </div>
-        </section>
-
-        {loading ? (
-          <div className="flex items-center justify-center min-h-[400px] max-w-6xl mx-auto">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-              <p className="text-gray-500">Loading upcoming events...</p>
-            </div>
-          </div>
-        ) : error ? (
-          <div className="max-w-6xl mx-auto text-center py-16 bg-gray-50 rounded-2xl border border-gray-200 p-8">
-            <div className="text-5xl mb-4">⚠️</div>
-            <p className="text-xl font-semibold text-gray-800 mb-2">Unable to load events</p>
-            <p className="text-gray-600">{error}</p>
-          </div>
-        ) : upcomingItems.length === 0 ? (
-          <div className="max-w-6xl mx-auto text-center py-16 bg-gray-50 rounded-2xl border border-gray-200 p-8">
-            <div className="text-6xl mb-4">🎪</div>
-            <p className="text-xl font-semibold text-gray-800 mb-2">No upcoming events available</p>
-            <p className="text-gray-600">Stay tuned for the next campus event!</p>
-          </div>
-        ) : (
-          <div className="max-w-6xl mx-auto">
-            {applyMessage ? <p className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">{applyMessage}</p> : null}
-            {applyError ? <p className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{applyError}</p> : null}
-
-            {isStudent ? (
-              <div className="mb-6">
-                <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white border border-green-100 rounded-xl">
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-800">Have a question about an event?</h3>
-                    <p className="text-sm text-gray-600">Use the button to open the upcoming student event chatbot area.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsAskPanelOpen((prev) => !prev)}
-                    className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300"
-                  >
-                    Ask About Events
-                  </button>
-                </div>
-
-                {isAskPanelOpen ? (
-                  <div className="mt-3 p-5 bg-green-50 border border-green-200 rounded-xl">
-                    <h4 className="text-sm font-semibold text-green-800 mb-3">Ask About Events</h4>
-
-                    <form className="space-y-4" onSubmit={handleAskFormSubmit} noValidate>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                        <input
-                          type="text"
-                          value={askForm.name}
-                          onChange={(event) => handleAskFieldChange('name', event.target.value)}
-                          onBlur={() => handleAskFieldBlur('name')}
-                          placeholder="Enter your full name"
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                        />
-                        {(askSubmitAttempted || askFormTouched.name) && askFormErrors.name ? (
-                          <p className="text-xs text-red-600 mt-1">{askFormErrors.name}</p>
-                        ) : null}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                        <input
-                          type="text"
-                          value={askForm.email}
-                          onChange={(event) => handleAskFieldChange('email', event.target.value)}
-                          onBlur={() => handleAskFieldBlur('email')}
-                          placeholder="Enter your email"
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                        />
-                        {(askSubmitAttempted || askFormTouched.email) && askFormErrors.email ? (
-                          <p className="text-xs text-red-600 mt-1">{askFormErrors.email}</p>
-                        ) : null}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
-                        <input
-                          type="text"
-                          value={askForm.phone}
-                          onChange={(event) => handleAskFieldChange('phone', event.target.value)}
-                          onBlur={() => handleAskFieldBlur('phone')}
-                          placeholder="Enter 10-digit phone number"
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                        />
-                        {(askSubmitAttempted || askFormTouched.phone) && askFormErrors.phone ? (
-                          <p className="text-xs text-red-600 mt-1">{askFormErrors.phone}</p>
-                        ) : null}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Question *</label>
-                        <textarea
-                          rows={3}
-                          value={askForm.question}
-                          onChange={(event) => handleAskFieldChange('question', event.target.value)}
-                          onBlur={() => handleAskFieldBlur('question')}
-                          placeholder="Type your question about events"
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                        />
-                        {(askSubmitAttempted || askFormTouched.question) && askFormErrors.question ? (
-                          <p className="text-xs text-red-600 mt-1">{askFormErrors.question}</p>
-                        ) : null}
-                      </div>
-
-                      {askFormMessage ? (
-                        <p className={`text-sm ${Object.keys(askFormErrors).length > 0 ? 'text-red-600' : 'text-green-700'}`}>
-                          {askFormMessage}
-                        </p>
-                      ) : null}
-
-                      <button
-                        type="submit"
-                        disabled={!isAskFormValid}
-                        className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300"
-                      >
-                        Submit Question
-                      </button>
-                    </form>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            <div id="events-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="loader mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading upcoming events...</p>
-            </div>
-          </div>
-        ) : error ? (
-          <div className="text-center py-16 bg-muted rounded-2xl">
-            <div className="text-5xl mb-4">⚠️</div>
-            <p className="text-xl font-semibold text-muted-foreground mb-2">Unable to load events</p>
-            <p className="text-muted-foreground">{error}</p>
-          </div>
-        ) : upcomingItems.length === 0 ? (
-          <div className="text-center py-16 bg-muted rounded-2xl">
-            <div className="text-6xl mb-4">🎪</div>
-            <p className="text-xl font-semibold text-muted-foreground mb-2">No upcoming events available</p>
-            <p className="text-muted-foreground">Stay tuned for the next campus event!</p>
-          </div>
-        ) : (
-          <div>
-            {applyMessage ? <p className="event-apply-success">{applyMessage}</p> : null}
-            {applyError ? <p className="event-apply-error">{applyError}</p> : null}
-
-            <div className="event-dashboard-grid">
-            {upcomingItems.map((item, index) => {
-              const countdown = getCountdownData(item.date, now);
-
-              return (
-                <div
-                  key={item._id}
-                  className="bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden animate-fade-in"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  {/* Card Image */}
-                  <div className="w-full h-48 bg-gray-100 overflow-hidden rounded-t-2xl">
-                  className="event-card animate-fade-in"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  <div className="event-card-image-wrap">
-                    {resolveImageUrl(item.image) ? (
-                      <img
-                        src={resolveImageUrl(item.image)}
-                        alt={item.title}
                         className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                       />
                     ) : (
