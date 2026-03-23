@@ -6,6 +6,7 @@ import CoachesDashboard from '../pages/admin/CoachesDashboard';
 import ResourceCoordinatorDashboard from '../pages/admin/ResourceCoordinatorDashboard';
 import ConsultantDashboard from '../pages/admin/ConsultantDashboard';
 import UserHome from '../pages/user/UserHome';
+import EventCoordinatorDashboard from '../pages/admin/EventCoordinatorDashboard';
 
 export default function RoleRoutes() {
   const { user } = useAuth();

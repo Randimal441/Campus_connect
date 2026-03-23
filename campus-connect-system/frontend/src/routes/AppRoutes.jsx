@@ -78,7 +78,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/events"
         element={
-          <ProtectedRoute allowedRoles={[ROLES.SUPER_ADMIN]}>
+          <ProtectedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.EVENT_COORDINATOR]}>
             <AdminLayout>
               <EventCoordinatorDashboard />
             </AdminLayout>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { login } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
@@ -8,7 +8,7 @@ import SignInForm from '../../components/forms/SignInForm';
 export default function SignIn() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const { user, refreshUser } = useAuth();
+  const { refreshUser } = useAuth();
   const navigate = useNavigate();
 
   const getRedirectPath = (role) => {
@@ -44,11 +44,6 @@ export default function SignIn() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (!user) return;
-    navigate(getRedirectPath(user.role), { replace: true });
-  }, [user, navigate]);
 
   return (
     <div className="auth-page">

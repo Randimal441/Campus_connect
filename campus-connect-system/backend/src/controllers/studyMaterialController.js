@@ -167,9 +167,12 @@ const deleteMaterial = async (req, res, next) => {
         const material = await StudyMaterial.findById(req.params.id);
         if (!material) return res.status(404).json({ message: 'Not found.' });
 
-        // Only allow owner to delete
-        if (material.uploadedBy.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ message: 'You can only delete your own uploads.' });
+        // Only allow owner or admin to delete
+        const isOwner = material.uploadedBy.toString() === req.user._id.toString();
+        const isAdmin = ['super_admin', 'resource_coordinator'].includes(req.user.role);
+
+        if (!isOwner && !isAdmin) {
+            return res.status(403).json({ message: 'You are not authorized to delete this material.' });
         }
 
         // Remove actual file from disk
