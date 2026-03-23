@@ -25,11 +25,23 @@ export const api = async (endpoint, options = {}) => {
     body = JSON.stringify(body);
   }
 
-  const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers, body });
-  const data = await res.json().catch(() => ({}));
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers, body });
+  } catch (error) {
+    throw new Error('Cannot reach server. Please make sure backend is running.');
+  }
+
+  const contentType = res.headers.get('content-type') || '';
+  const isJson = contentType.includes('application/json');
+  const data = isJson ? await res.json().catch(() => ({})) : {};
+  const textFallback = !isJson ? await res.text().catch(() => '') : '';
 
   if (!res.ok) {
-    throw new Error(data.message || 'Request failed');
+    const fallbackMessage = textFallback
+      ? `Request failed (${res.status}): ${textFallback.slice(0, 140)}`
+      : `Request failed (${res.status})`;
+    throw new Error(data.message || fallbackMessage);
   }
   return data;
 };
