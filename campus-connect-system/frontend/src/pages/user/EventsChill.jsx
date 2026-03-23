@@ -272,6 +272,31 @@ export default function EventsChill() {
     });
   };
 
+  const getStudentApplicationStatus = (eventItem, option) => {
+    if (!user?._id || !eventItem?._id) return '';
+
+    const key = getApplicationKey(eventItem._id, option);
+    const cachedStatus = applicationStatusMap[key];
+    if (cachedStatus) return String(cachedStatus).toLowerCase();
+
+    const cachedMetaStatus = applicationMetaMap[key]?.status;
+    if (cachedMetaStatus) return String(cachedMetaStatus).toLowerCase();
+
+    const applications = Array.isArray(eventItem.participationApplications)
+      ? eventItem.participationApplications
+      : [];
+
+    const matched = applications.find((entry) => {
+      const studentId = typeof entry.student === 'object' ? entry.student?._id : entry.student;
+      return String(studentId) === String(user._id) && entry.option === option;
+    });
+
+    if (matched?.status) return String(matched.status).toLowerCase();
+    if (appliedMap[key]) return 'pending';
+
+    return '';
+  };
+
   const openEventDetails = (eventItem) => {
     setSelectedEvent(eventItem);
     setSelectedOptions([]);
@@ -779,133 +804,160 @@ export default function EventsChill() {
     <div className="min-h-screen bg-white flex flex-col">
       <Navbar />
       <main className="flex-1 px-4 py-8">
-        {/* Hero Section */}
         <section className="mb-12 rounded-2xl bg-gradient-to-br from-green-50 to-white p-8 md:p-12 border border-green-100 animate-fade-in-up">
-          <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-12">
-            <div className="flex-1">
-              <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-6 leading-tight">
-                Discover and Join<br />
-                <span className="text-green-600">Campus Events</span>
-              </h1>
-              <p className="text-gray-600 mb-8 text-lg leading-relaxed">
-                Experience the vibrant campus life! Browse and participate in exciting events, 
-                workshops, competitions, and social gatherings. Connect with fellow students, 
-                develop new skills, and create lasting memories. Find the perfect event that 
-                matches your interests and join our growing community today.
-              </p>
-              <button
-                onClick={() => document.getElementById('events-grid').scrollIntoView({ behavior: 'smooth' })}
-                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
-              >
-                Explore Events
-              </button>
-                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-400">
-                        <span className="text-sm">No Image</span>
-                      </div>
-                    )}
-                  </div>
+          <div className="max-w-6xl mx-auto">
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-6 leading-tight">
+              Discover and Join<br />
+              <span className="text-green-600">Campus Events</span>
+            </h1>
+            <p className="text-gray-600 mb-8 text-lg leading-relaxed">
+              Experience the vibrant campus life! Browse and participate in exciting events,
+              workshops, competitions, and social gatherings. Connect with fellow students,
+              develop new skills, and create lasting memories.
+            </p>
+            <button
+              type="button"
+              onClick={() => document.getElementById('events-grid')?.scrollIntoView({ behavior: 'smooth' })}
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
+            >
+              Explore Events
+            </button>
+          </div>
+        </section>
 
-                  {/* Card Body */}
-                  <div className="p-6">
-                    {/* Event Type Badge */}
-                    <div className="inline-block mb-3">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
-                        {(item.eventType || 'event').replace('_', ' ')}
-                      </span>
-                    </div>
+        {applyMessage ? (
+          <div className="max-w-6xl mx-auto mb-4 p-3 rounded-lg border border-green-200 bg-green-50 text-green-700">
+            {applyMessage}
+          </div>
+        ) : null}
+        {applyError ? (
+          <div className="max-w-6xl mx-auto mb-4 p-3 rounded-lg border border-red-200 bg-red-50 text-red-700">
+            {applyError}
+          </div>
+        ) : null}
+        {error ? (
+          <div className="max-w-6xl mx-auto mb-4 p-3 rounded-lg border border-red-200 bg-red-50 text-red-700">
+            {error}
+          </div>
+        ) : null}
 
-                    {/* Title */}
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2 text-sinhala">{item.title}</h3>
+        <section id="events-grid" className="max-w-6xl mx-auto">
+          {loading ? (
+            <div className="text-center py-12 text-gray-500">Loading upcoming events...</div>
+          ) : upcomingItems.length === 0 ? (
+            <div className="text-center py-12 rounded-xl border border-gray-200 bg-gray-50 text-gray-600">
+              No upcoming events found.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {upcomingItems.map((item) => {
+                const countdown = getCountdownData(item.date, now);
 
-                    {/* Description */}
-                    <p className="text-sm text-gray-600 mb-4 line-clamp-3 text-sinhala">
-                      {item.description || 'No description provided for this event.'}
-                    </p>
-
-                    {/* Countdown & Date */}
-                    <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-100">
-                      <p className="text-xs font-semibold text-green-600 mb-2">{countdown.label}</p>
-                      {countdown.status === 'upcoming' ? (
-                        <div className="flex gap-3">
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-green-700">{countdown.days}</div>
-                            <div className="text-xs text-green-600">Days</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-green-700">{countdown.hours}</div>
-                            <div className="text-xs text-green-600">Hours</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-green-700">{countdown.minutes}</div>
-                            <div className="text-xs text-green-600">Minutes</div>
-                          </div>
-                        </div>
+                return (
+                  <article key={item._id} className="bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden">
+                    <div className="h-48 bg-gray-100 overflow-hidden">
+                      {resolveImageUrl(item.image) ? (
+                        <img
+                          src={resolveImageUrl(item.image)}
+                          alt={item.title}
+                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                        />
                       ) : (
-                        <div className="text-sm font-semibold text-green-700">{countdown.label}</div>
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-400">
+                          <span className="text-sm">No Image</span>
+                        </div>
                       )}
                     </div>
 
-                    {/* Date */}
-                    <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600 border border-gray-100">
-                      <span className="font-semibold text-gray-700">📅 </span>
-                      {new Date(item.date).toLocaleDateString('en-GB', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
-                    </div>
+                    <div className="p-6">
+                      <div className="inline-block mb-3">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
+                          {(item.eventType || 'event').replace('_', ' ')}
+                        </span>
+                      </div>
 
-                    {/* Status Badges */}
-                    {isStudent ? (
-                      <div className="mb-4 flex flex-wrap gap-2">
-                        {(item.participationOptions || []).map((option) => {
-                          const status = getStudentApplicationStatus(item, option);
-                          if (!status) return null;
+                      <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2 text-sinhala">{item.title}</h3>
 
-                          const statusMeta = getStatusMeta(status);
-                          return (
-                            <button
-                              key={`${item._id}-${option}-status`}
-                              type="button"
-                              className={`px-3 py-1 rounded-full text-xs font-semibold cursor-default ${statusMeta.className}`}
-                              disabled
-                            >
-                              {formatOptionLabel(option)}: {statusMeta.label}
-                            </button>
-                          );
+                      <p className="text-sm text-gray-600 mb-4 line-clamp-3 text-sinhala">
+                        {item.description || 'No description provided for this event.'}
+                      </p>
+
+                      <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-100">
+                        <p className="text-xs font-semibold text-green-600 mb-2">{countdown.label}</p>
+                        {countdown.status === 'upcoming' ? (
+                          <div className="flex gap-3">
+                            <div className="text-center">
+                              <div className="text-lg font-bold text-green-700">{countdown.days}</div>
+                              <div className="text-xs text-green-600">Days</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-lg font-bold text-green-700">{countdown.hours}</div>
+                              <div className="text-xs text-green-600">Hours</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-lg font-bold text-green-700">{countdown.minutes}</div>
+                              <div className="text-xs text-green-600">Minutes</div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-sm font-semibold text-green-700">{countdown.label}</div>
+                        )}
+                      </div>
+
+                      <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600 border border-gray-100">
+                        <span className="font-semibold text-gray-700">Date: </span>
+                        {new Date(item.date).toLocaleDateString('en-GB', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
                         })}
                       </div>
-                    ) : null}
 
-                    {/* View More Button */}
-                    <button
-                      type="button"
-                      className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-300"
-                      onClick={() => openEventDetails(item)}
-                    >
-                      View More
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                      {isStudent ? (
+                        <div className="mb-4 flex flex-wrap gap-2">
+                          {(item.participationOptions || []).map((option) => {
+                            const status = getStudentApplicationStatus(item, option);
+                            if (!status) return null;
+
+                            const statusMeta = getStatusMeta(status);
+                            return (
+                              <button
+                                key={`${item._id}-${option}-status`}
+                                type="button"
+                                className={`px-3 py-1 rounded-full text-xs font-semibold cursor-default ${statusMeta.className}`}
+                                disabled
+                              >
+                                {formatOptionLabel(option)}: {statusMeta.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-300"
+                        onClick={() => openEventDetails(item)}
+                      >
+                        View More
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
-          </div>
-        )}
+          )}
+        </section>
 
         {selectedEvent ? (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in overflow-y-auto" onClick={closeEventDetails}>
             <div className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-2xl my-8 animate-scale-in" onClick={(event) => event.stopPropagation()}>
-              {/* Modal Header */}
               <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
                 <h3 className="text-xl font-semibold text-gray-800 mb-0">
                   {selectedOptions.length > 0 ? 'Application Form' : 'Event Details'}
                 </h3>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="text-gray-400 hover:text-gray-600 text-2xl w-8 h-8 flex items-center justify-center"
                   onClick={closeEventDetails}
                 >
@@ -913,667 +965,354 @@ export default function EventsChill() {
                 </button>
               </div>
 
-              {/* Modal Body */}
               <div className="overflow-y-auto max-h-[calc(100vh-200px)]">
-
                 {selectedOptions.length > 0 ? (
-                <form
-                  className="p-6 space-y-6"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    handleApplySelected(selectedEvent._id);
-                  }}
-                >
-                  <p className="text-gray-600">
-                    Fill and submit all selected participation applications for <strong className="text-gray-800">{selectedEvent.title}</strong>.
-                  </p>
-
-                  {/* Participation Options */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Select Participation Options</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedEvent.participationOptions.map((option) => {
-                        const status = getStudentApplicationStatus(selectedEvent, option);
-                        const applied = !!status;
-                        const selected = selectedOptions.includes(option);
-                        const statusMeta = getStatusMeta(status);
-
-                        return (
-                          <button
-                            key={`selected-${option}`}
-                            type="button"
-                            className={
-                              applied
-                                ? `px-4 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
-                                : `px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-200 ${selected ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-200 bg-white text-gray-700 hover:border-green-500'}`
-                            }
-                            onClick={() => toggleApplicationOption(option)}
-                            disabled={applied}
-                          >
-                            {formatOptionLabel(option)}{' '}
-                            {applied
-                              ? `(${statusMeta.label})`
-                              : selected
-                                ? '✓'
-                                : ''}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Form Fields for Selected Options */}
-                  {selectedOptions.map((option) => {
-                    const templateQuestions = getParticipationTemplate(selectedEvent, option);
-                    const optionAnswers = applicationAnswersByOption[option] || {};
-
-                    return (
-                      <div key={option} className="pt-4 border-t border-gray-100">
-                        <h4 className="text-sm font-semibold text-gray-700 mb-4">{formatOptionLabel(option)} Details</h4>
-
-                        {templateQuestions.length > 0 ? (
-                          <div className="space-y-4">
-                            {templateQuestions.map((question) => (
-                              <div key={`${option}-${question.key}`}>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  {question.label}
-                                  {question.required ? <span className="text-red-500 ml-1">*</span> : ''}
-                                </label>
-                                <textarea
-                                  rows={3}
-                                  value={optionAnswers[question.key] || ''}
-                                  onChange={(event) =>
-                                    handleApplicationFieldChange(option, question.key, event.target.value)
-                                  }
-                                  onBlur={(event) =>
-                                    handleParticipationFieldBlur(option, question.key, event.target.value)
-                                  }
-                                  required={question.required !== false}
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                />
-                                {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, question.key)])
-                                  && participationFieldErrors[getParticipationErrorKey(option, question.key)] ? (
-                                    <p className="text-xs text-red-600 mt-1">
-                                      {participationFieldErrors[getParticipationErrorKey(option, question.key)]}
-                                    </p>
-                                  ) : null}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  Full Name
-                                  <span className="text-red-500 ml-1">*</span>
-                                </label>
-                                <input
-                                  type="text"
-                                  value={optionAnswers.fullName || ''}
-                                  onChange={(event) =>
-                                    handleApplicationFieldChange(option, 'fullName', event.target.value)
-                                  }
-                                  onBlur={(event) =>
-                                    handleParticipationFieldBlur(option, 'fullName', event.target.value)
-                                  }
-                                  required
-                                  pattern="[A-Za-z\s]+"
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                />
-                                {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'fullName')])
-                                  && participationFieldErrors[getParticipationErrorKey(option, 'fullName')] ? (
-                                    <p className="text-xs text-red-600 mt-1">
-                                      {participationFieldErrors[getParticipationErrorKey(option, 'fullName')]}
-                                    </p>
-                                  ) : null}
-                              </div>
-
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  Email
-                                  <span className="text-red-500 ml-1">*</span>
-                                </label>
-                                <input
-                                  type="email"
-                                  value={optionAnswers.email || ''}
-                                  onChange={(event) =>
-                                    handleApplicationFieldChange(option, 'email', event.target.value)
-                                  }
-                                  onBlur={(event) =>
-                                    handleParticipationFieldBlur(option, 'email', event.target.value)
-                                  }
-                                  required
-                                  pattern="[^\s@]+@[^\s@]+"
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                />
-                                {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'email')])
-                                  && participationFieldErrors[getParticipationErrorKey(option, 'email')] ? (
-                                    <p className="text-xs text-red-600 mt-1">
-                                      {participationFieldErrors[getParticipationErrorKey(option, 'email')]}
-                                    </p>
-                                  ) : null}
-                              </div>
-
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  Phone Number
-                                  <span className="text-red-500 ml-1">*</span>
-                                </label>
-                                <input
-                                  type="text"
-                                  value={optionAnswers.phone || ''}
-                                  onChange={(event) =>
-                                    handleApplicationFieldChange(option, 'phone', event.target.value)
-                                  }
-                                  onBlur={(event) =>
-                                    handleParticipationFieldBlur(option, 'phone', event.target.value)
-                                  }
-                                  placeholder="07X XXX XXXX"
-                                  required
-                                  pattern="\d{10}"
-                                  minLength={10}
-                                  maxLength={10}
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                />
-                                {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'phone')])
-                                  && participationFieldErrors[getParticipationErrorKey(option, 'phone')] ? (
-                                    <p className="text-xs text-red-600 mt-1">
-                                      {participationFieldErrors[getParticipationErrorKey(option, 'phone')]}
-                                    </p>
-                                  ) : null}
-                              </div>
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Why are you applying for this role?
-                                <span className="text-red-500 ml-1">*</span>
-                              </label>
-                              <textarea
-                                rows={4}
-                                value={optionAnswers.notes || ''}
-                                onChange={(event) =>
-                                  handleApplicationFieldChange(option, 'notes', event.target.value)
-                                }
-                                onBlur={(event) =>
-                                  handleParticipationFieldBlur(option, 'notes', event.target.value)
-                                }
-                                placeholder="Share your relevant skills, interest, or experience."
-                                required
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                              />
-                              {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'notes')])
-                                && participationFieldErrors[getParticipationErrorKey(option, 'notes')] ? (
-                                  <p className="text-xs text-red-600 mt-1">
-                                    {participationFieldErrors[getParticipationErrorKey(option, 'notes')]}
-                                  </p>
-                                ) : null}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {/* Form Actions */}
-                  <div className="flex gap-3 pt-6 border-t border-gray-100">
-                    <button
-                      type="button"
-                      className="flex-1 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all duration-300"
-                      onClick={() => {
-                        setSelectedOptions([]);
-                        setApplicationAnswersByOption({});
-                        setParticipationFieldErrors({});
-                        setParticipationFieldTouched({});
-                        setParticipationSubmitAttempted(false);
-                      }}
-                    >
-                      Back to Details
-                    </button>
-                    <button
-                      type="submit"
-                      className="flex-1 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={applyingKey === selectedEvent._id}
-                    >
-                      {applyingKey === selectedEvent._id
-                        ? 'Submitting...'
-                        : `Submit ${selectedOptions.length} Application${selectedOptions.length > 1 ? 's' : ''}`}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <div className="p-6 space-y-6">
-                  {/* Event Image */}
-                  {resolveImageUrl(selectedEvent.image) ? (
-                    <div className="w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
-                      <img
-                        src={resolveImageUrl(selectedEvent.image)}
-                        alt={selectedEvent.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ) : null}
-
-                  {/* Event Title */}
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-800 text-sinhala">{selectedEvent.title}</h3>
-                  </div>
-
-                  {/* Event Description */}
-                  <div>
-                    <p className="text-gray-600 text-sinhala leading-relaxed">
-                      {selectedEvent.description || 'No description provided for this event.'}
+                  <form
+                    className="p-6 space-y-6"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      handleApplySelected(selectedEvent._id);
+                    }}
+                  >
+                    <p className="text-gray-600">
+                      Fill and submit all selected participation applications for <strong className="text-gray-800">{selectedEvent.title}</strong>.
                     </p>
-                  </div>
 
-                  {/* Event Details */}
-                  <div className="space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
                     <div>
-                      <span className="text-xs font-semibold text-gray-500 uppercase">Date</span>
-                      <p className="text-gray-700 font-medium">
-                        {new Date(selectedEvent.date).toLocaleDateString('en-GB', {
-                        className="event-card-image"
-                      />
-                    ) : (
-                      <div className="event-card-image-placeholder">No Image</div>
-                    )}
-                  </div>
-
-                  <div className="event-card-header">
-                    <span className="event-card-type capitalize">{(item.eventType || 'event').replace('_', ' ')}</span>
-                    <h3 className="event-card-title text-sinhala">{item.title}</h3>
-                  </div>
-
-                  <p className="event-card-description text-sinhala">
-                    {item.description || 'No description provided for this event.'}
-                  </p>
-
-                  <div className="event-card-meta-list">
-                    <div className="event-card-meta-item">
-                      <span className="event-card-meta-label">Date</span>
-                      <span className="event-card-meta-value">
-                        {new Date(item.date).toLocaleDateString('en-GB', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
-                      </p>
-                    </div>
-                    <div className="border-t border-gray-200 pt-3">
-                      <span className="text-xs font-semibold text-gray-500 uppercase">Time</span>
-                      <p className="text-gray-700 font-medium">
-                        {new Date(selectedEvent.date).toLocaleTimeString('en-GB', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </div>
-                    <div className="border-t border-gray-200 pt-3">
-                      <span className="text-xs font-semibold text-gray-500 uppercase">Location</span>
-                      <p className="text-gray-700 font-medium text-sinhala">{selectedEvent.location || 'TBA'}</p>
-                    </div>
-                  </div>
-
-                  {/* Participation Options */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Participation Opportunities</h4>
-
-                    {!isStudent ? (
-                      <p className="text-gray-500 text-sm bg-blue-50 border border-blue-100 rounded-lg p-3">
-                        Participation applications can be submitted by student accounts only.
-                      </p>
-                    ) : null}
-
-                    {Array.isArray(selectedEvent.participationOptions) && selectedEvent.participationOptions.length > 0 ? (
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Select Participation Options</h4>
                       <div className="flex flex-wrap gap-2">
                         {selectedEvent.participationOptions.map((option) => {
                           const status = getStudentApplicationStatus(selectedEvent, option);
                           const applied = !!status;
                           const selected = selectedOptions.includes(option);
                           const statusMeta = getStatusMeta(status);
-                          const metadata = getExistingPendingApplicationMeta(selectedEvent._id, option);
-                          const canManagePending = applied && String(status).toLowerCase() === 'pending' && !!metadata?.id;
-                          const removingCurrent = applyingKey === `${selectedEvent._id}:${option}:remove`;
 
-                          return (
-                            <div key={option} className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                className={
-                                  applied
-                                    ? `px-4 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
-                                    : `px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-200 ${selected ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-200 bg-white text-gray-700 hover:border-green-500'}`
-                                }
-                                onClick={() => toggleApplicationOption(option)}
-                                disabled={applied}
-                              >
-                                {formatOptionLabel(option)}{' '}
-                                {applied
-                                  ? `(${statusMeta.label})`
-                                  : selected
-                                    ? '✓'
-                                    : ''}
-                              </button>
-
-                              {canManagePending ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-100 text-green-700 hover:bg-green-200 transition-all duration-200"
-                                    onClick={() => handleEditPendingApplication(option)}
-                                  >
-                                    Update
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-100 text-red-700 hover:bg-red-200 transition-all duration-200 disabled:opacity-50"
-                                    onClick={() => handleRemovePendingApplication(selectedEvent._id, option)}
-                                    disabled={removingCurrent}
-                                  >
-                                    {removingCurrent ? 'Removing...' : 'Remove'}
-                                  </button>
-                                </>
-                              ) : null}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-gray-500 text-sm">No participation roles are open for this event.</p>
-                    )}
-                  </div>
-
-                  {/* Action Buttons */}
-                  {isStudent && selectedEvent.participationOptions && selectedEvent.participationOptions.length > 0 && (
-                    <div className="flex gap-3 pt-4 border-t border-gray-100">
-                      <button
-                        type="button"
-                        className="flex-1 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all duration-300"
-                        onClick={closeEventDetails}
-                      >
-                        Close
-                      </button>
-                      {selectedOptions.length > 0 && (
-                        <button
-                          type="button"
-                          className="flex-1 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300"
-                          onClick={() => {
-                            // Form section will now show
-                          }}
-                        >
-                          Apply Now
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="event-countdown-wrap">
-                    <p className="event-countdown-label mb-2">{countdown.label}</p>
-                    {countdown.status === 'upcoming' ? (
-                      <div className="event-countdown-chips">
-                        <div className="countdown-chip">
-                          <span className="countdown-chip-value">{countdown.days}</span>
-                          <span className="countdown-chip-unit">Days</span>
-                        </div>
-                        <div className="countdown-chip">
-                          <span className="countdown-chip-value">{countdown.hours}</span>
-                          <span className="countdown-chip-unit">Hours</span>
-                        </div>
-                        <div className="countdown-chip">
-                          <span className="countdown-chip-value">{countdown.minutes}</span>
-                          <span className="countdown-chip-unit">Minutes</span>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="event-card-actions">
-                    <button
-                      type="button"
-                      className="event-view-more-btn"
-                      onClick={() => openEventDetails(item)}
-                    >
-                      View More
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-            </div>
-          </div>
-        )}
-
-        {selectedEvent ? (
-          <div className="event-modal-backdrop" onClick={closeEventDetails}>
-            <div className="event-modal" onClick={(event) => event.stopPropagation()}>
-              <div className="event-modal-header">
-                <h3 className="mb-0">{selectedOptions.length > 0 ? 'Participation Application Forms' : 'Event Details'}</h3>
-                <button type="button" className="event-modal-close-btn" onClick={closeEventDetails}>X</button>
-              </div>
-
-              {selectedOptions.length > 0 ? (
-                <form
-                  className="event-application-form"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    handleApplySelected(selectedEvent._id);
-                  }}
-                >
-                  <p className="event-application-subtitle">
-                    Fill and submit all selected participation applications for <strong>{selectedEvent.title}</strong>.
-                  </p>
-
-                  <div className="event-modal-participation-wrap">
-                    <p className="event-participation-title mb-2">Available Participation Options (Click to select)</p>
-                    <div className="event-option-list">
-                      {selectedEvent.participationOptions.map((option) => {
-                        const applied = hasStudentApplied(selectedEvent, option);
-                        const selected = selectedOptions.includes(option);
-                        return (
-                          <button
-                            key={`selected-${option}`}
-                            type="button"
-                            className={`event-option-btn ${selected ? 'selected' : ''}`}
-                            onClick={() => toggleApplicationOption(option)}
-                            disabled={applied}
-                          >
-                            {formatOptionLabel(option)} {applied ? '(Applied)' : selected ? '(Selected)' : ''}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {selectedOptions.map((option) => {
-                    const templateQuestions = getParticipationTemplate(selectedEvent, option);
-                    const optionAnswers = applicationAnswersByOption[option] || {};
-
-                    return (
-                      <div key={option} className="event-selected-option-section">
-                        <h4 className="event-selected-option-title mb-1">{formatOptionLabel(option)}</h4>
-
-                        {templateQuestions.length > 0 ? (
-                          <div className="event-application-grid">
-                            {templateQuestions.map((question) => (
-                              <label key={`${option}-${question.key}`} className="event-application-field">
-                                <span>
-                                  {question.label}
-                                  {question.required ? ' *' : ''}
-                                </span>
-                                <textarea
-                                  rows={3}
-                                  value={optionAnswers[question.key] || ''}
-                                  onChange={(event) =>
-                                    handleApplicationFieldChange(option, question.key, event.target.value)
-                                  }
-                                  required={question.required !== false}
-                                />
-                              </label>
-                            ))}
-                          </div>
-                        ) : (
-                          <>
-                            <div className="event-application-grid">
-                              <label className="event-application-field">
-                                <span>Full Name</span>
-                                <input
-                                  type="text"
-                                  value={optionAnswers.fullName || ''}
-                                  onChange={(event) =>
-                                    handleApplicationFieldChange(option, 'fullName', event.target.value)
-                                  }
-                                  required
-                                />
-                              </label>
-
-                              <label className="event-application-field">
-                                <span>Email</span>
-                                <input
-                                  type="email"
-                                  value={optionAnswers.email || ''}
-                                  onChange={(event) =>
-                                    handleApplicationFieldChange(option, 'email', event.target.value)
-                                  }
-                                  required
-                                />
-                              </label>
-
-                              <label className="event-application-field">
-                                <span>Phone Number</span>
-                                <input
-                                  type="text"
-                                  value={optionAnswers.phone || ''}
-                                  onChange={(event) =>
-                                    handleApplicationFieldChange(option, 'phone', event.target.value)
-                                  }
-                                  placeholder="07X XXX XXXX"
-                                  required
-                                />
-                              </label>
-                            </div>
-
-                            <label className="event-application-field">
-                              <span>Why are you applying for this role?</span>
-                              <textarea
-                                rows={4}
-                                value={optionAnswers.notes || ''}
-                                onChange={(event) =>
-                                  handleApplicationFieldChange(option, 'notes', event.target.value)
-                                }
-                                placeholder="Share your relevant skills, interest, or experience."
-                                required
-                              />
-                            </label>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  <div className="event-application-actions">
-                    <button
-                      type="button"
-                      className="event-secondary-btn"
-                      onClick={() => {
-                        setSelectedOptions([]);
-                        setApplicationAnswersByOption({});
-                      }}
-                    >
-                      Back to Details
-                    </button>
-                    <button
-                      type="submit"
-                      className="event-primary-btn"
-                      disabled={applyingKey === selectedEvent._id}
-                    >
-                      {applyingKey === selectedEvent._id
-                        ? 'Submitting...'
-                        : `Submit ${selectedOptions.length} Application${selectedOptions.length > 1 ? 's' : ''}`}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <div className="event-modal-content">
-                  {resolveImageUrl(selectedEvent.image) ? (
-                    <img
-                      src={resolveImageUrl(selectedEvent.image)}
-                      alt={selectedEvent.title}
-                      className="event-modal-image"
-                    />
-                  ) : null}
-
-                  <h3 className="event-modal-title text-sinhala">{selectedEvent.title}</h3>
-                  <p className="event-modal-description text-sinhala">
-                    {selectedEvent.description || 'No description provided for this event.'}
-                  </p>
-
-                  <div className="event-card-meta-list">
-                    <div className="event-card-meta-item">
-                      <span className="event-card-meta-label">Date</span>
-                      <span className="event-card-meta-value">
-                        {new Date(selectedEvent.date).toLocaleDateString('en-GB', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
-                      </span>
-                    </div>
-                    <div className="event-card-meta-item">
-                      <span className="event-card-meta-label">Time</span>
-                      <span className="event-card-meta-value">
-                        {new Date(selectedEvent.date).toLocaleTimeString('en-GB', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    </div>
-                    <div className="event-card-meta-item">
-                      <span className="event-card-meta-label">Location</span>
-                      <span className="event-card-meta-value text-sinhala">{selectedEvent.location || 'TBA'}</span>
-                    </div>
-                  </div>
-
-                  <div className="event-modal-participation-wrap">
-                    <p className="event-participation-title mb-2">Available Participation Options</p>
-
-                    {!isStudent ? (
-                      <p className="event-participation-empty mb-2">
-                        Participation applications can be submitted by student accounts only.
-                      </p>
-                    ) : null}
-
-                    {Array.isArray(selectedEvent.participationOptions) && selectedEvent.participationOptions.length > 0 ? (
-                      <div className="event-option-list">
-                        {selectedEvent.participationOptions.map((option) => {
-                          const applied = hasStudentApplied(selectedEvent, option);
-                          const selected = selectedOptions.includes(option);
                           return (
                             <button
-                              key={option}
+                              key={`selected-${option}`}
                               type="button"
-                              className={`event-option-btn ${selected ? 'selected' : ''}`}
+                              className={
+                                applied
+                                  ? `px-4 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
+                                  : `px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-200 ${selected ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-200 bg-white text-gray-700 hover:border-green-500'}`
+                              }
                               onClick={() => toggleApplicationOption(option)}
                               disabled={applied}
                             >
-                              {formatOptionLabel(option)} {applied ? '(Applied)' : selected ? '(Selected)' : ''}
+                              {formatOptionLabel(option)}{' '}
+                              {applied ? `(${statusMeta.label})` : selected ? '✓' : ''}
                             </button>
                           );
                         })}
                       </div>
-                    ) : (
-                      <p className="event-participation-empty mb-0">No participation roles are open for this event.</p>
-                    )}
+                    </div>
+
+                    {selectedOptions.map((option) => {
+                      const templateQuestions = getParticipationTemplate(selectedEvent, option);
+                      const optionAnswers = applicationAnswersByOption[option] || {};
+
+                      return (
+                        <div key={option} className="pt-4 border-t border-gray-100">
+                          <h4 className="text-sm font-semibold text-gray-700 mb-4">{formatOptionLabel(option)} Details</h4>
+
+                          {templateQuestions.length > 0 ? (
+                            <div className="space-y-4">
+                              {templateQuestions.map((question) => (
+                                <div key={`${option}-${question.key}`}>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    {question.label}
+                                    {question.required ? <span className="text-red-500 ml-1">*</span> : ''}
+                                  </label>
+                                  <textarea
+                                    rows={3}
+                                    value={optionAnswers[question.key] || ''}
+                                    onChange={(event) =>
+                                      handleApplicationFieldChange(option, question.key, event.target.value)
+                                    }
+                                    onBlur={(event) =>
+                                      handleParticipationFieldBlur(option, question.key, event.target.value)
+                                    }
+                                    required={question.required !== false}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                  />
+                                  {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, question.key)])
+                                    && participationFieldErrors[getParticipationErrorKey(option, question.key)] ? (
+                                      <p className="text-xs text-red-600 mt-1">
+                                        {participationFieldErrors[getParticipationErrorKey(option, question.key)]}
+                                      </p>
+                                    ) : null}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Full Name
+                                    <span className="text-red-500 ml-1">*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={optionAnswers.fullName || ''}
+                                    onChange={(event) =>
+                                      handleApplicationFieldChange(option, 'fullName', event.target.value)
+                                    }
+                                    onBlur={(event) =>
+                                      handleParticipationFieldBlur(option, 'fullName', event.target.value)
+                                    }
+                                    required
+                                    pattern="[A-Za-z\s]+"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                  />
+                                  {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'fullName')])
+                                    && participationFieldErrors[getParticipationErrorKey(option, 'fullName')] ? (
+                                      <p className="text-xs text-red-600 mt-1">
+                                        {participationFieldErrors[getParticipationErrorKey(option, 'fullName')]}
+                                      </p>
+                                    ) : null}
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Email
+                                    <span className="text-red-500 ml-1">*</span>
+                                  </label>
+                                  <input
+                                    type="email"
+                                    value={optionAnswers.email || ''}
+                                    onChange={(event) =>
+                                      handleApplicationFieldChange(option, 'email', event.target.value)
+                                    }
+                                    onBlur={(event) =>
+                                      handleParticipationFieldBlur(option, 'email', event.target.value)
+                                    }
+                                    required
+                                    pattern="[^\s@]+@[^\s@]+"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                  />
+                                  {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'email')])
+                                    && participationFieldErrors[getParticipationErrorKey(option, 'email')] ? (
+                                      <p className="text-xs text-red-600 mt-1">
+                                        {participationFieldErrors[getParticipationErrorKey(option, 'email')]}
+                                      </p>
+                                    ) : null}
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Phone Number
+                                    <span className="text-red-500 ml-1">*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={optionAnswers.phone || ''}
+                                    onChange={(event) =>
+                                      handleApplicationFieldChange(option, 'phone', event.target.value)
+                                    }
+                                    onBlur={(event) =>
+                                      handleParticipationFieldBlur(option, 'phone', event.target.value)
+                                    }
+                                    placeholder="07X XXX XXXX"
+                                    required
+                                    pattern="\d{10}"
+                                    minLength={10}
+                                    maxLength={10}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                  />
+                                  {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'phone')])
+                                    && participationFieldErrors[getParticipationErrorKey(option, 'phone')] ? (
+                                      <p className="text-xs text-red-600 mt-1">
+                                        {participationFieldErrors[getParticipationErrorKey(option, 'phone')]}
+                                      </p>
+                                    ) : null}
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Why are you applying for this role?
+                                  <span className="text-red-500 ml-1">*</span>
+                                </label>
+                                <textarea
+                                  rows={4}
+                                  value={optionAnswers.notes || ''}
+                                  onChange={(event) =>
+                                    handleApplicationFieldChange(option, 'notes', event.target.value)
+                                  }
+                                  onBlur={(event) =>
+                                    handleParticipationFieldBlur(option, 'notes', event.target.value)
+                                  }
+                                  placeholder="Share your relevant skills, interest, or experience."
+                                  required
+                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                />
+                                {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'notes')])
+                                  && participationFieldErrors[getParticipationErrorKey(option, 'notes')] ? (
+                                    <p className="text-xs text-red-600 mt-1">
+                                      {participationFieldErrors[getParticipationErrorKey(option, 'notes')]}
+                                    </p>
+                                  ) : null}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    <div className="flex gap-3 pt-6 border-t border-gray-100">
+                      <button
+                        type="button"
+                        className="flex-1 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all duration-300"
+                        onClick={() => {
+                          setSelectedOptions([]);
+                          setApplicationAnswersByOption({});
+                          setParticipationFieldErrors({});
+                          setParticipationFieldTouched({});
+                          setParticipationSubmitAttempted(false);
+                        }}
+                      >
+                        Back to Details
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={applyingKey === selectedEvent._id}
+                      >
+                        {applyingKey === selectedEvent._id
+                          ? 'Submitting...'
+                          : `Submit ${selectedOptions.length} Application${selectedOptions.length > 1 ? 's' : ''}`}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="p-6 space-y-6">
+                    {resolveImageUrl(selectedEvent.image) ? (
+                      <div className="w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
+                        <img
+                          src={resolveImageUrl(selectedEvent.image)}
+                          alt={selectedEvent.title}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : null}
+
+                    <h3 className="text-2xl font-bold text-gray-800 text-sinhala">{selectedEvent.title}</h3>
+                    <p className="text-gray-600 text-sinhala leading-relaxed">
+                      {selectedEvent.description || 'No description provided for this event.'}
+                    </p>
+
+                    <div className="space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                      <div>
+                        <span className="text-xs font-semibold text-gray-500 uppercase">Date</span>
+                        <p className="text-gray-700 font-medium">
+                          {new Date(selectedEvent.date).toLocaleDateString('en-GB', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                      <div className="border-t border-gray-200 pt-3">
+                        <span className="text-xs font-semibold text-gray-500 uppercase">Time</span>
+                        <p className="text-gray-700 font-medium">
+                          {new Date(selectedEvent.date).toLocaleTimeString('en-GB', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                      <div className="border-t border-gray-200 pt-3">
+                        <span className="text-xs font-semibold text-gray-500 uppercase">Location</span>
+                        <p className="text-gray-700 font-medium text-sinhala">{selectedEvent.location || 'TBA'}</p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Participation Opportunities</h4>
+
+                      {!isStudent ? (
+                        <p className="text-gray-500 text-sm bg-blue-50 border border-blue-100 rounded-lg p-3">
+                          Participation applications can be submitted by student accounts only.
+                        </p>
+                      ) : null}
+
+                      {Array.isArray(selectedEvent.participationOptions) && selectedEvent.participationOptions.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {selectedEvent.participationOptions.map((option) => {
+                            const status = getStudentApplicationStatus(selectedEvent, option);
+                            const applied = !!status;
+                            const selected = selectedOptions.includes(option);
+                            const statusMeta = getStatusMeta(status);
+                            const metadata = getExistingPendingApplicationMeta(selectedEvent._id, option);
+                            const canManagePending = applied && String(status).toLowerCase() === 'pending' && !!metadata?.id;
+                            const removingCurrent = applyingKey === `${selectedEvent._id}:${option}:remove`;
+
+                            return (
+                              <div key={option} className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  className={
+                                    applied
+                                      ? `px-4 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
+                                      : `px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-200 ${selected ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-200 bg-white text-gray-700 hover:border-green-500'}`
+                                  }
+                                  onClick={() => toggleApplicationOption(option)}
+                                  disabled={applied}
+                                >
+                                  {formatOptionLabel(option)} {applied ? `(${statusMeta.label})` : selected ? '✓' : ''}
+                                </button>
+
+                                {canManagePending ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-100 text-green-700 hover:bg-green-200 transition-all duration-200"
+                                      onClick={() => handleEditPendingApplication(option)}
+                                    >
+                                      Update
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-100 text-red-700 hover:bg-red-200 transition-all duration-200 disabled:opacity-50"
+                                      onClick={() => handleRemovePendingApplication(selectedEvent._id, option)}
+                                      disabled={removingCurrent}
+                                    >
+                                      {removingCurrent ? 'Removing...' : 'Remove'}
+                                    </button>
+                                  </>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-gray-500 text-sm">No participation roles are open for this event.</p>
+                      )}
+                    </div>
+
+                    {isStudent && selectedEvent.participationOptions && selectedEvent.participationOptions.length > 0 ? (
+                      <div className="flex gap-3 pt-4 border-t border-gray-100">
+                        <button
+                          type="button"
+                          className="flex-1 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all duration-300"
+                          onClick={closeEventDetails}
+                        >
+                          Close
+                        </button>
+                        {selectedOptions.length > 0 ? (
+                          <button
+                            type="button"
+                            className="flex-1 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300"
+                          >
+                            Apply Now
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         ) : null}
