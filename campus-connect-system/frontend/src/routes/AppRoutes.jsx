@@ -119,27 +119,10 @@ export default function AppRoutes() {
                   </span>
                 </div>
                 <h1 className="landing-content">Campus Connect</h1>
-                <p className="max-w-2xl mx-auto">Your all-in-one platform for campus life. Connect with clubs, share resources, book consulting sessions, and discover exciting events — all in one place.</p>
+                <p className="max-w-2xl mx-auto">Your all-in-one platform for campus life. Connect with clubs, share resources, book consulting sessions, and discover exciting events all in one place.</p>
                 <div className="landing-actions">
                   <Link to="/signin" className="btn-primary">Get Started</Link>
                   <Link to="/signup" className="btn-secondary">Create Account</Link>
-                </div>
-                <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto text-center">
-                  <div className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
-                    <p className="font-semibold text-sm text-foreground">Clubs & Sports</p>
-                  </div>
-                  <div className="animate-fade-in" style={{ animationDelay: '0.3s' }}>
-                    <div className="text-4xl mb-2">📚</div>
-                    <p className="font-semibold text-sm text-foreground">Resources</p>
-                  </div>
-                  <div className="animate-fade-in" style={{ animationDelay: '0.4s' }}>
-                    <div className="text-4xl mb-2">💬</div>
-                    <p className="font-semibold text-sm text-foreground">Consulting</p>
-                  </div>
-                  <div className="animate-fade-in" style={{ animationDelay: '0.5s' }}>
-                    <div className="text-4xl mb-2">🎉</div>
-                    <p className="font-semibold text-sm text-foreground">Events</p>
-                  </div>
                 </div>
               </div>
               <footer className="footer">
