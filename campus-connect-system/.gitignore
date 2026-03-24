@@ -25,3 +25,25 @@ backend/.env
 backend/.env.local
 frontend/.env
 frontend/.env.local
+
+# npm cache and package manager caches
+.npm/
+.pnpm-store/
+yarn.lock
+
+# IDE and editor specific files
+*.swp
+*.swo
+*~
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# OS specific
+.env.*.local
+*.pem
+*.key
+
+# Temporary files
+*.tmp
+.temp/
