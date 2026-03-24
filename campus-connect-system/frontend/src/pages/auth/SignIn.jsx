@@ -25,7 +25,7 @@ export default function SignIn() {
         return '/user/events-chill';
       case ROLES.STUDENT:
       default:
-        return '/user/events-chill';
+        return '/user/home';
     }
   };
 
