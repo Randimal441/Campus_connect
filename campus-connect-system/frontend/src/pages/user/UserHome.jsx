@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SECTIONS } from '../../utils/constants';
 import Navbar from '../../components/common/Navbar';
@@ -31,6 +31,43 @@ function truncateText(text, max = 110) {
   if (!value) return 'No description available yet.';
   if (value.length <= max) return value;
   return `${value.slice(0, max)}...`;
+}
+
+function ScrollReveal({ children, className = '', delay = 0 }) {
+  const ref = useRef(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsVisible(true);
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: '0px 0px -8% 0px' }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      style={{ transitionDelay: `${delay}ms` }}
+      className={`${className} transform-gpu transition-all duration-700 ease-out ${
+        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+      }`}
+    >
+      {children}
+    </div>
+  );
 }
 
 export default function UserHome() {
@@ -139,7 +176,8 @@ export default function UserHome() {
     <div className="page">
       <Navbar />
       <main className="main-content">
-        <section className="rounded-3xl border border-border/70 bg-card/80 backdrop-blur-sm p-6 md:p-10 mb-10 shadow-lg animate-fade-in-up">
+        <ScrollReveal>
+          <section className="rounded-3xl border border-border/70 bg-card/80 backdrop-blur-sm p-6 md:p-10 mb-10 shadow-lg">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div className="max-w-2xl">
               <h1 className="text-gradient mb-3">Welcome to Campus Connect</h1>
@@ -148,32 +186,36 @@ export default function UserHome() {
               </p>
             </div>
           </div>
-        </section>
+          </section>
+        </ScrollReveal>
 
-        <section>
+        <ScrollReveal delay={80}>
+          <section>
           <div className="flex items-center justify-center mb-5">
             <h2 className="text-2xl font-bold">Quick Access</h2>
           </div>
 
           <div className="section-grid">
           {SECTIONS.map((section, index) => (
-            <Link
-              key={section.id}
-              to={section.path}
-              className="section-card animate-fade-in"
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              <h3 className="mb-2">{section.label}</h3>
-              <p className="text-muted-foreground">{sectionDescriptions[section.id]}</p>
-              <div className="mt-4 flex items-center text-primary font-bold text-sm">
-                Explore <span className="ml-2">→</span>
-              </div>
-            </Link>
+            <ScrollReveal key={section.id} delay={120 + index * 80} className="h-full">
+              <Link
+                to={section.path}
+                className="section-card block h-full"
+              >
+                <h3 className="mb-2">{section.label}</h3>
+                <p className="text-muted-foreground">{sectionDescriptions[section.id]}</p>
+                <div className="mt-4 flex items-center text-primary font-bold text-sm">
+                  Explore <span className="ml-2">→</span>
+                </div>
+              </Link>
+            </ScrollReveal>
           ))}
           </div>
-        </section>
+          </section>
+        </ScrollReveal>
 
-        <section className="py-16 px-4 bg-gray-50 mt-10 rounded-3xl">
+        <ScrollReveal delay={60}>
+          <section className="py-16 px-4 bg-gray-50 mt-6 rounded-3xl">
           <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-12">
             <div className="flex-1 flex justify-center">
               <img src={connectImage} alt="Campus community" className="w-full max-w-sm rounded-2xl shadow-lg" />
@@ -238,9 +280,11 @@ export default function UserHome() {
               </div>
             )}
           </div>
-        </section>
+          </section>
+        </ScrollReveal>
 
-        <section className="py-16 px-4 bg-gray-50 mt-10 rounded-3xl">
+        <ScrollReveal delay={60}>
+          <section className="py-16 px-4 bg-gray-50 mt-6 rounded-3xl">
           <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-12">
             <div className="flex-1">
               <h2 className="text-3xl font-bold text-gray-800 mb-6">Empower your academic circle</h2>
@@ -312,9 +356,11 @@ export default function UserHome() {
               </div>
             )}
           </div>
-        </section>
+          </section>
+        </ScrollReveal>
 
-        <section className="py-16 px-4 bg-gray-50 mt-10 rounded-3xl">
+        <ScrollReveal delay={60}>
+          <section className="py-16 px-4 bg-gray-50 mt-6 rounded-3xl">
           <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-12">
             <div className="flex-1 flex justify-center">
               <img
@@ -389,9 +435,11 @@ export default function UserHome() {
               </div>
             )}
           </div>
-        </section>
+          </section>
+        </ScrollReveal>
 
-        <section className="py-16 px-4 bg-gray-50 mt-10 rounded-3xl">
+        <ScrollReveal delay={60}>
+          <section className="py-16 px-4 bg-gray-50 mt-6 rounded-3xl">
           <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-12">
             <div className="flex-1">
               <h2 className="text-3xl font-bold text-gray-800 mb-6">
@@ -465,7 +513,8 @@ export default function UserHome() {
               </div>
             )}
           </div>
-        </section>
+          </section>
+        </ScrollReveal>
 
       </main>
       <Footer />
