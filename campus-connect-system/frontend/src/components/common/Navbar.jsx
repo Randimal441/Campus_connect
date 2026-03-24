@@ -7,6 +7,7 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const brandHomePath = user?.role === 'student' ? '/user/home' : '/';
 
   const hideUserGreeting =
     user?.role === 'coach' && location.pathname.startsWith('/admin/coaches');
@@ -30,7 +31,7 @@ export default function Navbar() {
 
   return (
     <nav className="navbar">
-      <Link to="/" className="navbar-brand flex items-center gap-3">
+      <Link to={brandHomePath} className="navbar-brand flex items-center gap-3">
         <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-md border border-white/30 transition-transform hover:scale-105">
           <span className="text-white font-heading font-black text-lg">
             CC
