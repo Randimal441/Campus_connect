@@ -27,6 +27,7 @@ export default function AppRoutes() {
       <Route path="/signup" element={<SignUp />} />
 
       <Route path="/user" element={<UserHome />} />
+      <Route path="/user/home" element={<UserHome />} />
       <Route path="/user/profile" element={<UserProfile />} />
       <Route path="/user/clubs-sports" element={<ClubsSports />} />
       <Route path="/user/clubs-sports/medicle-support" element={<MedicleSupport />} />
