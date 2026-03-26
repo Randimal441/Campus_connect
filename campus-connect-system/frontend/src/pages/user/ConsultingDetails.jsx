@@ -106,6 +106,38 @@ export default function ConsultantDetails() {
   const avatarColors = ['bg-pink-400', 'bg-blue-400', 'bg-purple-400', 'bg-cyan-400'];
   const ratingLabels = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
 
+  const validateBookingDetails = () => {
+    const year = academicYear.trim();
+    const contact = emergencyContact.trim();
+
+    if (!year || !contact) {
+      toast.error('Please fill in all required fields: Academic Year and Emergency Contact.');
+      return false;
+    }
+
+    if (!['1', '2', '3', '4'].includes(year)) {
+      toast.error('Academic Year must be 1, 2, 3, or 4.');
+      return false;
+    }
+
+    if (!/^\d+$/.test(contact)) {
+      toast.error('Emergency Contact must contain digits only.');
+      return false;
+    }
+
+    if (contact.length < 10) {
+      toast.error('Emergency Contact number is too short. It must be exactly 10 digits.');
+      return false;
+    }
+
+    if (contact.length > 10) {
+      toast.error('Emergency Contact number is too long. It must be exactly 10 digits.');
+      return false;
+    }
+
+    return true;
+  };
+
   const handleAddReview = () => {
     const text = reviewInput.trim();
     if (!text) return;
@@ -417,11 +449,18 @@ export default function ConsultantDetails() {
             <div className="mt-4 space-y-3">
               <div>
                 <label className="text-xs text-gray-600">Academic Year *</label>
-                <input value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} className="w-full border rounded px-2 py-2 mt-1" placeholder="e.g. 3rd year" />
+                <input value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} className="w-full border rounded px-2 py-2 mt-1" placeholder="Enter academic year" />
               </div>
               <div>
                 <label className="text-xs text-gray-600">Emergency Contact *</label>
-                <input value={emergencyContact} onChange={(e) => setEmergencyContact(e.target.value)} className="w-full border rounded px-2 py-2 mt-1" placeholder="Phone or relative" />
+                <input
+                  value={emergencyContact}
+                  onChange={(e) => setEmergencyContact(e.target.value)}
+                  inputMode="numeric"
+                  maxLength={10}
+                  className="w-full border rounded px-2 py-2 mt-1"
+                  placeholder="10-digit contact number"
+                />
               </div>
 
               {riskPreview && (
@@ -439,14 +478,13 @@ export default function ConsultantDetails() {
                   <button
                     onClick={async () => {
                       if (!bookingContext) return;
-                      if (!academicYear.trim() || !emergencyContact.trim()) {
-                        toast.error('Please fill in all required fields: Academic Year and Emergency Contact.');
+                      if (!validateBookingDetails()) {
                         return;
                       }
                       setBookingLoading(true);
                       try {
                         const endpoint = `/consulting/sessions/${bookingContext.sessionId}/slots/${bookingContext.slotId}/book`;
-                        const body = { academicYear, emergencyContact, answers };
+                        const body = { academicYear: academicYear.trim(), emergencyContact: emergencyContact.trim(), answers };
                         const res = await api(endpoint, { method: 'POST', body });
                         // update sessions state: mark slot booked using response.slot
                         setSessions(prev => prev.map(s => {
@@ -475,8 +513,7 @@ export default function ConsultantDetails() {
                   </button>
                 ) : (
                   <button onClick={() => {
-                    if (!academicYear.trim() || !emergencyContact.trim()) {
-                      toast.error('Please fill in all required fields: Academic Year and Emergency Contact.');
+                    if (!validateBookingDetails()) {
                       return;
                     }
                     // fetch questions then open step 2 (hide step1)
@@ -550,7 +587,10 @@ export default function ConsultantDetails() {
 
                   const summary = highTriggers.length > 0 ? 'Several responses indicate elevated symptoms; consider follow-up.' : 'Responses appear low-risk.';
 
-                  setRiskPreview({ riskLevel: risk, riskSummary: summary });
+                  //bellow one is tempory
+                  setRiskPreview({ riskLevel: 'medium', riskSummary: 'manual evaluation required' });
+                  //below one is the testing situation.this one build after presentation
+                  //setRiskPreview({ riskLevel: risk, riskSummary: summary });
                   // close step 2 and show step1 with preview
                   setShowBookingModalStep2(false);
                   setShowBookingModalStep1(true);

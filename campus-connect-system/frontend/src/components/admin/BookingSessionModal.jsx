@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../services/api';
+import { toast } from 'react-toastify';
 
 export default function BookingSessionModal({ onClose, onSessionCreated, onSessionUpdated, editingSession }) {
   const [day, setDay] = useState('');
@@ -43,7 +44,9 @@ export default function BookingSessionModal({ onClose, onSessionCreated, onSessi
       }
       onClose();
     } catch (err) {
-      setError(err.message || `Unable to ${isEditMode ? 'update' : 'create'} session`);
+      const message = err.message || `Unable to ${isEditMode ? 'update' : 'create'} session`;
+      setError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
