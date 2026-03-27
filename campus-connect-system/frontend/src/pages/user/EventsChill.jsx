@@ -97,17 +97,41 @@ export default function EventsChill() {
   const { user } = useAuth();
   const normalizedUserRole = String(user?.role || '').trim().toLowerCase();
   const isStudent = normalizedUserRole === ROLES.STUDENT;
+  
+  // Event state
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [now, setNow] = useState(new Date());
+  
+  // Application state
   const [applyMessage, setApplyMessage] = useState('');
   const [applyError, setApplyError] = useState('');
   const [applyingKey, setApplyingKey] = useState('');
   const [appliedMap, setAppliedMap] = useState({});
+  
+  // Modal & form state
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [applicationAnswersByOption, setApplicationAnswersByOption] = useState({});
+  const [participationFieldErrors, setParticipationFieldErrors] = useState({});
+  const [participationFieldTouched, setParticipationFieldTouched] = useState({});
+  const [participationSubmitAttempted, setParticipationSubmitAttempted] = useState(false);
+  const [applicationStatusMap, setApplicationStatusMap] = useState({});
+  const [applicationMetaMap, setApplicationMetaMap] = useState({});
+  
+  // Ask panel state
+  const [isAskPanelOpen, setIsAskPanelOpen] = useState(false);
+  const [askForm, setAskForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    question: '',
+  });
+  const [askFormErrors, setAskFormErrors] = useState({});
+  const [askFormTouched, setAskFormTouched] = useState({});
+  const [askFormMessage, setAskFormMessage] = useState('');
+  const [askSubmitAttempted, setAskSubmitAttempted] = useState(false);
 
   const optionLabelMap = useMemo(
     () =>
@@ -159,6 +183,21 @@ export default function EventsChill() {
 
     const matched = forms.find((form) => form.option === option);
     return Array.isArray(matched?.questions) ? matched.questions : [];
+  };
+
+  const getStudentApplicationStatus = (eventItem, option) => {
+    if (!user?._id) return null;
+
+    const applications = Array.isArray(eventItem.participationApplications)
+      ? eventItem.participationApplications
+      : [];
+
+    const found = applications.find((entry) => {
+      const studentId = typeof entry.student === 'object' ? entry.student?._id : entry.student;
+      return String(studentId) === String(user._id) && entry.option === option;
+    });
+
+    return found?.status || null;
   };
 
   const validateParticipationField = (eventItem, option, fieldKey, value) => {
@@ -545,14 +584,10 @@ export default function EventsChill() {
         const next = { ...prev };
         appliedKeys.forEach((key) => {
           next[key] = 'pending';
-      for (const submission of validatedSubmissions) {
-        await applyForParticipation(eventId, {
-          option: submission.option,
-          application: submission.application,
         });
-      }
+        return next;
+      });
 
-      const appliedKeys = validatedSubmissions.map((submission) => `${eventId}:${submission.option}`);
       setAppliedMap((prev) => {
         const next = { ...prev };
         appliedKeys.forEach((key) => {
@@ -612,7 +647,7 @@ export default function EventsChill() {
 
           return {
             ...eventItem,
-            participationApplications: [...existingApps, ...newApplications],
+            participationApplications: [...filteredExisting, ...newApplications],
           };
         })
       );
@@ -632,7 +667,7 @@ export default function EventsChill() {
 
         return {
           ...prev,
-          participationApplications: [...existingApps, ...newApplications],
+          participationApplications: [...filteredExisting, ...newApplications],
         };
       });
 
@@ -792,282 +827,252 @@ export default function EventsChill() {
               >
                 Explore Events
               </button>
-      <main className="main-content">
-        <div className="mb-8 animate-fade-in-up">
-          <div className="rounded-3xl bg-gradient-to-r from-primary to-primary-light p-6 md:p-8 shadow-lg border border-white/30">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="text-4xl">🎉</div>
-              <h1 className="!mb-0 !text-white">Event Dashboard</h1>
             </div>
-            <p className="!mb-0 text-white/90 text-base md:text-lg">
-              Discover upcoming campus events including Viramaya (විරාමය), competitions, Leo Club events, and MS Club events.
-            </p>
           </div>
         </section>
 
-        {loading ? (
-          <div className="flex items-center justify-center min-h-[400px] max-w-6xl mx-auto">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-              <p className="text-gray-500">Loading upcoming events...</p>
-            </div>
-          </div>
-        ) : error ? (
-          <div className="max-w-6xl mx-auto text-center py-16 bg-gray-50 rounded-2xl border border-gray-200 p-8">
-            <div className="text-5xl mb-4">⚠️</div>
-            <p className="text-xl font-semibold text-gray-800 mb-2">Unable to load events</p>
-            <p className="text-gray-600">{error}</p>
-          </div>
-        ) : upcomingItems.length === 0 ? (
-          <div className="max-w-6xl mx-auto text-center py-16 bg-gray-50 rounded-2xl border border-gray-200 p-8">
-            <div className="text-6xl mb-4">🎪</div>
-            <p className="text-xl font-semibold text-gray-800 mb-2">No upcoming events available</p>
-            <p className="text-gray-600">Stay tuned for the next campus event!</p>
-          </div>
-        ) : (
-          <div className="max-w-6xl mx-auto">
-            {applyMessage ? <p className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">{applyMessage}</p> : null}
-            {applyError ? <p className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{applyError}</p> : null}
-
-            {isStudent ? (
-              <div className="mb-6">
-                <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white border border-green-100 rounded-xl">
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-800">Have a question about an event?</h3>
-                    <p className="text-sm text-gray-600">Use the button to open the upcoming student event chatbot area.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsAskPanelOpen((prev) => !prev)}
-                    className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300"
-                  >
-                    Ask About Events
-                  </button>
-                </div>
-
-                {isAskPanelOpen ? (
-                  <div className="mt-3 p-5 bg-green-50 border border-green-200 rounded-xl">
-                    <h4 className="text-sm font-semibold text-green-800 mb-3">Ask About Events</h4>
-
-                    <form className="space-y-4" onSubmit={handleAskFormSubmit} noValidate>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                        <input
-                          type="text"
-                          value={askForm.name}
-                          onChange={(event) => handleAskFieldChange('name', event.target.value)}
-                          onBlur={() => handleAskFieldBlur('name')}
-                          placeholder="Enter your full name"
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                        />
-                        {(askSubmitAttempted || askFormTouched.name) && askFormErrors.name ? (
-                          <p className="text-xs text-red-600 mt-1">{askFormErrors.name}</p>
-                        ) : null}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                        <input
-                          type="text"
-                          value={askForm.email}
-                          onChange={(event) => handleAskFieldChange('email', event.target.value)}
-                          onBlur={() => handleAskFieldBlur('email')}
-                          placeholder="Enter your email"
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                        />
-                        {(askSubmitAttempted || askFormTouched.email) && askFormErrors.email ? (
-                          <p className="text-xs text-red-600 mt-1">{askFormErrors.email}</p>
-                        ) : null}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
-                        <input
-                          type="text"
-                          value={askForm.phone}
-                          onChange={(event) => handleAskFieldChange('phone', event.target.value)}
-                          onBlur={() => handleAskFieldBlur('phone')}
-                          placeholder="Enter 10-digit phone number"
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                        />
-                        {(askSubmitAttempted || askFormTouched.phone) && askFormErrors.phone ? (
-                          <p className="text-xs text-red-600 mt-1">{askFormErrors.phone}</p>
-                        ) : null}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Question *</label>
-                        <textarea
-                          rows={3}
-                          value={askForm.question}
-                          onChange={(event) => handleAskFieldChange('question', event.target.value)}
-                          onBlur={() => handleAskFieldBlur('question')}
-                          placeholder="Type your question about events"
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                        />
-                        {(askSubmitAttempted || askFormTouched.question) && askFormErrors.question ? (
-                          <p className="text-xs text-red-600 mt-1">{askFormErrors.question}</p>
-                        ) : null}
-                      </div>
-
-                      {askFormMessage ? (
-                        <p className={`text-sm ${Object.keys(askFormErrors).length > 0 ? 'text-red-600' : 'text-green-700'}`}>
-                          {askFormMessage}
-                        </p>
-                      ) : null}
-
-                      <button
-                        type="submit"
-                        disabled={!isAskFormValid}
-                        className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300"
-                      >
-                        Submit Question
-                      </button>
-                    </form>
-                  </div>
-                ) : null}
+        {/* Content Section */}
+        <section className="max-w-6xl mx-auto">
+          {loading ? (
+            <div className="flex items-center justify-center min-h-[400px]">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+                <p className="text-gray-500">Loading upcoming events...</p>
               </div>
-            ) : null}
-
-            <div id="events-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="loader mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading upcoming events...</p>
             </div>
-          </div>
-        ) : error ? (
-          <div className="text-center py-16 bg-muted rounded-2xl">
-            <div className="text-5xl mb-4">⚠️</div>
-            <p className="text-xl font-semibold text-muted-foreground mb-2">Unable to load events</p>
-            <p className="text-muted-foreground">{error}</p>
-          </div>
-        ) : upcomingItems.length === 0 ? (
-          <div className="text-center py-16 bg-muted rounded-2xl">
-            <div className="text-6xl mb-4">🎪</div>
-            <p className="text-xl font-semibold text-muted-foreground mb-2">No upcoming events available</p>
-            <p className="text-muted-foreground">Stay tuned for the next campus event!</p>
-          </div>
-        ) : (
-          <div>
-            {applyMessage ? <p className="event-apply-success">{applyMessage}</p> : null}
-            {applyError ? <p className="event-apply-error">{applyError}</p> : null}
+          ) : error ? (
+            <div className="text-center py-16 bg-gray-50 rounded-2xl border border-gray-200 p-8">
+              <div className="text-5xl mb-4">⚠️</div>
+              <p className="text-xl font-semibold text-gray-800 mb-2">Unable to load events</p>
+              <p className="text-gray-600">{error}</p>
+            </div>
+          ) : upcomingItems.length === 0 ? (
+            <div className="text-center py-16 bg-gray-50 rounded-2xl border border-gray-200 p-8">
+              <div className="text-6xl mb-4">🎪</div>
+              <p className="text-xl font-semibold text-gray-800 mb-2">No upcoming events available</p>
+              <p className="text-gray-600">Stay tuned for the next campus event!</p>
+            </div>
+          ) : (
+            <>
+              {applyMessage ? <p className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">{applyMessage}</p> : null}
+              {applyError ? <p className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{applyError}</p> : null}
 
-            <div className="event-dashboard-grid">
-            {upcomingItems.map((item, index) => {
-              const countdown = getCountdownData(item.date, now);
-
-              return (
-                <div
-                  key={item._id}
-                  className="bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden animate-fade-in"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  {/* Card Image */}
-                  <div className="w-full h-48 bg-gray-100 overflow-hidden rounded-t-2xl">
-                  className="event-card animate-fade-in"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  <div className="event-card-image-wrap">
-                    {resolveImageUrl(item.image) ? (
-                      <img
-                        src={resolveImageUrl(item.image)}
-                        alt={item.title}
-                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-400">
-                        <span className="text-sm">No Image</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Card Body */}
-                  <div className="p-6">
-                    {/* Event Type Badge */}
-                    <div className="inline-block mb-3">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
-                        {(item.eventType || 'event').replace('_', ' ')}
-                      </span>
+              {isStudent ? (
+                <div className="mb-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white border border-green-100 rounded-xl">
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-800">Have a question about an event?</h3>
+                      <p className="text-sm text-gray-600">Use the button to open the upcoming student event chatbot area.</p>
                     </div>
-
-                    {/* Title */}
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2 text-sinhala">{item.title}</h3>
-
-                    {/* Description */}
-                    <p className="text-sm text-gray-600 mb-4 line-clamp-3 text-sinhala">
-                      {item.description || 'No description provided for this event.'}
-                    </p>
-
-                    {/* Countdown & Date */}
-                    <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-100">
-                      <p className="text-xs font-semibold text-green-600 mb-2">{countdown.label}</p>
-                      {countdown.status === 'upcoming' ? (
-                        <div className="flex gap-3">
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-green-700">{countdown.days}</div>
-                            <div className="text-xs text-green-600">Days</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-green-700">{countdown.hours}</div>
-                            <div className="text-xs text-green-600">Hours</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-green-700">{countdown.minutes}</div>
-                            <div className="text-xs text-green-600">Minutes</div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-sm font-semibold text-green-700">{countdown.label}</div>
-                      )}
-                    </div>
-
-                    {/* Date */}
-                    <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600 border border-gray-100">
-                      <span className="font-semibold text-gray-700">📅 </span>
-                      {new Date(item.date).toLocaleDateString('en-GB', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
-                    </div>
-
-                    {/* Status Badges */}
-                    {isStudent ? (
-                      <div className="mb-4 flex flex-wrap gap-2">
-                        {(item.participationOptions || []).map((option) => {
-                          const status = getStudentApplicationStatus(item, option);
-                          if (!status) return null;
-
-                          const statusMeta = getStatusMeta(status);
-                          return (
-                            <button
-                              key={`${item._id}-${option}-status`}
-                              type="button"
-                              className={`px-3 py-1 rounded-full text-xs font-semibold cursor-default ${statusMeta.className}`}
-                              disabled
-                            >
-                              {formatOptionLabel(option)}: {statusMeta.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : null}
-
-                    {/* View More Button */}
                     <button
                       type="button"
-                      className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-300"
-                      onClick={() => openEventDetails(item)}
+                      onClick={() => setIsAskPanelOpen((prev) => !prev)}
+                      className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300"
                     >
-                      View More
+                      Ask About Events
                     </button>
                   </div>
-                </div>
-              );
-            })}
-            </div>
-          </div>
-        )}
 
+                  {isAskPanelOpen ? (
+                    <div className="mt-3 p-5 bg-green-50 border border-green-200 rounded-xl">
+                      <h4 className="text-sm font-semibold text-green-800 mb-3">Ask About Events</h4>
+
+                      <form className="space-y-4" onSubmit={handleAskFormSubmit} noValidate>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                          <input
+                            type="text"
+                            value={askForm.name}
+                            onChange={(event) => handleAskFieldChange('name', event.target.value)}
+                            onBlur={() => handleAskFieldBlur('name')}
+                            placeholder="Enter your full name"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                          />
+                          {(askSubmitAttempted || askFormTouched.name) && askFormErrors.name ? (
+                            <p className="text-xs text-red-600 mt-1">{askFormErrors.name}</p>
+                          ) : null}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                          <input
+                            type="text"
+                            value={askForm.email}
+                            onChange={(event) => handleAskFieldChange('email', event.target.value)}
+                            onBlur={() => handleAskFieldBlur('email')}
+                            placeholder="Enter your email"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                          />
+                          {(askSubmitAttempted || askFormTouched.email) && askFormErrors.email ? (
+                            <p className="text-xs text-red-600 mt-1">{askFormErrors.email}</p>
+                          ) : null}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                          <input
+                            type="text"
+                            value={askForm.phone}
+                            onChange={(event) => handleAskFieldChange('phone', event.target.value)}
+                            onBlur={() => handleAskFieldBlur('phone')}
+                            placeholder="Enter 10-digit phone number"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                          />
+                          {(askSubmitAttempted || askFormTouched.phone) && askFormErrors.phone ? (
+                            <p className="text-xs text-red-600 mt-1">{askFormErrors.phone}</p>
+                          ) : null}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Question *</label>
+                          <textarea
+                            rows={3}
+                            value={askForm.question}
+                            onChange={(event) => handleAskFieldChange('question', event.target.value)}
+                            onBlur={() => handleAskFieldBlur('question')}
+                            placeholder="Type your question about events"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                          />
+                          {(askSubmitAttempted || askFormTouched.question) && askFormErrors.question ? (
+                            <p className="text-xs text-red-600 mt-1">{askFormErrors.question}</p>
+                          ) : null}
+                        </div>
+
+                        {askFormMessage ? (
+                          <p className={`text-sm ${Object.keys(askFormErrors).length > 0 ? 'text-red-600' : 'text-green-700'}`}>
+                            {askFormMessage}
+                          </p>
+                        ) : null}
+
+                        <button
+                          type="submit"
+                          disabled={!isAskFormValid}
+                          className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300 disabled:opacity-50"
+                        >
+                          Submit Question
+                        </button>
+                      </form>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {/* Events Grid */}
+              <div id="events-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {upcomingItems.map((item, index) => {
+                  const countdown = getCountdownData(item.date, now);
+
+                  return (
+                    <div
+                      key={item._id}
+                      className="bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden animate-fade-in"
+                      style={{ animationDelay: `${index * 0.05}s` }}
+                    >
+                      {/* Card Image */}
+                      <div className="w-full h-48 bg-gray-100 overflow-hidden rounded-t-2xl">
+                        {resolveImageUrl(item.image) ? (
+                          <img
+                            src={resolveImageUrl(item.image)}
+                            alt={item.title}
+                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-400">
+                            <span className="text-sm">No Image</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Card Body */}
+                      <div className="p-6">
+                        {/* Event Type Badge */}
+                        <div className="inline-block mb-3">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
+                            {(item.eventType || 'event').replace('_', ' ')}
+                          </span>
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2 text-sinhala">{item.title}</h3>
+
+                        {/* Description */}
+                        <p className="text-sm text-gray-600 mb-4 line-clamp-3 text-sinhala">
+                          {item.description || 'No description provided for this event.'}
+                        </p>
+
+                        {/* Countdown & Date */}
+                        <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-100">
+                          <p className="text-xs font-semibold text-green-600 mb-2">{countdown.label}</p>
+                          {countdown.status === 'upcoming' ? (
+                            <div className="flex gap-3">
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-green-700">{countdown.days}</div>
+                                <div className="text-xs text-green-600">Days</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-green-700">{countdown.hours}</div>
+                                <div className="text-xs text-green-600">Hours</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-green-700">{countdown.minutes}</div>
+                                <div className="text-xs text-green-600">Minutes</div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-sm font-semibold text-green-700">{countdown.label}</div>
+                          )}
+                        </div>
+
+                        {/* Date */}
+                        <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600 border border-gray-100">
+                          <span className="font-semibold text-gray-700">📅 </span>
+                          {new Date(item.date).toLocaleDateString('en-GB', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })}
+                        </div>
+
+                        {/* Status Badges */}
+                        {isStudent ? (
+                          <div className="mb-4 flex flex-wrap gap-2">
+                            {(item.participationOptions || []).map((option) => {
+                              const status = getStudentApplicationStatus(item, option);
+                              if (!status) return null;
+
+                              const statusMeta = getStatusMeta(status);
+                              return (
+                                <button
+                                  key={`${item._id}-${option}-status`}
+                                  type="button"
+                                  className={`px-3 py-1 rounded-full text-xs font-semibold cursor-default ${statusMeta.className}`}
+                                  disabled
+                                >
+                                  {formatOptionLabel(option)}: {statusMeta.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+
+                        {/* View More Button */}
+                        <button
+                          type="button"
+                          className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-300"
+                          onClick={() => openEventDetails(item)}
+                        >
+                          View More
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </section>
+
+        {/* Event Details Modal */}
         {selectedEvent ? (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in overflow-y-auto" onClick={closeEventDetails}>
             <div className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-2xl my-8 animate-scale-in" onClick={(event) => event.stopPropagation()}>
@@ -1087,665 +1092,379 @@ export default function EventsChill() {
 
               {/* Modal Body */}
               <div className="overflow-y-auto max-h-[calc(100vh-200px)]">
-
                 {selectedOptions.length > 0 ? (
-                <form
-                  className="p-6 space-y-6"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    handleApplySelected(selectedEvent._id);
-                  }}
-                >
-                  <p className="text-gray-600">
-                    Fill and submit all selected participation applications for <strong className="text-gray-800">{selectedEvent.title}</strong>.
-                  </p>
-
-                  {/* Participation Options */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Select Participation Options</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedEvent.participationOptions.map((option) => {
-                        const status = getStudentApplicationStatus(selectedEvent, option);
-                        const applied = !!status;
-                        const selected = selectedOptions.includes(option);
-                        const statusMeta = getStatusMeta(status);
-
-                        return (
-                          <button
-                            key={`selected-${option}`}
-                            type="button"
-                            className={
-                              applied
-                                ? `px-4 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
-                                : `px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-200 ${selected ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-200 bg-white text-gray-700 hover:border-green-500'}`
-                            }
-                            onClick={() => toggleApplicationOption(option)}
-                            disabled={applied}
-                          >
-                            {formatOptionLabel(option)}{' '}
-                            {applied
-                              ? `(${statusMeta.label})`
-                              : selected
-                                ? '✓'
-                                : ''}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Form Fields for Selected Options */}
-                  {selectedOptions.map((option) => {
-                    const templateQuestions = getParticipationTemplate(selectedEvent, option);
-                    const optionAnswers = applicationAnswersByOption[option] || {};
-
-                    return (
-                      <div key={option} className="pt-4 border-t border-gray-100">
-                        <h4 className="text-sm font-semibold text-gray-700 mb-4">{formatOptionLabel(option)} Details</h4>
-
-                        {templateQuestions.length > 0 ? (
-                          <div className="space-y-4">
-                            {templateQuestions.map((question) => (
-                              <div key={`${option}-${question.key}`}>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  {question.label}
-                                  {question.required ? <span className="text-red-500 ml-1">*</span> : ''}
-                                </label>
-                                <textarea
-                                  rows={3}
-                                  value={optionAnswers[question.key] || ''}
-                                  onChange={(event) =>
-                                    handleApplicationFieldChange(option, question.key, event.target.value)
-                                  }
-                                  onBlur={(event) =>
-                                    handleParticipationFieldBlur(option, question.key, event.target.value)
-                                  }
-                                  required={question.required !== false}
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                />
-                                {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, question.key)])
-                                  && participationFieldErrors[getParticipationErrorKey(option, question.key)] ? (
-                                    <p className="text-xs text-red-600 mt-1">
-                                      {participationFieldErrors[getParticipationErrorKey(option, question.key)]}
-                                    </p>
-                                  ) : null}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  Full Name
-                                  <span className="text-red-500 ml-1">*</span>
-                                </label>
-                                <input
-                                  type="text"
-                                  value={optionAnswers.fullName || ''}
-                                  onChange={(event) =>
-                                    handleApplicationFieldChange(option, 'fullName', event.target.value)
-                                  }
-                                  onBlur={(event) =>
-                                    handleParticipationFieldBlur(option, 'fullName', event.target.value)
-                                  }
-                                  required
-                                  pattern="[A-Za-z\s]+"
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                />
-                                {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'fullName')])
-                                  && participationFieldErrors[getParticipationErrorKey(option, 'fullName')] ? (
-                                    <p className="text-xs text-red-600 mt-1">
-                                      {participationFieldErrors[getParticipationErrorKey(option, 'fullName')]}
-                                    </p>
-                                  ) : null}
-                              </div>
-
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  Email
-                                  <span className="text-red-500 ml-1">*</span>
-                                </label>
-                                <input
-                                  type="email"
-                                  value={optionAnswers.email || ''}
-                                  onChange={(event) =>
-                                    handleApplicationFieldChange(option, 'email', event.target.value)
-                                  }
-                                  onBlur={(event) =>
-                                    handleParticipationFieldBlur(option, 'email', event.target.value)
-                                  }
-                                  required
-                                  pattern="[^\s@]+@[^\s@]+"
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                />
-                                {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'email')])
-                                  && participationFieldErrors[getParticipationErrorKey(option, 'email')] ? (
-                                    <p className="text-xs text-red-600 mt-1">
-                                      {participationFieldErrors[getParticipationErrorKey(option, 'email')]}
-                                    </p>
-                                  ) : null}
-                              </div>
-
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  Phone Number
-                                  <span className="text-red-500 ml-1">*</span>
-                                </label>
-                                <input
-                                  type="text"
-                                  value={optionAnswers.phone || ''}
-                                  onChange={(event) =>
-                                    handleApplicationFieldChange(option, 'phone', event.target.value)
-                                  }
-                                  onBlur={(event) =>
-                                    handleParticipationFieldBlur(option, 'phone', event.target.value)
-                                  }
-                                  placeholder="07X XXX XXXX"
-                                  required
-                                  pattern="\d{10}"
-                                  minLength={10}
-                                  maxLength={10}
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                />
-                                {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'phone')])
-                                  && participationFieldErrors[getParticipationErrorKey(option, 'phone')] ? (
-                                    <p className="text-xs text-red-600 mt-1">
-                                      {participationFieldErrors[getParticipationErrorKey(option, 'phone')]}
-                                    </p>
-                                  ) : null}
-                              </div>
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Why are you applying for this role?
-                                <span className="text-red-500 ml-1">*</span>
-                              </label>
-                              <textarea
-                                rows={4}
-                                value={optionAnswers.notes || ''}
-                                onChange={(event) =>
-                                  handleApplicationFieldChange(option, 'notes', event.target.value)
-                                }
-                                onBlur={(event) =>
-                                  handleParticipationFieldBlur(option, 'notes', event.target.value)
-                                }
-                                placeholder="Share your relevant skills, interest, or experience."
-                                required
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                              />
-                              {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'notes')])
-                                && participationFieldErrors[getParticipationErrorKey(option, 'notes')] ? (
-                                  <p className="text-xs text-red-600 mt-1">
-                                    {participationFieldErrors[getParticipationErrorKey(option, 'notes')]}
-                                  </p>
-                                ) : null}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {/* Form Actions */}
-                  <div className="flex gap-3 pt-6 border-t border-gray-100">
-                    <button
-                      type="button"
-                      className="flex-1 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all duration-300"
-                      onClick={() => {
-                        setSelectedOptions([]);
-                        setApplicationAnswersByOption({});
-                        setParticipationFieldErrors({});
-                        setParticipationFieldTouched({});
-                        setParticipationSubmitAttempted(false);
-                      }}
-                    >
-                      Back to Details
-                    </button>
-                    <button
-                      type="submit"
-                      className="flex-1 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={applyingKey === selectedEvent._id}
-                    >
-                      {applyingKey === selectedEvent._id
-                        ? 'Submitting...'
-                        : `Submit ${selectedOptions.length} Application${selectedOptions.length > 1 ? 's' : ''}`}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <div className="p-6 space-y-6">
-                  {/* Event Image */}
-                  {resolveImageUrl(selectedEvent.image) ? (
-                    <div className="w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
-                      <img
-                        src={resolveImageUrl(selectedEvent.image)}
-                        alt={selectedEvent.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ) : null}
-
-                  {/* Event Title */}
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-800 text-sinhala">{selectedEvent.title}</h3>
-                  </div>
-
-                  {/* Event Description */}
-                  <div>
-                    <p className="text-gray-600 text-sinhala leading-relaxed">
-                      {selectedEvent.description || 'No description provided for this event.'}
+                  <form
+                    className="p-6 space-y-6"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      handleApplySelected(selectedEvent._id);
+                    }}
+                  >
+                    <p className="text-gray-600">
+                      Fill and submit all selected participation applications for <strong className="text-gray-800">{selectedEvent.title}</strong>.
                     </p>
-                  </div>
 
-                  {/* Event Details */}
-                  <div className="space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                    {/* Participation Options */}
                     <div>
-                      <span className="text-xs font-semibold text-gray-500 uppercase">Date</span>
-                      <p className="text-gray-700 font-medium">
-                        {new Date(selectedEvent.date).toLocaleDateString('en-GB', {
-                        className="event-card-image"
-                      />
-                    ) : (
-                      <div className="event-card-image-placeholder">No Image</div>
-                    )}
-                  </div>
-
-                  <div className="event-card-header">
-                    <span className="event-card-type capitalize">{(item.eventType || 'event').replace('_', ' ')}</span>
-                    <h3 className="event-card-title text-sinhala">{item.title}</h3>
-                  </div>
-
-                  <p className="event-card-description text-sinhala">
-                    {item.description || 'No description provided for this event.'}
-                  </p>
-
-                  <div className="event-card-meta-list">
-                    <div className="event-card-meta-item">
-                      <span className="event-card-meta-label">Date</span>
-                      <span className="event-card-meta-value">
-                        {new Date(item.date).toLocaleDateString('en-GB', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
-                      </p>
-                    </div>
-                    <div className="border-t border-gray-200 pt-3">
-                      <span className="text-xs font-semibold text-gray-500 uppercase">Time</span>
-                      <p className="text-gray-700 font-medium">
-                        {new Date(selectedEvent.date).toLocaleTimeString('en-GB', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </div>
-                    <div className="border-t border-gray-200 pt-3">
-                      <span className="text-xs font-semibold text-gray-500 uppercase">Location</span>
-                      <p className="text-gray-700 font-medium text-sinhala">{selectedEvent.location || 'TBA'}</p>
-                    </div>
-                  </div>
-
-                  {/* Participation Options */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Participation Opportunities</h4>
-
-                    {!isStudent ? (
-                      <p className="text-gray-500 text-sm bg-blue-50 border border-blue-100 rounded-lg p-3">
-                        Participation applications can be submitted by student accounts only.
-                      </p>
-                    ) : null}
-
-                    {Array.isArray(selectedEvent.participationOptions) && selectedEvent.participationOptions.length > 0 ? (
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Select Participation Options</h4>
                       <div className="flex flex-wrap gap-2">
                         {selectedEvent.participationOptions.map((option) => {
                           const status = getStudentApplicationStatus(selectedEvent, option);
                           const applied = !!status;
                           const selected = selectedOptions.includes(option);
                           const statusMeta = getStatusMeta(status);
-                          const metadata = getExistingPendingApplicationMeta(selectedEvent._id, option);
-                          const canManagePending = applied && String(status).toLowerCase() === 'pending' && !!metadata?.id;
-                          const removingCurrent = applyingKey === `${selectedEvent._id}:${option}:remove`;
 
-                          return (
-                            <div key={option} className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                className={
-                                  applied
-                                    ? `px-4 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
-                                    : `px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-200 ${selected ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-200 bg-white text-gray-700 hover:border-green-500'}`
-                                }
-                                onClick={() => toggleApplicationOption(option)}
-                                disabled={applied}
-                              >
-                                {formatOptionLabel(option)}{' '}
-                                {applied
-                                  ? `(${statusMeta.label})`
-                                  : selected
-                                    ? '✓'
-                                    : ''}
-                              </button>
-
-                              {canManagePending ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-100 text-green-700 hover:bg-green-200 transition-all duration-200"
-                                    onClick={() => handleEditPendingApplication(option)}
-                                  >
-                                    Update
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-100 text-red-700 hover:bg-red-200 transition-all duration-200 disabled:opacity-50"
-                                    onClick={() => handleRemovePendingApplication(selectedEvent._id, option)}
-                                    disabled={removingCurrent}
-                                  >
-                                    {removingCurrent ? 'Removing...' : 'Remove'}
-                                  </button>
-                                </>
-                              ) : null}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-gray-500 text-sm">No participation roles are open for this event.</p>
-                    )}
-                  </div>
-
-                  {/* Action Buttons */}
-                  {isStudent && selectedEvent.participationOptions && selectedEvent.participationOptions.length > 0 && (
-                    <div className="flex gap-3 pt-4 border-t border-gray-100">
-                      <button
-                        type="button"
-                        className="flex-1 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all duration-300"
-                        onClick={closeEventDetails}
-                      >
-                        Close
-                      </button>
-                      {selectedOptions.length > 0 && (
-                        <button
-                          type="button"
-                          className="flex-1 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300"
-                          onClick={() => {
-                            // Form section will now show
-                          }}
-                        >
-                          Apply Now
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="event-countdown-wrap">
-                    <p className="event-countdown-label mb-2">{countdown.label}</p>
-                    {countdown.status === 'upcoming' ? (
-                      <div className="event-countdown-chips">
-                        <div className="countdown-chip">
-                          <span className="countdown-chip-value">{countdown.days}</span>
-                          <span className="countdown-chip-unit">Days</span>
-                        </div>
-                        <div className="countdown-chip">
-                          <span className="countdown-chip-value">{countdown.hours}</span>
-                          <span className="countdown-chip-unit">Hours</span>
-                        </div>
-                        <div className="countdown-chip">
-                          <span className="countdown-chip-value">{countdown.minutes}</span>
-                          <span className="countdown-chip-unit">Minutes</span>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="event-card-actions">
-                    <button
-                      type="button"
-                      className="event-view-more-btn"
-                      onClick={() => openEventDetails(item)}
-                    >
-                      View More
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-            </div>
-          </div>
-        )}
-
-        {selectedEvent ? (
-          <div className="event-modal-backdrop" onClick={closeEventDetails}>
-            <div className="event-modal" onClick={(event) => event.stopPropagation()}>
-              <div className="event-modal-header">
-                <h3 className="mb-0">{selectedOptions.length > 0 ? 'Participation Application Forms' : 'Event Details'}</h3>
-                <button type="button" className="event-modal-close-btn" onClick={closeEventDetails}>X</button>
-              </div>
-
-              {selectedOptions.length > 0 ? (
-                <form
-                  className="event-application-form"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    handleApplySelected(selectedEvent._id);
-                  }}
-                >
-                  <p className="event-application-subtitle">
-                    Fill and submit all selected participation applications for <strong>{selectedEvent.title}</strong>.
-                  </p>
-
-                  <div className="event-modal-participation-wrap">
-                    <p className="event-participation-title mb-2">Available Participation Options (Click to select)</p>
-                    <div className="event-option-list">
-                      {selectedEvent.participationOptions.map((option) => {
-                        const applied = hasStudentApplied(selectedEvent, option);
-                        const selected = selectedOptions.includes(option);
-                        return (
-                          <button
-                            key={`selected-${option}`}
-                            type="button"
-                            className={`event-option-btn ${selected ? 'selected' : ''}`}
-                            onClick={() => toggleApplicationOption(option)}
-                            disabled={applied}
-                          >
-                            {formatOptionLabel(option)} {applied ? '(Applied)' : selected ? '(Selected)' : ''}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {selectedOptions.map((option) => {
-                    const templateQuestions = getParticipationTemplate(selectedEvent, option);
-                    const optionAnswers = applicationAnswersByOption[option] || {};
-
-                    return (
-                      <div key={option} className="event-selected-option-section">
-                        <h4 className="event-selected-option-title mb-1">{formatOptionLabel(option)}</h4>
-
-                        {templateQuestions.length > 0 ? (
-                          <div className="event-application-grid">
-                            {templateQuestions.map((question) => (
-                              <label key={`${option}-${question.key}`} className="event-application-field">
-                                <span>
-                                  {question.label}
-                                  {question.required ? ' *' : ''}
-                                </span>
-                                <textarea
-                                  rows={3}
-                                  value={optionAnswers[question.key] || ''}
-                                  onChange={(event) =>
-                                    handleApplicationFieldChange(option, question.key, event.target.value)
-                                  }
-                                  required={question.required !== false}
-                                />
-                              </label>
-                            ))}
-                          </div>
-                        ) : (
-                          <>
-                            <div className="event-application-grid">
-                              <label className="event-application-field">
-                                <span>Full Name</span>
-                                <input
-                                  type="text"
-                                  value={optionAnswers.fullName || ''}
-                                  onChange={(event) =>
-                                    handleApplicationFieldChange(option, 'fullName', event.target.value)
-                                  }
-                                  required
-                                />
-                              </label>
-
-                              <label className="event-application-field">
-                                <span>Email</span>
-                                <input
-                                  type="email"
-                                  value={optionAnswers.email || ''}
-                                  onChange={(event) =>
-                                    handleApplicationFieldChange(option, 'email', event.target.value)
-                                  }
-                                  required
-                                />
-                              </label>
-
-                              <label className="event-application-field">
-                                <span>Phone Number</span>
-                                <input
-                                  type="text"
-                                  value={optionAnswers.phone || ''}
-                                  onChange={(event) =>
-                                    handleApplicationFieldChange(option, 'phone', event.target.value)
-                                  }
-                                  placeholder="07X XXX XXXX"
-                                  required
-                                />
-                              </label>
-                            </div>
-
-                            <label className="event-application-field">
-                              <span>Why are you applying for this role?</span>
-                              <textarea
-                                rows={4}
-                                value={optionAnswers.notes || ''}
-                                onChange={(event) =>
-                                  handleApplicationFieldChange(option, 'notes', event.target.value)
-                                }
-                                placeholder="Share your relevant skills, interest, or experience."
-                                required
-                              />
-                            </label>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  <div className="event-application-actions">
-                    <button
-                      type="button"
-                      className="event-secondary-btn"
-                      onClick={() => {
-                        setSelectedOptions([]);
-                        setApplicationAnswersByOption({});
-                      }}
-                    >
-                      Back to Details
-                    </button>
-                    <button
-                      type="submit"
-                      className="event-primary-btn"
-                      disabled={applyingKey === selectedEvent._id}
-                    >
-                      {applyingKey === selectedEvent._id
-                        ? 'Submitting...'
-                        : `Submit ${selectedOptions.length} Application${selectedOptions.length > 1 ? 's' : ''}`}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <div className="event-modal-content">
-                  {resolveImageUrl(selectedEvent.image) ? (
-                    <img
-                      src={resolveImageUrl(selectedEvent.image)}
-                      alt={selectedEvent.title}
-                      className="event-modal-image"
-                    />
-                  ) : null}
-
-                  <h3 className="event-modal-title text-sinhala">{selectedEvent.title}</h3>
-                  <p className="event-modal-description text-sinhala">
-                    {selectedEvent.description || 'No description provided for this event.'}
-                  </p>
-
-                  <div className="event-card-meta-list">
-                    <div className="event-card-meta-item">
-                      <span className="event-card-meta-label">Date</span>
-                      <span className="event-card-meta-value">
-                        {new Date(selectedEvent.date).toLocaleDateString('en-GB', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
-                      </span>
-                    </div>
-                    <div className="event-card-meta-item">
-                      <span className="event-card-meta-label">Time</span>
-                      <span className="event-card-meta-value">
-                        {new Date(selectedEvent.date).toLocaleTimeString('en-GB', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    </div>
-                    <div className="event-card-meta-item">
-                      <span className="event-card-meta-label">Location</span>
-                      <span className="event-card-meta-value text-sinhala">{selectedEvent.location || 'TBA'}</span>
-                    </div>
-                  </div>
-
-                  <div className="event-modal-participation-wrap">
-                    <p className="event-participation-title mb-2">Available Participation Options</p>
-
-                    {!isStudent ? (
-                      <p className="event-participation-empty mb-2">
-                        Participation applications can be submitted by student accounts only.
-                      </p>
-                    ) : null}
-
-                    {Array.isArray(selectedEvent.participationOptions) && selectedEvent.participationOptions.length > 0 ? (
-                      <div className="event-option-list">
-                        {selectedEvent.participationOptions.map((option) => {
-                          const applied = hasStudentApplied(selectedEvent, option);
-                          const selected = selectedOptions.includes(option);
                           return (
                             <button
-                              key={option}
+                              key={`selected-${option}`}
                               type="button"
-                              className={`event-option-btn ${selected ? 'selected' : ''}`}
+                              className={
+                                applied
+                                  ? `px-4 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
+                                  : `px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-200 ${selected ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-200 bg-white text-gray-700 hover:border-green-500'}`
+                              }
                               onClick={() => toggleApplicationOption(option)}
                               disabled={applied}
                             >
-                              {formatOptionLabel(option)} {applied ? '(Applied)' : selected ? '(Selected)' : ''}
+                              {formatOptionLabel(option)}{' '}
+                              {applied
+                                ? `(${statusMeta.label})`
+                                : selected
+                                  ? '✓'
+                                  : ''}
                             </button>
                           );
                         })}
                       </div>
-                    ) : (
-                      <p className="event-participation-empty mb-0">No participation roles are open for this event.</p>
+                    </div>
+
+                    {/* Form Fields for Selected Options */}
+                    {selectedOptions.map((option) => {
+                      const templateQuestions = getParticipationTemplate(selectedEvent, option);
+                      const optionAnswers = applicationAnswersByOption[option] || {};
+
+                      return (
+                        <div key={option} className="pt-4 border-t border-gray-100">
+                          <h4 className="text-sm font-semibold text-gray-700 mb-4">{formatOptionLabel(option)} Details</h4>
+
+                          {templateQuestions.length > 0 ? (
+                            <div className="space-y-4">
+                              {templateQuestions.map((question) => (
+                                <div key={`${option}-${question.key}`}>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    {question.label}
+                                    {question.required ? <span className="text-red-500 ml-1">*</span> : ''}
+                                  </label>
+                                  <textarea
+                                    rows={3}
+                                    value={optionAnswers[question.key] || ''}
+                                    onChange={(event) =>
+                                      handleApplicationFieldChange(option, question.key, event.target.value)
+                                    }
+                                    onBlur={(event) =>
+                                      handleParticipationFieldBlur(option, question.key, event.target.value)
+                                    }
+                                    required={question.required !== false}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                  />
+                                  {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, question.key)])
+                                    && participationFieldErrors[getParticipationErrorKey(option, question.key)] ? (
+                                      <p className="text-xs text-red-600 mt-1">
+                                        {participationFieldErrors[getParticipationErrorKey(option, question.key)]}
+                                      </p>
+                                    ) : null}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Full Name
+                                    <span className="text-red-500 ml-1">*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={optionAnswers.fullName || ''}
+                                    onChange={(event) =>
+                                      handleApplicationFieldChange(option, 'fullName', event.target.value)
+                                    }
+                                    onBlur={(event) =>
+                                      handleParticipationFieldBlur(option, 'fullName', event.target.value)
+                                    }
+                                    required
+                                    pattern="[A-Za-z\s]+"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                  />
+                                  {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'fullName')])
+                                    && participationFieldErrors[getParticipationErrorKey(option, 'fullName')] ? (
+                                      <p className="text-xs text-red-600 mt-1">
+                                        {participationFieldErrors[getParticipationErrorKey(option, 'fullName')]}
+                                      </p>
+                                    ) : null}
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Email
+                                    <span className="text-red-500 ml-1">*</span>
+                                  </label>
+                                  <input
+                                    type="email"
+                                    value={optionAnswers.email || ''}
+                                    onChange={(event) =>
+                                      handleApplicationFieldChange(option, 'email', event.target.value)
+                                    }
+                                    onBlur={(event) =>
+                                      handleParticipationFieldBlur(option, 'email', event.target.value)
+                                    }
+                                    required
+                                    pattern="[^\s@]+@[^\s@]+"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                  />
+                                  {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'email')])
+                                    && participationFieldErrors[getParticipationErrorKey(option, 'email')] ? (
+                                      <p className="text-xs text-red-600 mt-1">
+                                        {participationFieldErrors[getParticipationErrorKey(option, 'email')]}
+                                      </p>
+                                    ) : null}
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Phone Number
+                                    <span className="text-red-500 ml-1">*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={optionAnswers.phone || ''}
+                                    onChange={(event) =>
+                                      handleApplicationFieldChange(option, 'phone', event.target.value)
+                                    }
+                                    onBlur={(event) =>
+                                      handleParticipationFieldBlur(option, 'phone', event.target.value)
+                                    }
+                                    placeholder="07X XXX XXXX"
+                                    required
+                                    pattern="\d{10}"
+                                    minLength={10}
+                                    maxLength={10}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                  />
+                                  {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'phone')])
+                                    && participationFieldErrors[getParticipationErrorKey(option, 'phone')] ? (
+                                      <p className="text-xs text-red-600 mt-1">
+                                        {participationFieldErrors[getParticipationErrorKey(option, 'phone')]}
+                                      </p>
+                                    ) : null}
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Why are you applying for this role?
+                                  <span className="text-red-500 ml-1">*</span>
+                                </label>
+                                <textarea
+                                  rows={4}
+                                  value={optionAnswers.notes || ''}
+                                  onChange={(event) =>
+                                    handleApplicationFieldChange(option, 'notes', event.target.value)
+                                  }
+                                  onBlur={(event) =>
+                                    handleParticipationFieldBlur(option, 'notes', event.target.value)
+                                  }
+                                  placeholder="Share your relevant skills, interest, or experience."
+                                  required
+                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                />
+                                {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'notes')])
+                                  && participationFieldErrors[getParticipationErrorKey(option, 'notes')] ? (
+                                    <p className="text-xs text-red-600 mt-1">
+                                      {participationFieldErrors[getParticipationErrorKey(option, 'notes')]}
+                                    </p>
+                                  ) : null}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Form Actions */}
+                    <div className="flex gap-3 pt-6 border-t border-gray-100">
+                      <button
+                        type="button"
+                        className="flex-1 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all duration-300"
+                        onClick={() => {
+                          setSelectedOptions([]);
+                          setApplicationAnswersByOption({});
+                          setParticipationFieldErrors({});
+                          setParticipationFieldTouched({});
+                          setParticipationSubmitAttempted(false);
+                        }}
+                      >
+                        Back to Details
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={applyingKey === selectedEvent._id}
+                      >
+                        {applyingKey === selectedEvent._id
+                          ? 'Submitting...'
+                          : `Submit ${selectedOptions.length} Application${selectedOptions.length > 1 ? 's' : ''}`}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="p-6 space-y-6">
+                    {/* Event Image */}
+                    {resolveImageUrl(selectedEvent.image) ? (
+                      <div className="w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
+                        <img
+                          src={resolveImageUrl(selectedEvent.image)}
+                          alt={selectedEvent.title}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : null}
+
+                    {/* Event Title */}
+                    <div>
+                      <h3 className="text-2xl font-bold text-gray-800 text-sinhala">{selectedEvent.title}</h3>
+                    </div>
+
+                    {/* Event Description */}
+                    <div>
+                      <p className="text-gray-600 text-sinhala leading-relaxed">
+                        {selectedEvent.description || 'No description provided for this event.'}
+                      </p>
+                    </div>
+
+                    {/* Event Details */}
+                    <div className="space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                      <div>
+                        <span className="text-xs font-semibold text-gray-500 uppercase">Date</span>
+                        <p className="text-gray-700 font-medium">
+                          {new Date(selectedEvent.date).toLocaleDateString('en-GB', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                      <div className="border-t border-gray-200 pt-3">
+                        <span className="text-xs font-semibold text-gray-500 uppercase">Time</span>
+                        <p className="text-gray-700 font-medium">
+                          {new Date(selectedEvent.date).toLocaleTimeString('en-GB', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                      <div className="border-t border-gray-200 pt-3">
+                        <span className="text-xs font-semibold text-gray-500 uppercase">Location</span>
+                        <p className="text-gray-700 font-medium text-sinhala">{selectedEvent.location || 'TBA'}</p>
+                      </div>
+                    </div>
+
+                    {/* Participation Options */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Participation Opportunities</h4>
+
+                      {!isStudent ? (
+                        <p className="text-gray-500 text-sm bg-blue-50 border border-blue-100 rounded-lg p-3">
+                          Participation applications can be submitted by student accounts only.
+                        </p>
+                      ) : null}
+
+                      {Array.isArray(selectedEvent.participationOptions) && selectedEvent.participationOptions.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {selectedEvent.participationOptions.map((option) => {
+                            const status = getStudentApplicationStatus(selectedEvent, option);
+                            const applied = !!status;
+                            const selected = selectedOptions.includes(option);
+                            const statusMeta = getStatusMeta(status);
+                            const metadata = getExistingPendingApplicationMeta(selectedEvent._id, option);
+                            const canManagePending = applied && String(status).toLowerCase() === 'pending' && !!metadata?.id;
+                            const removingCurrent = applyingKey === `${selectedEvent._id}:${option}:remove`;
+
+                            return (
+                              <div key={option} className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  className={
+                                    applied
+                                      ? `px-4 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
+                                      : `px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-200 ${selected ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-200 bg-white text-gray-700 hover:border-green-500'}`
+                                  }
+                                  onClick={() => toggleApplicationOption(option)}
+                                  disabled={applied}
+                                >
+                                  {formatOptionLabel(option)}{' '}
+                                  {applied
+                                    ? `(${statusMeta.label})`
+                                    : selected
+                                      ? '✓'
+                                      : ''}
+                                </button>
+
+                                {canManagePending ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-100 text-green-700 hover:bg-green-200 transition-all duration-200"
+                                      onClick={() => handleEditPendingApplication(option)}
+                                    >
+                                      Update
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-100 text-red-700 hover:bg-red-200 transition-all duration-200 disabled:opacity-50"
+                                      onClick={() => handleRemovePendingApplication(selectedEvent._id, option)}
+                                      disabled={removingCurrent}
+                                    >
+                                      {removingCurrent ? 'Removing...' : 'Remove'}
+                                    </button>
+                                  </>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-gray-500 text-sm">No participation roles are open for this event.</p>
+                      )}
+                    </div>
+
+                    {/* Action Buttons */}
+                    {isStudent && selectedEvent.participationOptions && selectedEvent.participationOptions.length > 0 && (
+                      <div className="flex gap-3 pt-4 border-t border-gray-100">
+                        <button
+                          type="button"
+                          className="flex-1 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all duration-300"
+                          onClick={closeEventDetails}
+                        >
+                          Close
+                        </button>
+                        {selectedOptions.length > 0 && (
+                          <button
+                            type="button"
+                            className="flex-1 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300"
+                            onClick={() => {
+                              // Form will show when options are selected
+                            }}
+                          >
+                            Apply Now
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         ) : null}
