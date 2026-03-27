@@ -25,6 +25,7 @@ const BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_URL || 'http://localhost:500
 
 const INITIAL_FORM = {
   title: '',
+  eventType: 'event',
   date: '',
   time: '',
   location: '',
@@ -151,6 +152,7 @@ export default function EventCoordinatorDashboard() {
     setEditingItem(item);
     setForm({
       title: item.title || '',
+      eventType: item.eventType || 'event',
       date: item.date ? new Date(item.date).toISOString().split('T')[0] : '',
       time: item.time || '',
       location: item.location || '',
@@ -276,7 +278,7 @@ export default function EventCoordinatorDashboard() {
       payload.append('time', form.time);
       payload.append('location', form.location);
       payload.append('description', form.description);
-      payload.append('eventType', 'event');
+      payload.append('eventType', form.eventType || 'event');
       payload.append('image', form.image || '');
       form.participationOptions.forEach((option) => {
         payload.append('participationOptions', option);
@@ -460,6 +462,10 @@ export default function EventCoordinatorDashboard() {
                 <div className="p-6">
                   <h3 className="text-lg font-semibold text-gray-800 mb-3 line-clamp-2">{item.title}</h3>
 
+                  <span className="inline-flex items-center text-[11px] font-semibold uppercase tracking-wide text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-200 mb-3">
+                    {item.eventType === 'chill_session' ? 'Chill Session' : 'Event'}
+                  </span>
+
                   <div className="space-y-2 mb-4 pb-4 border-b border-gray-100">
                     <div className="flex items-center text-sm text-gray-600 gap-2">
                       <CalendarDays size={16} className="text-green-600" />
@@ -537,6 +543,21 @@ export default function EventCoordinatorDashboard() {
                 />
               </div>
 
+              {/* Event Type */}
+              <div>
+                <Label htmlFor="eventType" className="text-sm font-semibold text-gray-700 mb-2">Type</Label>
+                <select
+                  id="eventType"
+                  name="eventType"
+                  value={form.eventType}
+                  onChange={handleFormChange}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="event">Event</option>
+                  <option value="chill_session">Chill Session</option>
+                </select>
+              </div>
+
               {/* Date & Time */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -567,7 +588,7 @@ export default function EventCoordinatorDashboard() {
 
               {/* Location */}
               <div>
-                <Label htmlFor="location" className="text-sm font-semibold text-gray-700 mb-2">Event Location</Label>
+                <Label htmlFor="location" className="text-sm font-semibold text-gray-700 mb-2">Location</Label>
                 <Input 
                   id="location" 
                   name="location" 

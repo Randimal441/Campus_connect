@@ -22,7 +22,7 @@ export default function SignIn() {
       case ROLES.CONSULTANT:
         return '/admin/consulting';
       case ROLES.EVENT_COORDINATOR:
-        return '/user/events-chill';
+        return '/admin/events';
       case ROLES.STUDENT:
       default:
         return '/user/events-chill';
