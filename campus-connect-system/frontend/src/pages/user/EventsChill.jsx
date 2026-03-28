@@ -14,6 +14,15 @@ import { PARTICIPATION_OPTIONS, ROLES } from '../../utils/constants';
 
 const BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 const askEventsImage = 'https://img.freepik.com/free-vector/chat-bot-concept-illustration_114360-5522.jpg';
+const EVENT_TYPE_OPTIONS = [
+  { value: 'chill_session', label: 'Chill Session' },
+  { value: 'club_event', label: 'Club Event' },
+  { value: 'competition', label: 'Competition' },
+  { value: 'workshop', label: 'Workshop' },
+  { value: 'conference', label: 'Conference' },
+  { value: 'cultural_event', label: 'Cultural Event' },
+  { value: 'exhibition', label: 'Exhibition' },
+];
 
 const resolveImageUrl = (imagePath) => {
   if (!imagePath) return '';
@@ -95,6 +104,11 @@ const getStatusMeta = (status) => {
   };
 };
 
+const getEventTypeLabel = (eventType) => {
+  const matched = EVENT_TYPE_OPTIONS.find((option) => option.value === eventType);
+  return matched?.label || 'Club Event';
+};
+
 export default function EventsChill() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -124,6 +138,7 @@ export default function EventsChill() {
   const [applicationMetaMap, setApplicationMetaMap] = useState({});
   const [myEventRequests, setMyEventRequests] = useState([]);
   const [activeTab, setActiveTab] = useState('events');
+  const [selectedEventType, setSelectedEventType] = useState('all');
   
   // Ask panel state
   const [isAskPanelOpen, setIsAskPanelOpen] = useState(false);
@@ -186,8 +201,9 @@ export default function EventsChill() {
 
     return [...items]
       .filter((item) => new Date(item.date).getTime() >= todayStart.getTime())
+      .filter((item) => selectedEventType === 'all' || item.eventType === selectedEventType)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [items]);
+  }, [items, selectedEventType]);
 
   const myRequestsWithEventDetails = useMemo(() => {
     const byEventId = new Map(items.map((eventItem) => [String(eventItem._id), eventItem]));
@@ -889,7 +905,7 @@ export default function EventsChill() {
 
               {isStudent ? (
                 <div className="mb-6 rounded-xl border border-gray-100 bg-gray-50 p-4">
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setActiveTab('events')}
@@ -912,6 +928,23 @@ export default function EventsChill() {
                     >
                       My Requests
                     </button>
+
+                    {activeTab === 'events' ? (
+                      <div className="ml-auto w-full sm:w-64">
+                        <select
+                          value={selectedEventType}
+                          onChange={(event) => setSelectedEventType(event.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        >
+                          <option value="all">All Event Types</option>
+                          {EVENT_TYPE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ) : null}
@@ -998,7 +1031,7 @@ export default function EventsChill() {
                         {/* Event Type Badge */}
                         <div className="inline-block mb-3">
                           <span className="text-xs font-semibold uppercase tracking-wide text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
-                            {(item.eventType || 'event').replace('_', ' ')}
+                            {getEventTypeLabel(item.eventType)}
                           </span>
                         </div>
 

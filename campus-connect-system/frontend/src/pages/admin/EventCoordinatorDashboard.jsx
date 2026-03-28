@@ -25,7 +25,7 @@ const BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_URL || 'http://localhost:500
 
 const INITIAL_FORM = {
   title: '',
-  eventType: 'event',
+  eventType: 'club_event',
   date: '',
   time: '',
   location: '',
@@ -56,6 +56,21 @@ const formatCardTime = (event) => {
     hour: '2-digit',
     minute: '2-digit',
   });
+};
+
+const EVENT_TYPE_OPTIONS = [
+  { value: 'chill_session', label: 'Chill Session' },
+  { value: 'club_event', label: 'Club Event' },
+  { value: 'competition', label: 'Competition' },
+  { value: 'workshop', label: 'Workshop' },
+  { value: 'conference', label: 'Conference' },
+  { value: 'cultural_event', label: 'Cultural Event' },
+  { value: 'exhibition', label: 'Exhibition' },
+];
+
+const getEventTypeLabel = (eventType) => {
+  const matched = EVENT_TYPE_OPTIONS.find((option) => option.value === eventType);
+  return matched?.label || 'Club Event';
 };
 
 const getApplicationStatusMeta = (status) => {
@@ -152,7 +167,7 @@ export default function EventCoordinatorDashboard() {
     setEditingItem(item);
     setForm({
       title: item.title || '',
-      eventType: item.eventType || 'event',
+      eventType: item.eventType || 'club_event',
       date: item.date ? new Date(item.date).toISOString().split('T')[0] : '',
       time: item.time || '',
       location: item.location || '',
@@ -463,7 +478,7 @@ export default function EventCoordinatorDashboard() {
                   <h3 className="text-lg font-semibold text-gray-800 mb-3 line-clamp-2">{item.title}</h3>
 
                   <span className="inline-flex items-center text-[11px] font-semibold uppercase tracking-wide text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-200 mb-3">
-                    {item.eventType === 'chill_session' ? 'Chill Session' : 'Event'}
+                    {getEventTypeLabel(item.eventType)}
                   </span>
 
                   <div className="space-y-2 mb-4 pb-4 border-b border-gray-100">
@@ -553,8 +568,11 @@ export default function EventCoordinatorDashboard() {
                   onChange={handleFormChange}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
-                  <option value="event">Event</option>
-                  <option value="chill_session">Chill Session</option>
+                  {EVENT_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 

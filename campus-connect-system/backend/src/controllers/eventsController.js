@@ -248,7 +248,7 @@ const create = async (req, res, next) => {
     const item = await Events.create({
       title,
       description: description || '',
-      eventType: eventType || 'event',
+      eventType: eventType || 'club_event',
       date: date || new Date(),
       time: time || '',
       location: location || '',
@@ -281,7 +281,7 @@ const update = async (req, res, next) => {
 
     if ('title' in updateData) item.title = updateData.title;
     if ('description' in updateData) item.description = updateData.description || '';
-    if ('eventType' in updateData) item.eventType = updateData.eventType || 'event';
+    if ('eventType' in updateData) item.eventType = updateData.eventType || 'club_event';
     if ('date' in updateData) item.date = updateData.date || item.date;
     if ('time' in updateData) item.time = updateData.time || '';
     if ('location' in updateData) item.location = updateData.location || '';
