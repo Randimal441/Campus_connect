@@ -139,6 +139,7 @@ export default function EventsChill() {
   const [myEventRequests, setMyEventRequests] = useState([]);
   const [activeTab, setActiveTab] = useState('events');
   const [selectedEventType, setSelectedEventType] = useState('all');
+  const [searchEventName, setSearchEventName] = useState('');
   
   // Ask panel state
   const [isAskPanelOpen, setIsAskPanelOpen] = useState(false);
@@ -198,12 +199,17 @@ export default function EventsChill() {
   const upcomingItems = useMemo(() => {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
+    const normalizedSearch = searchEventName.trim().toLowerCase();
 
     return [...items]
       .filter((item) => new Date(item.date).getTime() >= todayStart.getTime())
       .filter((item) => selectedEventType === 'all' || item.eventType === selectedEventType)
+      .filter((item) => {
+        if (!normalizedSearch) return true;
+        return String(item.title || '').toLowerCase().includes(normalizedSearch);
+      })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [items, selectedEventType]);
+  }, [items, searchEventName, selectedEventType]);
 
   const myRequestsWithEventDetails = useMemo(() => {
     const byEventId = new Map(items.map((eventItem) => [String(eventItem._id), eventItem]));
@@ -930,7 +936,14 @@ export default function EventsChill() {
                     </button>
 
                     {activeTab === 'events' ? (
-                      <div className="ml-auto w-full sm:w-64">
+                      <div className="ml-auto grid w-full gap-2 sm:w-auto sm:grid-cols-2">
+                        <input
+                          type="text"
+                          value={searchEventName}
+                          onChange={(event) => setSearchEventName(event.target.value)}
+                          placeholder="Search by event name"
+                          className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
                         <select
                           value={selectedEventType}
                           onChange={(event) => setSelectedEventType(event.target.value)}
