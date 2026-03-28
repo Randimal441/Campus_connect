@@ -8,6 +8,7 @@ import MedicleSupport from '../pages/user/MedicleSupport';
 import ResourceSharing from '../pages/user/ResourceSharing';
 import Consulting from '../pages/user/Consulting';
 import EventsChill from '../pages/user/EventsChill';
+import EventDetails from '../pages/user/EventDetails';
 import SuperAdminDashboard from '../pages/admin/SuperAdminDashboard';
 import CoachesDashboard from '../pages/admin/CoachesDashboard';
 import ResourceCoordinatorDashboard from '../pages/admin/ResourceCoordinatorDashboard';
@@ -34,6 +35,7 @@ export default function AppRoutes() {
       <Route path="/user/resource-sharing" element={<ResourceSharing />} />
       <Route path="/user/consulting" element={<Consulting />} />
       <Route path="/user/events-chill" element={<EventsChill />} />
+      <Route path="/user/events-chill/:id" element={<EventDetails />} />
       <Route path="/user/consulting/:id" element={<ConsultantDetails />}/>
 
       <Route

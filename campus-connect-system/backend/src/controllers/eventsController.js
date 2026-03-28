@@ -418,12 +418,16 @@ const getMyApplications = async (req, res, next) => {
       student: req.user._id,
     })
       .select('event option status application createdAt reviewedAt')
+      .populate('event', 'title date eventType')
       .sort({ createdAt: -1 })
       .lean();
 
     const mapped = applications.map((entry) => ({
       id: entry._id,
-      eventId: entry.event,
+      eventId: entry.event?._id || entry.event,
+      eventTitle: entry.event?.title || '',
+      eventDate: entry.event?.date || null,
+      eventType: entry.event?.eventType || '',
       option: entry.option,
       status: entry.status,
       application: entry.application,

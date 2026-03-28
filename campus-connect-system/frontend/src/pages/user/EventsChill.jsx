@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   applyForParticipation,
   getMyEventApplications,
@@ -12,6 +13,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { PARTICIPATION_OPTIONS, ROLES } from '../../utils/constants';
 
 const BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+const askEventsImage = 'https://img.freepik.com/free-vector/chat-bot-concept-illustration_114360-5522.jpg';
 
 const resolveImageUrl = (imagePath) => {
   if (!imagePath) return '';
@@ -94,6 +96,7 @@ const getStatusMeta = (status) => {
 };
 
 export default function EventsChill() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const normalizedUserRole = String(user?.role || '').trim().toLowerCase();
   const isStudent = normalizedUserRole === ROLES.STUDENT;
@@ -119,6 +122,8 @@ export default function EventsChill() {
   const [participationSubmitAttempted, setParticipationSubmitAttempted] = useState(false);
   const [applicationStatusMap, setApplicationStatusMap] = useState({});
   const [applicationMetaMap, setApplicationMetaMap] = useState({});
+  const [myEventRequests, setMyEventRequests] = useState([]);
+  const [activeTab, setActiveTab] = useState('events');
   
   // Ask panel state
   const [isAskPanelOpen, setIsAskPanelOpen] = useState(false);
@@ -156,6 +161,18 @@ export default function EventsChill() {
   }, []);
 
   useEffect(() => {
+    if (!isStudent) return;
+
+    getMyEventApplications()
+      .then((rows) => {
+        setMyEventRequests(Array.isArray(rows) ? rows : []);
+      })
+      .catch(() => {
+        setMyEventRequests([]);
+      });
+  }, [isStudent]);
+
+  useEffect(() => {
     const timer = setInterval(() => {
       setNow(new Date());
     }, 1000);
@@ -171,6 +188,23 @@ export default function EventsChill() {
       .filter((item) => new Date(item.date).getTime() >= todayStart.getTime())
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [items]);
+
+  const myRequestsWithEventDetails = useMemo(() => {
+    const byEventId = new Map(items.map((eventItem) => [String(eventItem._id), eventItem]));
+
+    return myEventRequests.map((request) => {
+      const requestEventId = String(request.eventId?._id || request.eventId || '');
+      const matchedEvent = byEventId.get(requestEventId);
+
+      return {
+        ...request,
+        requestEventId,
+        eventTitle: request.eventTitle || matchedEvent?.title || 'Event',
+        eventDate: request.eventDate || matchedEvent?.date || request.appliedAt,
+        eventType: request.eventType || matchedEvent?.eventType || 'event',
+      };
+    });
+  }, [items, myEventRequests]);
 
   const formatOptionLabel = (option) => optionLabelMap[option] || option;
 
@@ -301,11 +335,7 @@ export default function EventsChill() {
   };
 
   const openEventDetails = (eventItem) => {
-    setSelectedEvent(eventItem);
-    setSelectedOptions([]);
-    setApplicationAnswersByOption({});
-    setApplyError('');
-    setApplyMessage('');
+    navigate(`/user/events-chill/${eventItem._id}`);
   };
 
   const closeEventDetails = () => {
@@ -842,13 +872,13 @@ export default function EventsChill() {
             </div>
           ) : error ? (
             <div className="text-center py-16 bg-gray-50 rounded-2xl border border-gray-200 p-8">
-              <div className="text-5xl mb-4">⚠️</div>
+              <div className="text-5xl mb-4">ΓÜá∩╕Å</div>
               <p className="text-xl font-semibold text-gray-800 mb-2">Unable to load events</p>
               <p className="text-gray-600">{error}</p>
             </div>
           ) : upcomingItems.length === 0 ? (
             <div className="text-center py-16 bg-gray-50 rounded-2xl border border-gray-200 p-8">
-              <div className="text-6xl mb-4">🎪</div>
+              <div className="text-6xl mb-4">≡ƒÄ¬</div>
               <p className="text-xl font-semibold text-gray-800 mb-2">No upcoming events available</p>
               <p className="text-gray-600">Stay tuned for the next campus event!</p>
             </div>
@@ -858,23 +888,220 @@ export default function EventsChill() {
               {applyError ? <p className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{applyError}</p> : null}
 
               {isStudent ? (
-                <div className="mb-6">
-                  <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white border border-green-100 rounded-xl">
-                    <div>
-                      <h3 className="text-base font-semibold text-gray-800">Have a question about an event?</h3>
-                      <p className="text-sm text-gray-600">Use the button to open the upcoming student event chatbot area.</p>
-                    </div>
+                <div className="mb-6 rounded-xl border border-gray-100 bg-gray-50 p-4">
+                  <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => setIsAskPanelOpen((prev) => !prev)}
-                      className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300"
+                      onClick={() => setActiveTab('events')}
+                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                        activeTab === 'events'
+                          ? 'bg-green-600 text-white'
+                          : 'bg-white text-gray-600 hover:bg-gray-100'
+                      }`}
                     >
-                      Ask About Events
+                      All Events
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('my-requests')}
+                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                        activeTab === 'my-requests'
+                          ? 'bg-green-600 text-white'
+                          : 'bg-white text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      My Requests
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {isStudent && activeTab === 'my-requests' ? (
+                <div className="mb-6 rounded-xl border border-green-100 bg-white p-4">
+                  <h3 className="text-base font-semibold text-gray-800 mb-3">My Event Requests</h3>
+
+                  {myRequestsWithEventDetails.length === 0 ? (
+                    <p className="text-sm text-gray-600">You have not applied for any event participation yet.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {myRequestsWithEventDetails.map((request) => {
+                        const statusMeta = getStatusMeta(request.status);
+
+                        return (
+                          <div
+                            key={`${request.requestEventId}:${request.option}:${request.id}`}
+                            className="flex flex-col gap-2 rounded-lg border border-gray-200 p-3 md:flex-row md:items-center md:justify-between"
+                          >
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800">{request.eventTitle}</p>
+                              <p className="text-xs text-gray-600">
+                                Participation: {formatOptionLabel(request.option)}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                Applied on {new Date(request.appliedAt).toLocaleDateString('en-GB', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusMeta.className}`}>
+                                {statusMeta.label}
+                              </span>
+                              <button
+                                type="button"
+                                className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 transition-colors"
+                                onClick={() => navigate(`/user/events-chill/${request.requestEventId}`)}
+                              >
+                                View Event
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {/* Events Grid */}
+              {!isStudent || activeTab === 'events' ? (
+              <div id="events-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {upcomingItems.map((item, index) => {
+                  const countdown = getCountdownData(item.date, now);
+
+                  return (
+                    <div
+                      key={item._id}
+                      className="bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden animate-fade-in"
+                      style={{ animationDelay: `${index * 0.05}s` }}
+                    >
+                      {/* Card Image */}
+                      <div className="w-full h-48 bg-gray-100 overflow-hidden rounded-t-2xl">
+                        {resolveImageUrl(item.image) ? (
+                          <img
+                            src={resolveImageUrl(item.image)}
+                            alt={item.title}
+                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-400">
+                            <span className="text-sm">No Image</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Card Body */}
+                      <div className="p-6">
+                        {/* Event Type Badge */}
+                        <div className="inline-block mb-3">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
+                            {(item.eventType || 'event').replace('_', ' ')}
+                          </span>
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2 text-sinhala">{item.title}</h3>
+
+                        {/* Countdown & Date */}
+                        <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-100">
+                          <p className="text-xs font-semibold text-green-600 mb-2">{countdown.label}</p>
+                          {countdown.status === 'upcoming' ? (
+                            <div className="flex gap-3">
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-green-700">{countdown.days}</div>
+                                <div className="text-xs text-green-600">Days</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-green-700">{countdown.hours}</div>
+                                <div className="text-xs text-green-600">Hours</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-green-700">{countdown.minutes}</div>
+                                <div className="text-xs text-green-600">Minutes</div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-sm font-semibold text-green-700">{countdown.label}</div>
+                          )}
+                        </div>
+
+                        {/* Date */}
+                        <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600 border border-gray-100">
+                          <span className="font-semibold text-gray-700">Date: </span>
+                          {new Date(item.date).toLocaleDateString('en-GB', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })}
+                        </div>
+
+                        {/* Status Badges */}
+                        {isStudent ? (
+                          <div className="mb-4 flex flex-wrap gap-2">
+                            {(item.participationOptions || []).map((option) => {
+                              const status = getStudentApplicationStatus(item, option);
+                              if (!status) return null;
+
+                              const statusMeta = getStatusMeta(status);
+                              return (
+                                <button
+                                  key={`${item._id}-${option}-status`}
+                                  type="button"
+                                  className={`px-3 py-1 rounded-full text-xs font-semibold cursor-default ${statusMeta.className}`}
+                                  disabled
+                                >
+                                  {formatOptionLabel(option)}: {statusMeta.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+
+                        {/* View More Button */}
+                        <button
+                          type="button"
+                          className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-300"
+                          onClick={() => openEventDetails(item)}
+                        >
+                          View More
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              ) : null}
+
+              {isStudent && activeTab === 'events' ? (
+                <section className="mt-10 rounded-2xl bg-gray-50 p-6 md:p-8 border border-gray-100">
+                  <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-8">
+                    <div className="flex-1 flex justify-center md:justify-start">
+                      <img
+                        src={askEventsImage}
+                        alt="Ask about events"
+                        className="w-full max-w-sm rounded-2xl shadow-lg border border-green-100"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <h2 className="text-3xl font-bold text-gray-800 mb-3">Build your campus event circle</h2>
+                      <p className="text-gray-600 mb-5 leading-relaxed">
+                        Ask questions before you apply, understand participation roles better, and join events with confidence.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setIsAskPanelOpen((prev) => !prev)}
+                        className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
+                      >
+                        Ask About Events
+                      </button>
+                    </div>
                   </div>
 
                   {isAskPanelOpen ? (
-                    <div className="mt-3 p-5 bg-green-50 border border-green-200 rounded-xl">
+                    <div className="mt-6 p-5 bg-green-50 border border-green-200 rounded-xl">
                       <h4 className="text-sm font-semibold text-green-800 mb-3">Ask About Events</h4>
 
                       <form className="space-y-4" onSubmit={handleAskFormSubmit} noValidate>
@@ -954,120 +1181,8 @@ export default function EventsChill() {
                       </form>
                     </div>
                   ) : null}
-                </div>
+                </section>
               ) : null}
-
-              {/* Events Grid */}
-              <div id="events-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {upcomingItems.map((item, index) => {
-                  const countdown = getCountdownData(item.date, now);
-
-                  return (
-                    <div
-                      key={item._id}
-                      className="bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden animate-fade-in"
-                      style={{ animationDelay: `${index * 0.05}s` }}
-                    >
-                      {/* Card Image */}
-                      <div className="w-full h-48 bg-gray-100 overflow-hidden rounded-t-2xl">
-                        {resolveImageUrl(item.image) ? (
-                          <img
-                            src={resolveImageUrl(item.image)}
-                            alt={item.title}
-                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-400">
-                            <span className="text-sm">No Image</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Card Body */}
-                      <div className="p-6">
-                        {/* Event Type Badge */}
-                        <div className="inline-block mb-3">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
-                            {(item.eventType || 'event').replace('_', ' ')}
-                          </span>
-                        </div>
-
-                        {/* Title */}
-                        <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2 text-sinhala">{item.title}</h3>
-
-                        {/* Description */}
-                        <p className="text-sm text-gray-600 mb-4 line-clamp-3 text-sinhala">
-                          {item.description || 'No description provided for this event.'}
-                        </p>
-
-                        {/* Countdown & Date */}
-                        <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-100">
-                          <p className="text-xs font-semibold text-green-600 mb-2">{countdown.label}</p>
-                          {countdown.status === 'upcoming' ? (
-                            <div className="flex gap-3">
-                              <div className="text-center">
-                                <div className="text-lg font-bold text-green-700">{countdown.days}</div>
-                                <div className="text-xs text-green-600">Days</div>
-                              </div>
-                              <div className="text-center">
-                                <div className="text-lg font-bold text-green-700">{countdown.hours}</div>
-                                <div className="text-xs text-green-600">Hours</div>
-                              </div>
-                              <div className="text-center">
-                                <div className="text-lg font-bold text-green-700">{countdown.minutes}</div>
-                                <div className="text-xs text-green-600">Minutes</div>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="text-sm font-semibold text-green-700">{countdown.label}</div>
-                          )}
-                        </div>
-
-                        {/* Date */}
-                        <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600 border border-gray-100">
-                          <span className="font-semibold text-gray-700">📅 </span>
-                          {new Date(item.date).toLocaleDateString('en-GB', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                          })}
-                        </div>
-
-                        {/* Status Badges */}
-                        {isStudent ? (
-                          <div className="mb-4 flex flex-wrap gap-2">
-                            {(item.participationOptions || []).map((option) => {
-                              const status = getStudentApplicationStatus(item, option);
-                              if (!status) return null;
-
-                              const statusMeta = getStatusMeta(status);
-                              return (
-                                <button
-                                  key={`${item._id}-${option}-status`}
-                                  type="button"
-                                  className={`px-3 py-1 rounded-full text-xs font-semibold cursor-default ${statusMeta.className}`}
-                                  disabled
-                                >
-                                  {formatOptionLabel(option)}: {statusMeta.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        ) : null}
-
-                        {/* View More Button */}
-                        <button
-                          type="button"
-                          className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-300"
-                          onClick={() => openEventDetails(item)}
-                        >
-                          View More
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
             </>
           )}
         </section>
@@ -1086,7 +1201,7 @@ export default function EventsChill() {
                   className="text-gray-400 hover:text-gray-600 text-2xl w-8 h-8 flex items-center justify-center"
                   onClick={closeEventDetails}
                 >
-                  ×
+                  ├ù
                 </button>
               </div>
 
@@ -1130,7 +1245,7 @@ export default function EventsChill() {
                               {applied
                                 ? `(${statusMeta.label})`
                                 : selected
-                                  ? '✓'
+                                  ? 'Γ£ô'
                                   : ''}
                             </button>
                           );
@@ -1407,7 +1522,7 @@ export default function EventsChill() {
                                   {applied
                                     ? `(${statusMeta.label})`
                                     : selected
-                                      ? '✓'
+                                      ? 'Γ£ô'
                                       : ''}
                                 </button>
 
