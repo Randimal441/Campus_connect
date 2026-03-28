@@ -71,8 +71,9 @@ const getCountdownData = (eventDate, now) => {
 
 const getApplicationKey = (eventId, option) => `${eventId}:${option}`;
 const askNameRegex = /^[A-Za-z\s]+$/;
-const askPhoneRegex = /^\d{10}$/;
+const askPhoneRegex = /^0\d{9}$/;
 const emailHasAtRegex = /^[^\s@]+@[^\s@]+$/;
+const studentIdRegex = /^.{10}$/;
 
 const getStatusMeta = (status) => {
   const normalized = String(status || '').toLowerCase();
@@ -263,9 +264,30 @@ export default function EventsChill() {
 
     if (hasTemplate) {
       const question = templateQuestions.find((entry) => entry.key === fieldKey);
+      const keyText = String(question?.key || '').toLowerCase();
+      const labelText = String(question?.label || '').toLowerCase();
+      const isEmailQuestion = keyText.includes('email') || labelText.includes('email');
+      const isPhoneQuestion = keyText.includes('phone') || labelText.includes('phone');
+      const isStudentIdQuestion = keyText.includes('studentid')
+        || keyText.includes('student_id')
+        || (labelText.includes('student') && labelText.includes('id'));
+
       if (question?.required && !trimmed) {
         return `${question.label} is required.`;
       }
+
+      if (isEmailQuestion && trimmed && !emailHasAtRegex.test(trimmed)) {
+        return 'Email must include @.';
+      }
+
+      if (isPhoneQuestion && trimmed && !askPhoneRegex.test(trimmed)) {
+        return 'Phone number must start with 0 and contain exactly 10 digits.';
+      }
+
+      if (isStudentIdQuestion && trimmed && !studentIdRegex.test(trimmed)) {
+        return 'Student ID must contain exactly 10 characters.';
+      }
+
       return '';
     }
 
@@ -281,9 +303,15 @@ export default function EventsChill() {
       return '';
     }
 
+    if (fieldKey === 'studentId') {
+      if (!trimmed) return 'Student ID is required.';
+      if (!studentIdRegex.test(trimmed)) return 'Student ID must contain exactly 10 characters.';
+      return '';
+    }
+
     if (fieldKey === 'phone') {
       if (!trimmed) return 'Phone number is required.';
-      if (!askPhoneRegex.test(trimmed)) return 'Phone number must contain exactly 10 digits.';
+      if (!askPhoneRegex.test(trimmed)) return 'Phone number must start with 0 and contain exactly 10 digits.';
       return '';
     }
 
@@ -312,7 +340,7 @@ export default function EventsChill() {
         return;
       }
 
-      ['fullName', 'email', 'phone', 'notes'].forEach((fieldKey) => {
+      ['fullName', 'studentId', 'email', 'phone', 'notes'].forEach((fieldKey) => {
         const key = getParticipationErrorKey(option, fieldKey);
         const error = validateParticipationField(eventItem, option, fieldKey, optionAnswers[fieldKey]);
         if (error) allErrors[key] = error;
@@ -334,7 +362,27 @@ export default function EventsChill() {
 
     return {
       fullName: user?.fullName || '',
+      studentId: '',
       email: user?.email || '',
+      phone: '',
+      notes: '',
+    };
+  };
+
+  const createBlankAnswersForOption = (eventItem, option) => {
+    const templateQuestions = getParticipationTemplate(eventItem, option);
+
+    if (templateQuestions.length > 0) {
+      return templateQuestions.reduce((acc, question) => {
+        acc[question.key] = '';
+        return acc;
+      }, {});
+    }
+
+    return {
+      fullName: '',
+      studentId: '',
+      email: '',
       phone: '',
       notes: '',
     };
@@ -460,6 +508,7 @@ export default function EventsChill() {
 
     return {
       fullName: savedApplication?.fullName || user?.fullName || '',
+      studentId: savedApplication?.studentId || '',
       email: savedApplication?.email || user?.email || '',
       phone: savedApplication?.phone || '',
       notes: savedApplication?.notes || '',
@@ -560,12 +609,17 @@ export default function EventsChill() {
           }
         } else {
           const fullName = String(optionAnswers.fullName || '').trim();
+          const studentId = String(optionAnswers.studentId || '').trim();
           const email = String(optionAnswers.email || '').trim();
           const phone = String(optionAnswers.phone || '').trim();
           const notes = String(optionAnswers.notes || '').trim();
 
-          if (!fullName || !email || !phone || !notes) {
+          if (!fullName || !studentId || !email || !phone || !notes) {
             throw new Error(`Please complete the application form for ${formatOptionLabel(option)}.`);
+          }
+
+          if (!studentIdRegex.test(studentId)) {
+            throw new Error(`Student ID must contain exactly 10 characters for ${formatOptionLabel(option)}.`);
           }
 
           if (!askNameRegex.test(fullName)) {
@@ -577,7 +631,7 @@ export default function EventsChill() {
           }
 
           if (!askPhoneRegex.test(phone)) {
-            throw new Error(`Phone number must contain exactly 10 digits for ${formatOptionLabel(option)}.`);
+            throw new Error(`Phone number must start with 0 and contain exactly 10 digits for ${formatOptionLabel(option)}.`);
           }
         }
 
@@ -593,6 +647,7 @@ export default function EventsChill() {
           option,
           application: {
             fullName: optionAnswers.fullName || '',
+            studentId: optionAnswers.studentId || '',
             email: optionAnswers.email || '',
             phone: optionAnswers.phone || '',
             notes: optionAnswers.notes || '',
@@ -746,12 +801,12 @@ export default function EventsChill() {
       return 'Name must contain letters only. Numbers are not allowed.';
     }
 
-    if (field === 'email' && !trimmed.includes('@')) {
-      return 'Email must include the @ symbol.';
+    if (field === 'email' && !emailHasAtRegex.test(trimmed)) {
+      return 'Email must include @.';
     }
 
     if (field === 'phone' && !askPhoneRegex.test(trimmed)) {
-      return 'Phone number must contain exactly 10 digits.';
+      return 'Phone number must start with 0 and contain exactly 10 digits.';
     }
 
     return '';
@@ -1145,93 +1200,121 @@ export default function EventsChill() {
                       </button>
                     </div>
                   </div>
-
-                  {isAskPanelOpen ? (
-                    <div className="mt-6 p-5 bg-green-50 border border-green-200 rounded-xl">
-                      <h4 className="text-sm font-semibold text-green-800 mb-3">Ask About Events</h4>
-
-                      <form className="space-y-4" onSubmit={handleAskFormSubmit} noValidate>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                          <input
-                            type="text"
-                            value={askForm.name}
-                            onChange={(event) => handleAskFieldChange('name', event.target.value)}
-                            onBlur={() => handleAskFieldBlur('name')}
-                            placeholder="Enter your full name"
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                          />
-                          {(askSubmitAttempted || askFormTouched.name) && askFormErrors.name ? (
-                            <p className="text-xs text-red-600 mt-1">{askFormErrors.name}</p>
-                          ) : null}
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                          <input
-                            type="text"
-                            value={askForm.email}
-                            onChange={(event) => handleAskFieldChange('email', event.target.value)}
-                            onBlur={() => handleAskFieldBlur('email')}
-                            placeholder="Enter your email"
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                          />
-                          {(askSubmitAttempted || askFormTouched.email) && askFormErrors.email ? (
-                            <p className="text-xs text-red-600 mt-1">{askFormErrors.email}</p>
-                          ) : null}
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
-                          <input
-                            type="text"
-                            value={askForm.phone}
-                            onChange={(event) => handleAskFieldChange('phone', event.target.value)}
-                            onBlur={() => handleAskFieldBlur('phone')}
-                            placeholder="Enter 10-digit phone number"
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                          />
-                          {(askSubmitAttempted || askFormTouched.phone) && askFormErrors.phone ? (
-                            <p className="text-xs text-red-600 mt-1">{askFormErrors.phone}</p>
-                          ) : null}
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Question *</label>
-                          <textarea
-                            rows={3}
-                            value={askForm.question}
-                            onChange={(event) => handleAskFieldChange('question', event.target.value)}
-                            onBlur={() => handleAskFieldBlur('question')}
-                            placeholder="Type your question about events"
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                          />
-                          {(askSubmitAttempted || askFormTouched.question) && askFormErrors.question ? (
-                            <p className="text-xs text-red-600 mt-1">{askFormErrors.question}</p>
-                          ) : null}
-                        </div>
-
-                        {askFormMessage ? (
-                          <p className={`text-sm ${Object.keys(askFormErrors).length > 0 ? 'text-red-600' : 'text-green-700'}`}>
-                            {askFormMessage}
-                          </p>
-                        ) : null}
-
-                        <button
-                          type="submit"
-                          disabled={!isAskFormValid}
-                          className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300 disabled:opacity-50"
-                        >
-                          Submit Question
-                        </button>
-                      </form>
-                    </div>
-                  ) : null}
                 </section>
               ) : null}
             </>
           )}
         </section>
+
+        {isAskPanelOpen ? (
+          <div
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setIsAskPanelOpen(false)}
+          >
+            <div
+              className="w-full max-w-lg bg-white rounded-2xl border border-gray-100 shadow-2xl overflow-hidden"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="px-6 py-4 bg-green-600 text-white flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold">Events Chat Assistant</h3>
+                  <p className="text-xs text-white/90">Ask anything before you apply for an event role.</p>
+                </div>
+                <button
+                  type="button"
+                  className="text-white/90 hover:text-white text-xl"
+                  onClick={() => setIsAskPanelOpen(false)}
+                >
+                  X
+                </button>
+              </div>
+
+              <div className="p-5 bg-gray-50 border-b border-gray-100">
+                <div className="inline-block rounded-2xl bg-white border border-green-100 px-4 py-3 text-sm text-gray-700 max-w-[90%]">
+                  Hi! Tell me your question and I will help with event details.
+                </div>
+              </div>
+
+              <div className="p-5">
+                <form className="space-y-4" onSubmit={handleAskFormSubmit} noValidate>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                    <input
+                      type="text"
+                      value={askForm.name}
+                      onChange={(event) => handleAskFieldChange('name', event.target.value)}
+                      onBlur={() => handleAskFieldBlur('name')}
+                      placeholder="Enter your full name"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                    {(askSubmitAttempted || askFormTouched.name) && askFormErrors.name ? (
+                      <p className="text-xs text-red-600 mt-1">{askFormErrors.name}</p>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                    <input
+                      type="text"
+                      value={askForm.email}
+                      onChange={(event) => handleAskFieldChange('email', event.target.value)}
+                      onBlur={() => handleAskFieldBlur('email')}
+                      placeholder="Enter your email"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                    {(askSubmitAttempted || askFormTouched.email) && askFormErrors.email ? (
+                      <p className="text-xs text-red-600 mt-1">{askFormErrors.email}</p>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                    <input
+                      type="text"
+                      value={askForm.phone}
+                      onChange={(event) => handleAskFieldChange('phone', event.target.value)}
+                      onBlur={() => handleAskFieldBlur('phone')}
+                      placeholder="Enter 10-digit phone number"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                    {(askSubmitAttempted || askFormTouched.phone) && askFormErrors.phone ? (
+                      <p className="text-xs text-red-600 mt-1">{askFormErrors.phone}</p>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Question *</label>
+                    <textarea
+                      rows={3}
+                      value={askForm.question}
+                      onChange={(event) => handleAskFieldChange('question', event.target.value)}
+                      onBlur={() => handleAskFieldBlur('question')}
+                      placeholder="Type your question about events"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                    {(askSubmitAttempted || askFormTouched.question) && askFormErrors.question ? (
+                      <p className="text-xs text-red-600 mt-1">{askFormErrors.question}</p>
+                    ) : null}
+                  </div>
+
+                  {askFormMessage ? (
+                    <p className={`text-sm ${Object.keys(askFormErrors).length > 0 ? 'text-red-600' : 'text-green-700'}`}>
+                      {askFormMessage}
+                    </p>
+                  ) : null}
+
+                  <button
+                    type="submit"
+                    disabled={!isAskFormValid}
+                    className="w-full px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300 disabled:opacity-50"
+                  >
+                    Send Message
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {/* Event Details Modal */}
         {selectedEvent ? (
@@ -1368,6 +1451,33 @@ export default function EventsChill() {
 
                                 <div>
                                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Student ID
+                                    <span className="text-red-500 ml-1">*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={optionAnswers.studentId || ''}
+                                    onChange={(event) =>
+                                      handleApplicationFieldChange(option, 'studentId', event.target.value)
+                                    }
+                                    onBlur={(event) =>
+                                      handleParticipationFieldBlur(option, 'studentId', event.target.value)
+                                    }
+                                    required
+                                    minLength={10}
+                                    maxLength={10}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                  />
+                                  {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'studentId')])
+                                    && participationFieldErrors[getParticipationErrorKey(option, 'studentId')] ? (
+                                      <p className="text-xs text-red-600 mt-1">
+                                        {participationFieldErrors[getParticipationErrorKey(option, 'studentId')]}
+                                      </p>
+                                    ) : null}
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Email
                                     <span className="text-red-500 ml-1">*</span>
                                   </label>
@@ -1408,9 +1518,10 @@ export default function EventsChill() {
                                     }
                                     placeholder="07X XXX XXXX"
                                     required
-                                    pattern="\d{10}"
+                                    pattern="0\d{9}"
                                     minLength={10}
                                     maxLength={10}
+                                    inputMode="numeric"
                                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                   />
                                   {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'phone')])
@@ -1455,6 +1566,29 @@ export default function EventsChill() {
 
                     {/* Form Actions */}
                     <div className="flex gap-3 pt-6 border-t border-gray-100">
+                      <button
+                        type="button"
+                        className="flex-1 px-6 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 font-semibold rounded-lg transition-all duration-300"
+                        onClick={() => {
+                          if (!selectedEvent) return;
+
+                          setApplicationAnswersByOption((prev) => {
+                            const next = { ...prev };
+                            selectedOptions.forEach((option) => {
+                              next[option] = createBlankAnswersForOption(selectedEvent, option);
+                            });
+                            return next;
+                          });
+
+                          setParticipationFieldErrors({});
+                          setParticipationFieldTouched({});
+                          setParticipationSubmitAttempted(false);
+                          setApplyError('');
+                          setApplyMessage('');
+                        }}
+                      >
+                        Clear Form
+                      </button>
                       <button
                         type="button"
                         className="flex-1 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all duration-300"

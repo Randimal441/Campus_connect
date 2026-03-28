@@ -124,6 +124,61 @@ export default function EventCoordinatorDashboard() {
     []
   );
 
+  const applicantCards = useMemo(() => {
+    const rows = [];
+
+    sortedItems.forEach((eventItem) => {
+      const applications = Array.isArray(eventItem.participationApplications)
+        ? eventItem.participationApplications
+        : [];
+
+      applications.forEach((entry) => {
+        rows.push({
+          eventId: eventItem._id,
+          eventTitle: eventItem.title,
+          entry,
+        });
+      });
+    });
+
+    return rows.sort(
+      (a, b) => new Date(b.entry.appliedAt).getTime() - new Date(a.entry.appliedAt).getTime()
+    );
+  }, [sortedItems]);
+
+  const selectedCategorySummary = useMemo(() => {
+    const applications = Array.isArray(selectedItem?.participationApplications)
+      ? selectedItem.participationApplications
+      : [];
+    const selectedOptions = Array.isArray(selectedItem?.participationOptions)
+      ? selectedItem.participationOptions
+      : [];
+
+    const map = {};
+
+    selectedOptions.forEach((option) => {
+      map[option] = { option, total: 0, approved: 0, pending: 0, rejected: 0 };
+    });
+
+    applications.forEach((entry) => {
+      const option = String(entry.option || '').trim();
+      if (!option) return;
+
+      if (!map[option]) {
+        map[option] = { option, total: 0, approved: 0, pending: 0, rejected: 0 };
+      }
+
+      const normalizedStatus = String(entry.status || 'pending').toLowerCase();
+      map[option].total += 1;
+
+      if (normalizedStatus === 'approved') map[option].approved += 1;
+      else if (normalizedStatus === 'rejected') map[option].rejected += 1;
+      else map[option].pending += 1;
+    });
+
+    return Object.values(map);
+  }, [selectedItem]);
+
   const loadEvents = async () => {
     try {
       const data = await getAllEvents();
@@ -526,6 +581,117 @@ export default function EventCoordinatorDashboard() {
             ))}
           </div>
         )}
+
+        {!loading && sortedItems.length > 0 ? (
+          <section className="mt-12 bg-gray-50 border border-gray-200 rounded-2xl p-6 md:p-8">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">Participation Applicants</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Applicant details in a separate section below event cards.
+              </p>
+            </div>
+
+            {applicantCards.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {applicantCards.map((card, index) => {
+                  const { eventId, eventTitle, entry } = card;
+                  const student = entry.student && typeof entry.student === 'object'
+                    ? entry.student
+                    : null;
+                  const submittedAnswers = Array.isArray(entry.application?.answers)
+                    ? entry.application.answers
+                    : [];
+                  const statusMeta = getApplicationStatusMeta(entry.status);
+                  const approveKey = `${entry._id}:approved`;
+                  const rejectKey = `${entry._id}:rejected`;
+
+                  return (
+                    <article key={`${entry._id || entry.option}-${index}`} className="bg-white border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800 line-clamp-1">
+                            {student?.fullName || entry.application?.fullName || 'Student'}
+                          </p>
+                          <p className="text-xs text-gray-500 line-clamp-1">
+                            {entry.application?.studentId || student?.idNumber || 'ID Not provided'}
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-100 whitespace-nowrap">
+                          {optionLabelMap[entry.option] || entry.option}
+                        </span>
+                      </div>
+
+                      <p className="text-[11px] text-gray-500 mb-2 line-clamp-1">
+                        Event: {eventTitle || 'Event'}
+                      </p>
+
+                      <div className="flex flex-wrap items-center gap-1.5 mb-2 pb-2 border-b border-gray-100">
+                        <button
+                          type="button"
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold cursor-default ${statusMeta.className}`}
+                          disabled
+                        >
+                          {statusMeta.label}
+                        </button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold py-1 px-2 rounded transition-all"
+                          onClick={() =>
+                            handleApplicationStatusUpdate(eventId, entry._id, 'approved')
+                          }
+                          disabled={reviewingKey === approveKey}
+                        >
+                          {reviewingKey === approveKey ? 'Updating...' : 'Approve'}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="bg-red-600 hover:bg-red-700 text-white text-[10px] font-semibold py-1 px-2 rounded transition-all"
+                          onClick={() =>
+                            handleApplicationStatusUpdate(eventId, entry._id, 'rejected')
+                          }
+                          disabled={reviewingKey === rejectKey}
+                        >
+                          {reviewingKey === rejectKey ? 'Updating...' : 'Reject'}
+                        </Button>
+                      </div>
+
+                      <div className="text-xs text-gray-600 space-y-0.5 mb-2">
+                        <p className="truncate"><strong>Email:</strong> {student?.email || entry.application?.email || 'No email provided'}</p>
+                        <p><strong>Phone:</strong> {entry.application?.phone || 'Not provided'}</p>
+                        <p><strong>Applied:</strong> {new Date(entry.appliedAt).toLocaleDateString('en-GB')}</p>
+                      </div>
+
+                      {submittedAnswers.length > 0 ? (
+                        <div className="bg-gray-50 rounded-lg p-2 space-y-1.5">
+                          {submittedAnswers.slice(0, 2).map((answer, answerIndex) => (
+                            <div key={`${answer.questionKey}-${answerIndex}`}>
+                              <p className="text-[11px] font-semibold text-gray-700 mb-0.5 line-clamp-1">{answer.label}</p>
+                              <p className="text-[11px] text-gray-600 line-clamp-2">{answer.answer}</p>
+                            </div>
+                          ))}
+                          {submittedAnswers.length > 2 ? (
+                            <p className="text-[10px] text-gray-500">+{submittedAnswers.length - 2} more responses</p>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 rounded-lg p-2">
+                          <p className="text-[11px] font-semibold text-gray-700 mb-0.5">Notes</p>
+                          <p className="text-[11px] text-gray-600 line-clamp-2">{entry.application?.notes || 'Not provided'}</p>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm bg-white p-4 rounded-lg border border-gray-200">
+                No participation applicants yet.
+              </p>
+            )}
+          </section>
+        ) : null}
       </div>
 
       {isModalOpen ? (
@@ -809,104 +975,37 @@ export default function EventCoordinatorDashboard() {
                 <p className="text-gray-600">{selectedItem.description || 'No description provided.'}</p>
               </div>
 
-              {/* Applications Section */}
+              {/* Category-wise Applications */}
               <div className="border-t border-gray-100 pt-6">
-                <h4 className="text-lg font-semibold text-gray-800 mb-4">Participation Applications</h4>
+                <h4 className="text-lg font-semibold text-gray-800 mb-4">Category-wise Applications</h4>
 
-                {Array.isArray(selectedItem.participationApplications) && selectedItem.participationApplications.length > 0 ? (
-                  <div className="space-y-4">
-                    {[...selectedItem.participationApplications]
-                      .sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime())
-                      .map((entry, index) => {
-                        const student = entry.student && typeof entry.student === 'object'
-                          ? entry.student
-                          : null;
-                        const submittedAnswers = Array.isArray(entry.application?.answers)
-                          ? entry.application.answers
-                          : [];
-                        const statusMeta = getApplicationStatusMeta(entry.status);
-                        const approveKey = `${entry._id}:approved`;
-                        const rejectKey = `${entry._id}:rejected`;
-
-                        return (
-                          <div key={`${entry._id || entry.option}-${index}`} className="border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
-                            {/* Application Header */}
-                            <div className="flex items-start justify-between mb-3">
-                              <div>
-                                <p className="text-sm font-semibold text-gray-800 mb-1">
-                                  {student?.fullName || entry.application?.fullName || 'Student'}
-                                </p>
-                                <p className="text-xs text-gray-500">{student?.idNumber || 'ID Not provided'}</p>
-                              </div>
-                              <span className="text-xs font-semibold uppercase tracking-wide text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
-                                {optionLabelMap[entry.option] || entry.option}
-                              </span>
-                            </div>
-
-                            {/* Status and Actions */}
-                            <div className="flex flex-wrap items-center gap-2 mb-3 pb-3 border-b border-gray-100">
-                              <button
-                                type="button"
-                                className={`px-3 py-1 rounded-full text-xs font-semibold cursor-default ${statusMeta.className}`}
-                                disabled
-                              >
-                                {statusMeta.label}
-                              </button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1 px-3 rounded transition-all"
-                                onClick={() =>
-                                  handleApplicationStatusUpdate(selectedItem._id, entry._id, 'approved')
-                                }
-                                disabled={reviewingKey === approveKey}
-                              >
-                                {reviewingKey === approveKey ? 'Updating...' : 'Approve'}
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold py-1 px-3 rounded transition-all"
-                                onClick={() =>
-                                  handleApplicationStatusUpdate(selectedItem._id, entry._id, 'rejected')
-                                }
-                                disabled={reviewingKey === rejectKey}
-                              >
-                                {reviewingKey === rejectKey ? 'Updating...' : 'Reject'}
-                              </Button>
-                            </div>
-
-                            {/* Contact Info */}
-                            <div className="text-sm text-gray-600 mb-3 space-y-1">
-                              <p className="mb-0"><strong>Email:</strong> {student?.email || entry.application?.email || 'No email provided'}</p>
-                              <p className="mb-0"><strong>Applied:</strong> {new Date(entry.appliedAt).toLocaleString('en-GB')}</p>
-                            </div>
-
-                            {/* Application Answers */}
-                            {submittedAnswers.length > 0 ? (
-                              <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                                {submittedAnswers.map((answer, answerIndex) => (
-                                  <div key={`${answer.questionKey}-${answerIndex}`}>
-                                    <p className="text-xs font-semibold text-gray-700 mb-1">{answer.label}</p>
-                                    <p className="text-xs text-gray-600">{answer.answer}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                                <div>
-                                  <p className="text-xs font-semibold text-gray-700 mb-1">Phone</p>
-                                  <p className="text-xs text-gray-600">{entry.application?.phone || 'Not provided'}</p>
-                                </div>
-                                <div>
-                                  <p className="text-xs font-semibold text-gray-700 mb-1">Notes</p>
-                                  <p className="text-xs text-gray-600">{entry.application?.notes || 'Not provided'}</p>
-                                </div>
-                              </div>
-                            )}
+                {selectedCategorySummary.some((category) => category.total > 0) ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {selectedCategorySummary.map((category) => (
+                      <div key={category.option} className="bg-white border border-gray-200 rounded-lg p-3">
+                        <p className="text-sm font-semibold text-gray-800 mb-2 line-clamp-1">
+                          {optionLabelMap[category.option] || category.option}
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="bg-gray-50 rounded px-2 py-1 border border-gray-200">
+                            <p className="text-gray-500">Total</p>
+                            <p className="font-semibold text-gray-800">{category.total}</p>
                           </div>
-                        );
-                      })}
+                          <div className="bg-amber-50 rounded px-2 py-1 border border-amber-200">
+                            <p className="text-amber-700">Pending</p>
+                            <p className="font-semibold text-amber-800">{category.pending}</p>
+                          </div>
+                          <div className="bg-emerald-50 rounded px-2 py-1 border border-emerald-200">
+                            <p className="text-emerald-700">Approved</p>
+                            <p className="font-semibold text-emerald-800">{category.approved}</p>
+                          </div>
+                          <div className="bg-red-50 rounded px-2 py-1 border border-red-200">
+                            <p className="text-red-700">Rejected</p>
+                            <p className="font-semibold text-red-800">{category.rejected}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <p className="text-gray-500 text-sm bg-gray-50 p-4 rounded-lg border border-gray-100">No participation applications submitted yet.</p>

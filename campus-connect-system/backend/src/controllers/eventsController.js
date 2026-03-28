@@ -10,6 +10,8 @@ const ALLOWED_PARTICIPATION_OPTIONS = [
 ];
 const ALLOWED_APPLICATION_STATUSES = ['approved', 'rejected'];
 const EMAIL_HAS_AT_REGEX = /^[^\s@]+@[^\s@]+$/;
+const PHONE_STARTS_WITH_ZERO_REGEX = /^0\d{9}$/;
+const STUDENT_ID_LENGTH_REGEX = /^.{10}$/;
 
 const normalizeParticipationOptions = (value) => {
   if (!value) return [];
@@ -67,28 +69,89 @@ const validateApplicationPayload = (application, formQuestions) => {
     if (missingRequired) {
       throw new Error('Please complete all required questions in the application form.');
     }
+
+    const hasInvalidEmailAnswer = formQuestions.some((question) => {
+      const keyText = sanitizeApplicationField(question?.key).toLowerCase();
+      const labelText = sanitizeApplicationField(question?.label).toLowerCase();
+      const isEmailQuestion = keyText.includes('email') || labelText.includes('email');
+      if (!isEmailQuestion) return false;
+
+      const answer = sanitizeApplicationField(answersMap.get(question.key));
+      if (!answer) return false;
+
+      return !EMAIL_HAS_AT_REGEX.test(answer);
+    });
+
+    if (hasInvalidEmailAnswer) {
+      throw new Error('Email address must include @.');
+    }
+
+    const hasInvalidPhoneAnswer = formQuestions.some((question) => {
+      const keyText = sanitizeApplicationField(question?.key).toLowerCase();
+      const labelText = sanitizeApplicationField(question?.label).toLowerCase();
+      const isPhoneQuestion = keyText.includes('phone') || labelText.includes('phone');
+      if (!isPhoneQuestion) return false;
+
+      const answer = sanitizeApplicationField(answersMap.get(question.key));
+      if (!answer) return false;
+
+      return !PHONE_STARTS_WITH_ZERO_REGEX.test(answer);
+    });
+
+    if (hasInvalidPhoneAnswer) {
+      throw new Error('Phone number must start with 0 and contain exactly 10 digits.');
+    }
+
+    const hasInvalidStudentIdAnswer = formQuestions.some((question) => {
+      const keyText = sanitizeApplicationField(question?.key).toLowerCase();
+      const labelText = sanitizeApplicationField(question?.label).toLowerCase();
+      const isStudentIdQuestion = keyText.includes('studentid')
+        || keyText.includes('student_id')
+        || (labelText.includes('student') && labelText.includes('id'));
+      if (!isStudentIdQuestion) return false;
+
+      const answer = sanitizeApplicationField(answersMap.get(question.key));
+      if (!answer) return false;
+
+      return !STUDENT_ID_LENGTH_REGEX.test(answer);
+    });
+
+    if (hasInvalidStudentIdAnswer) {
+      throw new Error('Student ID must contain exactly 10 characters.');
+    }
   } else {
     const fullName = sanitizeApplicationField(application?.fullName);
+    const studentId = sanitizeApplicationField(application?.studentId);
     const email = sanitizeApplicationField(application?.email);
     const phone = sanitizeApplicationField(application?.phone);
     const notes = sanitizeApplicationField(application?.notes);
 
-    if (!fullName || !email || !phone || !notes) {
+    if (!fullName || !studentId || !email || !phone || !notes) {
       throw new Error('Please complete the participation application form.');
+    }
+
+    if (!STUDENT_ID_LENGTH_REGEX.test(studentId)) {
+      throw new Error('Student ID must contain exactly 10 characters.');
     }
 
     if (!EMAIL_HAS_AT_REGEX.test(email)) {
       throw new Error('Email address must include @.');
     }
+
+    if (!PHONE_STARTS_WITH_ZERO_REGEX.test(phone)) {
+      throw new Error('Phone number must start with 0 and contain exactly 10 digits.');
+    }
   }
 
   const fullName = sanitizeApplicationField(application?.fullName);
+  const studentId = sanitizeApplicationField(application?.studentId);
   const email = sanitizeApplicationField(application?.email);
   const phone = sanitizeApplicationField(application?.phone);
   const notes = sanitizeApplicationField(application?.notes);
 
   return {
     fullName,
+    studentId,
     email,
     phone,
     notes,

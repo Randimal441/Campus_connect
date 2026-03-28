@@ -6,6 +6,7 @@ import {
   applyForParticipation,
   getMyEventApplications,
   getUpcomingEvents,
+  removeParticipationApplication,
   updateParticipationApplication,
 } from '../../services/eventsService';
 import { useAuth } from '../../hooks/useAuth';
@@ -37,8 +38,9 @@ const formatTime = (eventItem) => {
 };
 
 const askNameRegex = /^[A-Za-z\s]+$/;
-const askPhoneRegex = /^\d{10}$/;
+const askPhoneRegex = /^0\d{9}$/;
 const emailHasAtRegex = /^[^\s@]+@[^\s@]+$/;
+const studentIdRegex = /^.{10}$/;
 
 const getStatusMeta = (status) => {
   const normalized = String(status || '').toLowerCase();
@@ -86,8 +88,14 @@ export default function EventDetails() {
   const [fieldTouched, setFieldTouched] = useState({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [applyMessage, setApplyMessage] = useState('');
   const [applyError, setApplyError] = useState('');
+  const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false);
+  const modalInputBaseClass =
+    'w-full h-11 px-3 py-2 text-sm md:text-base border rounded-lg focus:outline-none focus:ring-2';
+  const modalTextareaBaseClass =
+    'w-full min-h-[112px] px-3 py-2 text-sm md:text-base border rounded-lg focus:outline-none focus:ring-2 resize-y';
 
   const optionLabelMap = useMemo(
     () =>
@@ -163,9 +171,29 @@ export default function EventDetails() {
 
     return {
       fullName: savedApplication?.fullName || user?.fullName || '',
+      studentId: savedApplication?.studentId || '',
       email: savedApplication?.email || user?.email || '',
       phone: savedApplication?.phone || '',
       notes: savedApplication?.notes || '',
+    };
+  };
+
+  const createBlankAnswers = (option) => {
+    const templateQuestions = getParticipationTemplate(option);
+
+    if (templateQuestions.length > 0) {
+      return templateQuestions.reduce((acc, question) => {
+        acc[question.key] = '';
+        return acc;
+      }, {});
+    }
+
+    return {
+      fullName: '',
+      studentId: '',
+      email: '',
+      phone: '',
+      notes: '',
     };
   };
 
@@ -175,9 +203,30 @@ export default function EventDetails() {
 
     if (templateQuestions.length > 0) {
       const question = templateQuestions.find((entry) => entry.key === fieldKey);
+      const keyText = String(question?.key || '').toLowerCase();
+      const labelText = String(question?.label || '').toLowerCase();
+      const isEmailQuestion = keyText.includes('email') || labelText.includes('email');
+      const isPhoneQuestion = keyText.includes('phone') || labelText.includes('phone');
+      const isStudentIdQuestion = keyText.includes('studentid')
+        || keyText.includes('student_id')
+        || (labelText.includes('student') && labelText.includes('id'));
+
       if (question?.required && !trimmed) {
         return `${question.label} is required.`;
       }
+
+      if (isEmailQuestion && trimmed && !emailHasAtRegex.test(trimmed)) {
+        return 'Email must include @.';
+      }
+
+      if (isPhoneQuestion && trimmed && !askPhoneRegex.test(trimmed)) {
+        return 'Phone number must start with 0 and contain exactly 10 digits.';
+      }
+
+      if (isStudentIdQuestion && trimmed && !studentIdRegex.test(trimmed)) {
+        return 'Student ID must contain exactly 10 characters.';
+      }
+
       return '';
     }
 
@@ -193,9 +242,15 @@ export default function EventDetails() {
       return '';
     }
 
+    if (fieldKey === 'studentId') {
+      if (!trimmed) return 'Student ID is required.';
+      if (!studentIdRegex.test(trimmed)) return 'Student ID must contain exactly 10 characters.';
+      return '';
+    }
+
     if (fieldKey === 'phone') {
       if (!trimmed) return 'Phone number is required.';
-      if (!askPhoneRegex.test(trimmed)) return 'Phone number must contain exactly 10 digits.';
+      if (!askPhoneRegex.test(trimmed)) return 'Phone number must start with 0 and contain exactly 10 digits.';
       return '';
     }
 
@@ -209,6 +264,7 @@ export default function EventDetails() {
 
   const handleSelectOption = (option) => {
     setSelectedOption(option);
+    setIsApplicationModalOpen(true);
     setAnswers(createInitialAnswers(option));
     setFieldErrors({});
     setFieldTouched({});
@@ -279,7 +335,7 @@ export default function EventDetails() {
         if (err) nextErrors[question.key] = err;
       });
     } else {
-      ['fullName', 'email', 'phone', 'notes'].forEach((fieldKey) => {
+      ['fullName', 'studentId', 'email', 'phone', 'notes'].forEach((fieldKey) => {
         const err = validateField(selectedOption, fieldKey, answers[fieldKey]);
         if (err) nextErrors[fieldKey] = err;
       });
@@ -301,6 +357,7 @@ export default function EventDetails() {
 
     const payload = {
       fullName: answers.fullName || '',
+      studentId: answers.studentId || '',
       email: answers.email || '',
       phone: answers.phone || '',
       notes: answers.notes || '',
@@ -352,6 +409,80 @@ export default function EventDetails() {
       setSubmitting(false);
     }
   };
+
+  const handleClearApplicationForm = () => {
+    if (!selectedOption) return;
+    setAnswers(createBlankAnswers(selectedOption));
+    setFieldErrors({});
+    setFieldTouched({});
+    setSubmitAttempted(false);
+    setApplyError('');
+    setApplyMessage('');
+  };
+
+  const handleDeleteApplication = async () => {
+    if (!selectedEvent || !selectedOption) return;
+
+    const currentApplication = eventApplicationsByOption[selectedOption];
+    const status = String(currentApplication?.status || '').toLowerCase();
+
+    if (!currentApplication?.id || status !== 'pending') {
+      setApplyError('Only pending applications can be deleted.');
+      return;
+    }
+
+    setDeleting(true);
+    setApplyError('');
+    setApplyMessage('');
+
+    try {
+      await removeParticipationApplication(selectedEvent._id, currentApplication.id);
+
+      setMyApplications((prev) => prev.filter(
+        (entry) => !(String(entry.eventId) === String(selectedEvent._id) && entry.option === selectedOption)
+      ));
+
+      setAnswers(createBlankAnswers(selectedOption));
+      setFieldErrors({});
+      setFieldTouched({});
+      setSubmitAttempted(false);
+      setApplyMessage('Pending application deleted successfully.');
+    } catch (err) {
+      setApplyError(err.message || 'Unable to delete application right now.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const getFieldClassName = (fieldKey, isTextarea = false) => {
+    const hasError = (submitAttempted || fieldTouched[fieldKey]) && Boolean(fieldErrors[fieldKey]);
+    const baseClass = isTextarea ? modalTextareaBaseClass : modalInputBaseClass;
+
+    return `${baseClass} ${
+      hasError
+        ? 'border-red-500 focus:border-red-500 focus:ring-red-200'
+        : 'border-gray-200 focus:border-green-500 focus:ring-green-500'
+    }`;
+  };
+
+  const isApplicationFormValid = (() => {
+    if (!selectedOption || !selectedEvent) return false;
+
+    const templateQuestions = getParticipationTemplate(selectedOption);
+    if (templateQuestions.length > 0) {
+      return templateQuestions.every(
+        (question) => !validateField(selectedOption, question.key, answers[question.key])
+      );
+    }
+
+    return ['fullName', 'studentId', 'email', 'phone', 'notes'].every(
+      (fieldKey) => !validateField(selectedOption, fieldKey, answers[fieldKey])
+    );
+  })();
+
+  const selectedApplication = selectedOption ? eventApplicationsByOption[selectedOption] : null;
+  const selectedApplicationStatus = String(selectedApplication?.status || '').toLowerCase();
+  const canManagePendingApplication = selectedApplicationStatus === 'pending' && !!selectedApplication?.id;
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -461,117 +592,201 @@ export default function EventDetails() {
                         })}
                       </div>
 
-                      {selectedOption ? (
-                        <form className="space-y-4 pt-2" onSubmit={handleSubmitApplication}>
-                          {applyMessage ? (
-                            <p className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">
-                              {applyMessage}
-                            </p>
-                          ) : null}
-                          {applyError ? (
-                            <p className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
-                              {applyError}
-                            </p>
-                          ) : null}
-
-                          {getParticipationTemplate(selectedOption).length > 0 ? (
-                            getParticipationTemplate(selectedOption).map((question) => (
-                              <div key={question.key}>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  {question.label}
-                                  {question.required ? <span className="text-red-500 ml-1">*</span> : ''}
-                                </label>
-                                <textarea
-                                  rows={3}
-                                  value={answers[question.key] || ''}
-                                  onChange={(event) => handleAnswerChange(question.key, event.target.value)}
-                                  onBlur={(event) => handleFieldBlur(question.key, event.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                                  required={question.required !== false}
-                                />
-                                {(submitAttempted || fieldTouched[question.key]) && fieldErrors[question.key] ? (
-                                  <p className="text-xs text-red-600 mt-1">{fieldErrors[question.key]}</p>
-                                ) : null}
-                              </div>
-                            ))
-                          ) : (
-                            <>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-                                <input
-                                  type="text"
-                                  value={answers.fullName || ''}
-                                  onChange={(event) => handleAnswerChange('fullName', event.target.value)}
-                                  onBlur={(event) => handleFieldBlur('fullName', event.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                                  required
-                                />
-                                {(submitAttempted || fieldTouched.fullName) && fieldErrors.fullName ? (
-                                  <p className="text-xs text-red-600 mt-1">{fieldErrors.fullName}</p>
-                                ) : null}
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                                <input
-                                  type="email"
-                                  value={answers.email || ''}
-                                  onChange={(event) => handleAnswerChange('email', event.target.value)}
-                                  onBlur={(event) => handleFieldBlur('email', event.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                                  required
-                                />
-                                {(submitAttempted || fieldTouched.email) && fieldErrors.email ? (
-                                  <p className="text-xs text-red-600 mt-1">{fieldErrors.email}</p>
-                                ) : null}
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
-                                <input
-                                  type="text"
-                                  value={answers.phone || ''}
-                                  onChange={(event) => handleAnswerChange('phone', event.target.value)}
-                                  onBlur={(event) => handleFieldBlur('phone', event.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                                  required
-                                />
-                                {(submitAttempted || fieldTouched.phone) && fieldErrors.phone ? (
-                                  <p className="text-xs text-red-600 mt-1">{fieldErrors.phone}</p>
-                                ) : null}
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Why are you applying? *</label>
-                                <textarea
-                                  rows={4}
-                                  value={answers.notes || ''}
-                                  onChange={(event) => handleAnswerChange('notes', event.target.value)}
-                                  onBlur={(event) => handleFieldBlur('notes', event.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                                  required
-                                />
-                                {(submitAttempted || fieldTouched.notes) && fieldErrors.notes ? (
-                                  <p className="text-xs text-red-600 mt-1">{fieldErrors.notes}</p>
-                                ) : null}
-                              </div>
-                            </>
-                          )}
-
-                          <button
-                            type="submit"
-                            disabled={submitting}
-                            className="w-full md:w-auto px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all disabled:opacity-50"
-                          >
-                            {submitting ? 'Submitting...' : 'Submit Application'}
-                          </button>
-                        </form>
-                      ) : (
-                        <p className="text-sm text-gray-600">Select a participation option to fill the form.</p>
-                      )}
+                      <p className="text-sm text-gray-600">
+                        Select a participation option to open the application form popup.
+                      </p>
                     </>
                   )}
                 </div>
               </div>
             </article>
           )}
+
+          {isStudent && selectedOption && isApplicationModalOpen && selectedEvent ? (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+              onClick={() => setIsApplicationModalOpen(false)}
+            >
+              <div
+                className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-gray-200 max-h-[90vh] overflow-hidden"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="px-5 py-4 border-b border-gray-100 bg-green-50 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-green-700 font-semibold">Participation Application</p>
+                    <h3 className="text-lg font-bold text-gray-800">
+                      {optionLabelMap[selectedOption] || selectedOption}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsApplicationModalOpen(false)}
+                    className="w-8 h-8 rounded-full border border-gray-200 bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                    aria-label="Close participation application form"
+                  >
+                    x
+                  </button>
+                </div>
+
+                <div className="p-5 overflow-y-auto max-h-[calc(90vh-80px)]">
+                  <form className="space-y-4" onSubmit={handleSubmitApplication} noValidate>
+                    {applyMessage ? (
+                      <p className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">
+                        {applyMessage}
+                      </p>
+                    ) : null}
+                    {applyError ? (
+                      <p className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+                        {applyError}
+                      </p>
+                    ) : null}
+
+                    {selectedApplication && selectedApplicationStatus !== 'pending' ? (
+                      <p className="p-3 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg text-sm">
+                        This application is already {selectedApplicationStatus} and can no longer be changed.
+                      </p>
+                    ) : null}
+
+                    {getParticipationTemplate(selectedOption).length > 0 ? (
+                      getParticipationTemplate(selectedOption).map((question) => (
+                        <div key={question.key}>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            {question.label}
+                            {question.required ? <span className="text-red-500 ml-1">*</span> : ''}
+                          </label>
+                          <textarea
+                            rows={4}
+                            value={answers[question.key] || ''}
+                            onChange={(event) => handleAnswerChange(question.key, event.target.value)}
+                            onBlur={(event) => handleFieldBlur(question.key, event.target.value)}
+                            className={getFieldClassName(question.key, true)}
+                            required={question.required !== false}
+                          />
+                          {(submitAttempted || fieldTouched[question.key]) && fieldErrors[question.key] ? (
+                            <p className="text-xs text-red-600 mt-1">{fieldErrors[question.key]}</p>
+                          ) : null}
+                        </div>
+                      ))
+                    ) : (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                          <input
+                            type="text"
+                            value={answers.fullName || ''}
+                            onChange={(event) => handleAnswerChange('fullName', event.target.value)}
+                            onBlur={(event) => handleFieldBlur('fullName', event.target.value)}
+                            className={getFieldClassName('fullName')}
+                            required
+                          />
+                          {(submitAttempted || fieldTouched.fullName) && fieldErrors.fullName ? (
+                            <p className="text-xs text-red-600 mt-1">{fieldErrors.fullName}</p>
+                          ) : null}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                          <input
+                            type="email"
+                            value={answers.email || ''}
+                            onChange={(event) => handleAnswerChange('email', event.target.value)}
+                            onBlur={(event) => handleFieldBlur('email', event.target.value)}
+                            className={getFieldClassName('email')}
+                            required
+                          />
+                          {(submitAttempted || fieldTouched.email) && fieldErrors.email ? (
+                            <p className="text-xs text-red-600 mt-1">{fieldErrors.email}</p>
+                          ) : null}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Student ID *</label>
+                          <input
+                            type="text"
+                            value={answers.studentId || ''}
+                            onChange={(event) => handleAnswerChange('studentId', event.target.value)}
+                            onBlur={(event) => handleFieldBlur('studentId', event.target.value)}
+                            maxLength={10}
+                            className={getFieldClassName('studentId')}
+                            required
+                          />
+                          {(submitAttempted || fieldTouched.studentId) && fieldErrors.studentId ? (
+                            <p className="text-xs text-red-600 mt-1">{fieldErrors.studentId}</p>
+                          ) : null}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                          <input
+                            type="text"
+                            value={answers.phone || ''}
+                            onChange={(event) => handleAnswerChange('phone', event.target.value)}
+                            onBlur={(event) => handleFieldBlur('phone', event.target.value)}
+                            inputMode="numeric"
+                            maxLength={10}
+                            className={getFieldClassName('phone')}
+                            required
+                          />
+                          {(submitAttempted || fieldTouched.phone) && fieldErrors.phone ? (
+                            <p className="text-xs text-red-600 mt-1">{fieldErrors.phone}</p>
+                          ) : null}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Why are you applying? *</label>
+                          <textarea
+                            rows={4}
+                            value={answers.notes || ''}
+                            onChange={(event) => handleAnswerChange('notes', event.target.value)}
+                            onBlur={(event) => handleFieldBlur('notes', event.target.value)}
+                            className={getFieldClassName('notes', true)}
+                            required
+                          />
+                          {(submitAttempted || fieldTouched.notes) && fieldErrors.notes ? (
+                            <p className="text-xs text-red-600 mt-1">{fieldErrors.notes}</p>
+                          ) : null}
+                        </div>
+                      </>
+                    )}
+
+                    <div className="flex items-center justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={handleClearApplicationForm}
+                        className="px-4 py-2 border border-red-200 rounded-lg text-red-700 hover:bg-red-50"
+                      >
+                        Clear Form
+                      </button>
+                      {canManagePendingApplication ? (
+                        <button
+                          type="button"
+                          onClick={handleDeleteApplication}
+                          disabled={deleting || submitting}
+                          className="px-4 py-2 border border-red-300 bg-red-50 rounded-lg text-red-700 hover:bg-red-100 disabled:opacity-50"
+                        >
+                          {deleting ? 'Deleting...' : 'Delete Application'}
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => setIsApplicationModalOpen(false)}
+                        className="px-4 py-2 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={submitting || deleting || !isApplicationFormValid || (selectedApplication && !canManagePendingApplication)}
+                        className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all disabled:opacity-50"
+                      >
+                        {submitting
+                          ? 'Submitting...'
+                          : canManagePendingApplication
+                            ? 'Update Application'
+                            : 'Submit Application'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </section>
       </main>
 
