@@ -14,15 +14,70 @@ const SIGNUP_ROLES = [
   ROLES.EVENT_COORDINATOR,
 ];
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+const PASSWORD_HINT =
+  'Password must be at least 8 characters and include uppercase, lowercase, a number, and a symbol.';
+
 export default function SignUpForm({ onSubmit, loading, message }) {
   const [fullName, setFullName] = useState('');
   const [idNumber, setIdNumber] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('');
+  const [idNumberError, setIdNumberError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+
+  const validateIdNumber = (value) => {
+    if (!value?.trim()) return 'ID Number is required.';
+    return '';
+  };
+
+  const validateEmail = (value) => {
+    if (!value) return 'Email Address is required.';
+    if (!EMAIL_REGEX.test(value)) return 'Please enter a valid email address.';
+    return '';
+  };
+
+  const validatePassword = (value) => {
+    if (!value) return 'Password is required.';
+    if (!PASSWORD_REGEX.test(value)) return PASSWORD_HINT;
+    return '';
+  };
+
+  const handleEmailChange = (e) => {
+    const value = e.target.value;
+    setEmail(value);
+    setEmailError(value ? validateEmail(value) : '');
+  };
+
+  const handlePasswordChange = (e) => {
+    const value = e.target.value;
+    setPassword(value);
+    setPasswordError(value ? validatePassword(value) : '');
+  };
+
+  const handleIdNumberChange = (e) => {
+    const value = e.target.value;
+    setIdNumber(value);
+    setIdNumberError(validateIdNumber(value));
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    const nextIdNumberError = validateIdNumber(idNumber);
+    const nextEmailError = validateEmail(email);
+    const nextPasswordError = validatePassword(password);
+    setIdNumberError(nextIdNumberError);
+    setEmailError(nextEmailError);
+    setPasswordError(nextPasswordError);
+
+    if (nextIdNumberError || nextEmailError || nextPasswordError) {
+      return;
+    }
+
     onSubmit({ fullName, idNumber, email, password, role });
   };
 
@@ -53,11 +108,14 @@ export default function SignUpForm({ onSubmit, loading, message }) {
             type="text"
             placeholder="STU-12345"
             value={idNumber}
-            onChange={(e) => setIdNumber(e.target.value)}
+            onChange={handleIdNumberChange}
+            onBlur={() => setIdNumberError(validateIdNumber(idNumber))}
             className="pl-10 h-11"
+            aria-invalid={!!idNumberError}
             required
           />
         </div>
+        {idNumberError && <p className="text-xs text-destructive">{idNumberError}</p>}
       </div>
 
       <div className="space-y-2">
@@ -69,11 +127,14 @@ export default function SignUpForm({ onSubmit, loading, message }) {
             type="email"
             placeholder="you@university.edu"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={handleEmailChange}
+            onBlur={() => setEmailError(validateEmail(email))}
             className="pl-10 h-11"
+            aria-invalid={!!emailError}
             required
           />
         </div>
+        {emailError && <p className="text-xs text-destructive">{emailError}</p>}
       </div>
 
       <div className="space-y-2">
@@ -85,12 +146,19 @@ export default function SignUpForm({ onSubmit, loading, message }) {
             type="password"
             placeholder="••••••••"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={handlePasswordChange}
+            onBlur={() => setPasswordError(validatePassword(password))}
             className="pl-10 h-11"
-            minLength={6}
+            minLength={8}
+            aria-invalid={!!passwordError}
             required
           />
         </div>
+        {passwordError ? (
+          <p className="text-xs text-destructive">{passwordError}</p>
+        ) : (
+          <p className="text-xs text-muted-foreground">{PASSWORD_HINT}</p>
+        )}
       </div>
 
       <div className="space-y-2">
