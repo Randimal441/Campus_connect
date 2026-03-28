@@ -80,62 +80,68 @@ function ClubDetailModal({ club, onClose, onJoin, onLeave, myRequests }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-3xl border border-emerald-100 shadow-2xl w-full max-w-4xl max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="bg-gradient-to-r from-green-600 to-emerald-500 p-6 rounded-t-2xl text-white">
+        <div className="relative overflow-hidden bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 p-6 sm:p-8 rounded-t-3xl text-white">
+          <div className="absolute -top-16 -right-10 h-44 w-44 rounded-full bg-white/15" aria-hidden="true"></div>
+          <div className="absolute -bottom-20 left-1/3 h-40 w-40 rounded-full bg-white/10" aria-hidden="true"></div>
           <div className="flex items-start justify-between gap-4">
-            <div>
+            <div className="relative z-10">
               <div className="flex flex-wrap items-center gap-2 mb-3">
-                <span className="uppercase text-xs font-semibold tracking-wide bg-white/20 px-2 py-1 rounded-full">
+                <span className="uppercase text-xs font-semibold tracking-wide bg-white/20 px-3 py-1 rounded-full border border-white/20">
                   {getCategoryBadgeLabel(club.category)}
                 </span>
                 {club.sportType && (
-                  <span className="text-xs bg-white/20 px-2 py-1 rounded-full">{club.sportType}</span>
+                  <span className="text-xs bg-white/20 px-3 py-1 rounded-full border border-white/20">{club.sportType}</span>
                 )}
               </div>
-              <h2 className="text-2xl font-bold">{club.title}</h2>
-              <p className="text-sm text-white/80 mt-1">Hosted by {club.createdBy?.fullName || 'Campus Team'}</p>
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{club.title}</h2>
+              <p className="text-sm text-white/85 mt-2">Hosted by {club.createdBy?.fullName || 'Campus Team'}</p>
             </div>
-            <button onClick={onClose} className="text-2xl text-white/80 hover:text-white" aria-label="Close dialog">
-              x
+            <button
+              onClick={onClose}
+              className="relative z-10 h-10 w-10 rounded-full bg-white/15 border border-white/25 text-2xl text-white/90 hover:bg-white/25 transition-colors"
+              aria-label="Close dialog"
+            >
+              ×
             </button>
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 sm:p-8 space-y-6 bg-gradient-to-b from-emerald-50/40 to-white">
           {club.description && (
-            <div>
-              <h3 className="font-semibold text-gray-800 mb-2">About this {entityLabel}</h3>
-              <p className="text-gray-600 text-sm leading-relaxed">{club.description}</p>
+            <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
+              <h3 className="text-xl font-bold text-slate-900 mb-2">About this {entityLabel}</h3>
+              <p className="text-slate-600 text-sm leading-relaxed">{club.description}</p>
             </div>
           )}
 
           {club.coachInfo && (
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-              <h3 className="font-semibold text-gray-800 mb-1">Coach Information</h3>
-              <p className="text-sm text-gray-600">{club.coachInfo}</p>
+            <div className="rounded-2xl p-5 border border-emerald-100 bg-emerald-50/70 shadow-sm">
+              <h3 className="text-xl font-bold text-slate-900 mb-1">Coach Information</h3>
+              <p className="text-sm text-slate-600">{club.coachInfo}</p>
             </div>
           )}
 
           <div>
-            <h3 className="font-semibold text-gray-800 mb-3">Practice Schedules</h3>
+            <h3 className="text-2xl font-bold text-slate-900 mb-3">Practice Schedules</h3>
             {schedules.length === 0 ? (
-              <p className="text-sm text-gray-500">No schedules have been published yet.</p>
+              <p className="text-sm text-slate-500 bg-white rounded-xl border border-slate-200 px-4 py-3">No schedules have been published yet.</p>
             ) : (
               <div className="space-y-3">
                 {schedules.map((s) => (
-                  <div key={s._id} className="border border-gray-100 rounded-xl p-3">
+                  <div key={s._id} className="border border-slate-200 rounded-2xl p-4 bg-white hover:border-emerald-200 transition-colors shadow-sm">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-medium text-gray-800 text-sm">{s.title}</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="font-semibold text-slate-800 text-sm">{s.title}</p>
+                      <p className="text-xs text-slate-500">
                         {formatDate(s.date)} {s.time ? `- ${s.time}` : ''}
                       </p>
                     </div>
-                    {s.location && <p className="text-xs text-gray-500 mt-1">{s.location}</p>}
-                    {s.description && <p className="text-xs text-gray-500 mt-1">{s.description}</p>}
+                    {s.location && <p className="text-xs text-slate-500 mt-1">{s.location}</p>}
+                    {s.description && <p className="text-xs text-slate-500 mt-1">{s.description}</p>}
                   </div>
                 ))}
               </div>
@@ -143,16 +149,16 @@ function ClubDetailModal({ club, onClose, onJoin, onLeave, myRequests }) {
           </div>
 
           <div>
-            <h3 className="font-semibold text-gray-800 mb-3">Teams</h3>
+            <h3 className="text-2xl font-bold text-slate-900 mb-3">Teams</h3>
             {teams.length === 0 ? (
-              <p className="text-sm text-gray-500">No team records yet.</p>
+              <p className="text-sm text-slate-500 bg-white rounded-xl border border-slate-200 px-4 py-3">No team records yet.</p>
             ) : (
               <div className="space-y-3">
                 {teams.map((t) => (
-                  <div key={t._id} className="border border-gray-100 rounded-xl p-3">
-                    <p className="font-medium text-gray-800 text-sm">{t.name}</p>
-                    {t.description && <p className="text-xs text-gray-500 mt-1">{t.description}</p>}
-                    <p className="text-xs text-gray-500 mt-1">
+                  <div key={t._id} className="border border-slate-200 rounded-2xl p-4 bg-white hover:border-emerald-200 transition-colors shadow-sm">
+                    <p className="font-semibold text-slate-800 text-sm">{t.name}</p>
+                    {t.description && <p className="text-xs text-slate-500 mt-1">{t.description}</p>}
+                    <p className="text-xs text-slate-500 mt-1">
                       {t.members?.length || 0} member{(t.members?.length || 0) !== 1 ? 's' : ''}
                     </p>
                   </div>
@@ -172,18 +178,18 @@ function ClubDetailModal({ club, onClose, onJoin, onLeave, myRequests }) {
           )}
 
           {!myReq && (
-            <div className="border-t border-gray-100 pt-4">
-              <h3 className="font-semibold text-gray-800 mb-2">Send Join Request</h3>
+            <div className="border-t border-emerald-100 pt-5">
+              <h3 className="text-2xl font-bold text-slate-900 mb-2">Send Join Request</h3>
               <textarea
                 value={joinMsg}
                 onChange={(e) => setJoinMsg(e.target.value)}
                 placeholder={`Introduce yourself to the ${entityLabel} (optional)`}
-                className="w-full h-24 border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full h-24 border border-emerald-100 rounded-xl p-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
               <button
                 onClick={handleJoin}
                 disabled={busy}
-                className="w-full mt-3 bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-60"
+                className="w-full mt-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl transition-colors disabled:opacity-60"
               >
                 {busy ? 'Sending...' : 'Send Join Request'}
               </button>
@@ -191,21 +197,21 @@ function ClubDetailModal({ club, onClose, onJoin, onLeave, myRequests }) {
           )}
 
           {myReq && !isMember && (
-            <div className="border-t border-gray-100 pt-4">
+            <div className="border-t border-emerald-100 pt-5">
               <span className={`inline-flex px-3 py-1.5 rounded-full text-xs font-semibold ${STATUS_COLORS[myReq.status]}`}>
                 Request status: {myReq.status}
               </span>
-              {myReq.adminNote && <p className="text-xs text-gray-500 mt-2">Note: {myReq.adminNote}</p>}
+              {myReq.adminNote && <p className="text-xs text-slate-500 mt-2">Note: {myReq.adminNote}</p>}
             </div>
           )}
 
           {isMember && (
-            <div className="border-t border-gray-100 pt-4 flex items-center justify-between gap-4">
+            <div className="border-t border-emerald-100 pt-5 flex items-center justify-between gap-4">
               <p className="text-sm font-semibold text-green-700">You are an approved member.</p>
               <button
                 onClick={handleLeave}
                 disabled={busy}
-                className="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+                className="bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors disabled:opacity-60"
               >
                 Leave Club
               </button>
