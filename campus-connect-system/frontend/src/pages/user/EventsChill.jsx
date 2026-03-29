@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   applyForParticipation,
   getMyEventApplications,
@@ -12,6 +13,16 @@ import { useAuth } from '../../hooks/useAuth';
 import { PARTICIPATION_OPTIONS, ROLES } from '../../utils/constants';
 
 const BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+const askEventsImage = 'https://img.freepik.com/free-vector/chat-bot-concept-illustration_114360-5522.jpg';
+const EVENT_TYPE_OPTIONS = [
+  { value: 'chill_session', label: 'Chill Session' },
+  { value: 'club_event', label: 'Club Event' },
+  { value: 'competition', label: 'Competition' },
+  { value: 'workshop', label: 'Workshop' },
+  { value: 'conference', label: 'Conference' },
+  { value: 'cultural_event', label: 'Cultural Event' },
+  { value: 'exhibition', label: 'Exhibition' },
+];
 
 const resolveImageUrl = (imagePath) => {
   if (!imagePath) return '';
@@ -60,8 +71,9 @@ const getCountdownData = (eventDate, now) => {
 
 const getApplicationKey = (eventId, option) => `${eventId}:${option}`;
 const askNameRegex = /^[A-Za-z\s]+$/;
-const askPhoneRegex = /^\d{10}$/;
+const askPhoneRegex = /^0\d{9}$/; // Phone must start with 0 and have exactly 10 digits
 const emailHasAtRegex = /^[^\s@]+@[^\s@]+$/;
+const studentIdRegex = /^.{10}$/; // Student ID must be exactly 10 characters
 
 const getStatusMeta = (status) => {
   const normalized = String(status || '').toLowerCase();
@@ -93,31 +105,54 @@ const getStatusMeta = (status) => {
   };
 };
 
+const getEventTypeLabel = (eventType) => {
+  const matched = EVENT_TYPE_OPTIONS.find((option) => option.value === eventType);
+  return matched?.label || 'Club Event';
+};
 export default function EventsChill() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const normalizedUserRole = String(user?.role || '').trim().toLowerCase();
   const isStudent = normalizedUserRole === ROLES.STUDENT;
+  
+  // Event state
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [now, setNow] = useState(new Date());
+  
+  // Application state
   const [applyMessage, setApplyMessage] = useState('');
   const [applyError, setApplyError] = useState('');
   const [applyingKey, setApplyingKey] = useState('');
   const [appliedMap, setAppliedMap] = useState({});
-  const [applicationStatusMap, setApplicationStatusMap] = useState({});
-  const [applicationMetaMap, setApplicationMetaMap] = useState({});
+// Modal & form state
+const [applicationStatusMap, setApplicationStatusMap] = useState({});
+const [applicationMetaMap, setApplicationMetaMap] = useState({});
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [applicationAnswersByOption, setApplicationAnswersByOption] = useState({});
   const [participationFieldErrors, setParticipationFieldErrors] = useState({});
   const [participationFieldTouched, setParticipationFieldTouched] = useState({});
   const [participationSubmitAttempted, setParticipationSubmitAttempted] = useState(false);
-  const [isAskPanelOpen, setIsAskPanelOpen] = useState(false);
-  const [askForm, setAskForm] = useState({ name: '', email: '', phone: '', question: '' });
-  const [askFormErrors, setAskFormErrors] = useState({});
-  const [askFormMessage, setAskFormMessage] = useState('');
-  const [askFormTouched, setAskFormTouched] = useState({});
+const [applicationStatusMap, setApplicationStatusMap] = useState({});
+const [applicationMetaMap, setApplicationMetaMap] = useState({});
+const [myEventRequests, setMyEventRequests] = useState([]);
+const [activeTab, setActiveTab] = useState('events');
+const [selectedEventType, setSelectedEventType] = useState('all');
+const [searchEventName, setSearchEventName] = useState('');
+
+// Ask panel state
+const [isAskPanelOpen, setIsAskPanelOpen] = useState(false);
+const [askForm, setAskForm] = useState({
+  name: '',
+  email: '',
+  phone: '',
+  question: '',
+});
+const [askFormErrors, setAskFormErrors] = useState({});
+const [askFormTouched, setAskFormTouched] = useState({});
+const [askFormMessage, setAskFormMessage] = useState('');
   const [askSubmitAttempted, setAskSubmitAttempted] = useState(false);
 
   const optionLabelMap = useMemo(
@@ -143,6 +178,18 @@ export default function EventsChill() {
   }, []);
 
   useEffect(() => {
+    if (!isStudent) return;
+
+    getMyEventApplications()
+      .then((rows) => {
+        setMyEventRequests(Array.isArray(rows) ? rows : []);
+      })
+      .catch(() => {
+        setMyEventRequests([]);
+      });
+  }, [isStudent]);
+
+  useEffect(() => {
     const timer = setInterval(() => {
       setNow(new Date());
     }, 1000);
@@ -153,11 +200,34 @@ export default function EventsChill() {
   const upcomingItems = useMemo(() => {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
+    const normalizedSearch = searchEventName.trim().toLowerCase();
 
     return [...items]
       .filter((item) => new Date(item.date).getTime() >= todayStart.getTime())
+      .filter((item) => selectedEventType === 'all' || item.eventType === selectedEventType)
+      .filter((item) => {
+        if (!normalizedSearch) return true;
+        return String(item.title || '').toLowerCase().includes(normalizedSearch);
+      })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [items]);
+  }, [items, searchEventName, selectedEventType]);
+
+  const myRequestsWithEventDetails = useMemo(() => {
+    const byEventId = new Map(items.map((eventItem) => [String(eventItem._id), eventItem]));
+
+    return myEventRequests.map((request) => {
+      const requestEventId = String(request.eventId?._id || request.eventId || '');
+      const matchedEvent = byEventId.get(requestEventId);
+
+      return {
+        ...request,
+        requestEventId,
+        eventTitle: request.eventTitle || matchedEvent?.title || 'Event',
+        eventDate: request.eventDate || matchedEvent?.date || request.appliedAt,
+        eventType: request.eventType || matchedEvent?.eventType || 'event',
+      };
+    });
+  }, [items, myEventRequests]);
 
   const formatOptionLabel = (option) => optionLabelMap[option] || option;
 
@@ -172,6 +242,20 @@ export default function EventsChill() {
     return Array.isArray(matched?.questions) ? matched.questions : [];
   };
 
+const getStudentApplicationStatus = (eventItem, option) => {
+  if (!user?._id) return null;
+
+  const applications = Array.isArray(eventItem.participationApplications)
+    ? eventItem.participationApplications
+    : [];
+
+  const found = applications.find((entry) => {
+    const studentId = typeof entry.student === 'object' ? entry.student?._id : entry.student;
+    return String(studentId) === String(user._id) && entry.option === option;
+  });
+
+  return found?.status || null;
+};
   const validateParticipationField = (eventItem, option, fieldKey, value) => {
     const trimmed = String(value || '').trim();
     const templateQuestions = getParticipationTemplate(eventItem, option);
@@ -179,9 +263,29 @@ export default function EventsChill() {
 
     if (hasTemplate) {
       const question = templateQuestions.find((entry) => entry.key === fieldKey);
-      if (question?.required && !trimmed) {
-        return `${question.label} is required.`;
-      }
+const keyText = String(question?.key || '').toLowerCase();
+const labelText = String(question?.label || '').toLowerCase();
+const isEmailQuestion = keyText.includes('email') || labelText.includes('email');
+const isPhoneQuestion = keyText.includes('phone') || labelText.includes('phone');
+const isStudentIdQuestion = keyText.includes('studentid')
+  || keyText.includes('student_id')
+  || (labelText.includes('student') && labelText.includes('id'));
+
+if (question?.required && !trimmed) {
+  return `${question.label} is required.`;
+}
+
+if (isEmailQuestion && trimmed && !emailHasAtRegex.test(trimmed)) {
+  return 'Email must include @.';
+}
+
+if (isPhoneQuestion && trimmed && !askPhoneRegex.test(trimmed)) {
+  return 'Phone number must start with 0 and contain exactly 10 digits.';
+}
+
+if (isStudentIdQuestion && trimmed && !studentIdRegex.test(trimmed)) {
+  return 'Student ID must contain exactly 10 characters.';
+}
       return '';
     }
 
@@ -197,9 +301,17 @@ export default function EventsChill() {
       return '';
     }
 
-    if (fieldKey === 'phone') {
-      if (!trimmed) return 'Phone number is required.';
-      if (!askPhoneRegex.test(trimmed)) return 'Phone number must contain exactly 10 digits.';
+if (fieldKey === 'studentId') {
+  if (!trimmed) return 'Student ID is required.';
+  if (!studentIdRegex.test(trimmed)) return 'Student ID must contain exactly 10 characters.';
+  return '';
+}
+
+if (fieldKey === 'phone') {
+  if (!trimmed) return 'Phone number is required.';
+  if (!askPhoneRegex.test(trimmed)) return 'Phone number must start with 0 and contain exactly 10 digits.';
+  return '';
+}
       return '';
     }
 
@@ -228,7 +340,7 @@ export default function EventsChill() {
         return;
       }
 
-      ['fullName', 'email', 'phone', 'notes'].forEach((fieldKey) => {
+['fullName', 'studentId', 'email', 'phone', 'notes'].forEach((fieldKey) => {
         const key = getParticipationErrorKey(option, fieldKey);
         const error = validateParticipationField(eventItem, option, fieldKey, optionAnswers[fieldKey]);
         if (error) allErrors[key] = error;
@@ -250,7 +362,27 @@ export default function EventsChill() {
 
     return {
       fullName: user?.fullName || '',
+      studentId: '',
       email: user?.email || '',
+      phone: '',
+      notes: '',
+    };
+  };
+
+  const createBlankAnswersForOption = (eventItem, option) => {
+    const templateQuestions = getParticipationTemplate(eventItem, option);
+
+    if (templateQuestions.length > 0) {
+      return templateQuestions.reduce((acc, question) => {
+        acc[question.key] = '';
+        return acc;
+      }, {});
+    }
+
+    return {
+      fullName: '',
+      studentId: '',
+      email: '',
       phone: '',
       notes: '',
     };
@@ -298,11 +430,7 @@ export default function EventsChill() {
   };
 
   const openEventDetails = (eventItem) => {
-    setSelectedEvent(eventItem);
-    setSelectedOptions([]);
-    setApplicationAnswersByOption({});
-    setApplyError('');
-    setApplyMessage('');
+    navigate(`/user/events-chill/${eventItem._id}`);
   };
 
   const closeEventDetails = () => {
@@ -405,6 +533,7 @@ export default function EventsChill() {
 
     return {
       fullName: savedApplication?.fullName || user?.fullName || '',
+studentId: savedApplication?.studentId || '',
       email: savedApplication?.email || user?.email || '',
       phone: savedApplication?.phone || '',
       notes: savedApplication?.notes || '',
@@ -505,14 +634,18 @@ export default function EventsChill() {
           }
         } else {
           const fullName = String(optionAnswers.fullName || '').trim();
+          const studentId = String(optionAnswers.studentId || '').trim();
           const email = String(optionAnswers.email || '').trim();
           const phone = String(optionAnswers.phone || '').trim();
           const notes = String(optionAnswers.notes || '').trim();
 
-          if (!fullName || !email || !phone || !notes) {
+          if (!fullName || !studentId || !email || !phone || !notes) {
             throw new Error(`Please complete the application form for ${formatOptionLabel(option)}.`);
           }
 
+if (!studentIdRegex.test(studentId)) {
+  throw new Error(`Student ID must contain exactly 10 characters for ${formatOptionLabel(option)}.`);
+}
           if (!askNameRegex.test(fullName)) {
             throw new Error(`Name must contain only letters for ${formatOptionLabel(option)}.`);
           }
@@ -522,7 +655,7 @@ export default function EventsChill() {
           }
 
           if (!askPhoneRegex.test(phone)) {
-            throw new Error(`Phone number must contain exactly 10 digits for ${formatOptionLabel(option)}.`);
+throw new Error(`Phone number must start with 0 and contain exactly 10 digits for ${formatOptionLabel(option)}.`);
           }
         }
 
@@ -538,6 +671,7 @@ export default function EventsChill() {
           option,
           application: {
             fullName: optionAnswers.fullName || '',
+            studentId: optionAnswers.studentId || '',
             email: optionAnswers.email || '',
             phone: optionAnswers.phone || '',
             notes: optionAnswers.notes || '',
@@ -644,7 +778,7 @@ export default function EventsChill() {
 
           return {
             ...eventItem,
-            participationApplications: [...existingApps, ...newApplications],
+            participationApplications: [...filteredExisting, ...newApplications],
           };
         })
       );
@@ -664,7 +798,7 @@ export default function EventsChill() {
 
         return {
           ...prev,
-          participationApplications: [...existingApps, ...newApplications],
+          participationApplications: [...filteredExisting, ...newApplications],
         };
       });
 
@@ -682,289 +816,34 @@ export default function EventsChill() {
 
   const validateAskField = (field, value) => {
     const trimmed = String(value || '').trim();
+if (!trimmed) {
+  return `${field.charAt(0).toUpperCase()}${field.slice(1)} is required.`;
+}
 
-    if (!trimmed) {
-      return `${field.charAt(0).toUpperCase()}${field.slice(1)} is required.`;
-    }
+if (field === 'name' && !askNameRegex.test(trimmed)) {
+  return 'Name must contain letters only. Numbers are not allowed.';
+}
 
-    if (field === 'name' && !askNameRegex.test(trimmed)) {
-      return 'Name must contain letters only. Numbers are not allowed.';
-    }
+if (field === 'email' && !emailHasAtRegex.test(trimmed)) {
+  return 'Email must include @.';
+}
 
-    if (field === 'email' && !trimmed.includes('@')) {
-      return 'Email must include the @ symbol.';
-    }
+if (field === 'phone' && !askPhoneRegex.test(trimmed)) {
+  return 'Phone number must start with 0 and contain exactly 10 digits.';
+}
 
-    if (field === 'phone' && !askPhoneRegex.test(trimmed)) {
-      return 'Phone number must contain exactly 10 digits.';
-    }
-
-    return '';
-  };
-
-  const validateAskForm = (formData) => {
-    const nextErrors = {};
-
-    ['name', 'email', 'phone', 'question'].forEach((field) => {
-      const fieldError = validateAskField(field, formData[field]);
-      if (fieldError) {
-        nextErrors[field] = fieldError;
-      }
-    });
-
-    return nextErrors;
-  };
-
-  const askFormValidationErrors = validateAskForm(askForm);
-  const isAskFormValid = Object.keys(askFormValidationErrors).length === 0;
-
-  const handleAskFieldChange = (field, value) => {
-    let nextValue = value;
-
-    if (field === 'name') {
-      nextValue = value.replace(/[^A-Za-z\s]/g, '');
-    }
-
-    if (field === 'phone') {
-      nextValue = value.replace(/\D/g, '').slice(0, 10);
-    }
-
-    setAskForm((prev) => ({
-      ...prev,
-      [field]: nextValue,
-    }));
-
-    setAskFormMessage('');
-
-    setAskFormErrors((prev) => {
-      const next = { ...prev };
-      const fieldError = validateAskField(field, nextValue);
-
-      if (fieldError) {
-        next[field] = fieldError;
-      } else {
-        delete next[field];
-      }
-
-      return next;
-    });
-  };
-
-  const handleAskFieldBlur = (field) => {
-    setAskFormTouched((prev) => ({
-      ...prev,
-      [field]: true,
-    }));
-
-    setAskFormErrors((prev) => {
-      const next = { ...prev };
-      const fieldError = validateAskField(field, askForm[field]);
-
-      if (fieldError) {
-        next[field] = fieldError;
-      } else {
-        delete next[field];
-      }
-
-      return next;
-    });
-  };
-
-  const handleAskFormSubmit = (event) => {
-    event.preventDefault();
-    setAskSubmitAttempted(true);
-
-    const nextErrors = validateAskForm(askForm);
-    setAskFormErrors(nextErrors);
-    setAskFormTouched({
-      name: true,
-      email: true,
-      phone: true,
-      question: true,
-    });
-
-    if (Object.keys(nextErrors).length > 0) {
-      setAskFormMessage('Please fix the validation errors before submitting.');
-      return;
-    }
-
-    setAskFormMessage('Your question has been captured. Chatbot reply support will be available soon.');
-    setAskForm({
-      name: '',
-      email: '',
-      phone: '',
-      question: '',
-    });
-    setAskFormTouched({});
-    setAskFormErrors({});
-    setAskSubmitAttempted(false);
-  };
-
-  return (
-    <div className="min-h-screen bg-white flex flex-col">
-      <Navbar />
-      <main className="flex-1 px-4 py-8">
-        <section className="mb-12 rounded-2xl bg-gradient-to-br from-green-50 to-white p-8 md:p-12 border border-green-100 animate-fade-in-up">
-          <div className="max-w-6xl mx-auto">
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-6 leading-tight">
-              Discover and Join<br />
-              <span className="text-green-600">Campus Events</span>
-            </h1>
-            <p className="text-gray-600 mb-8 text-lg leading-relaxed">
-              Experience the vibrant campus life! Browse and participate in exciting events,
-              workshops, competitions, and social gatherings. Connect with fellow students,
-              develop new skills, and create lasting memories.
-            </p>
-            <button
-              type="button"
-              onClick={() => document.getElementById('events-grid')?.scrollIntoView({ behavior: 'smooth' })}
-              className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
-            >
-              Explore Events
-            </button>
-          </div>
-        </section>
-
-        {applyMessage ? (
-          <div className="max-w-6xl mx-auto mb-4 p-3 rounded-lg border border-green-200 bg-green-50 text-green-700">
-            {applyMessage}
-          </div>
-        ) : null}
-        {applyError ? (
-          <div className="max-w-6xl mx-auto mb-4 p-3 rounded-lg border border-red-200 bg-red-50 text-red-700">
-            {applyError}
-          </div>
-        ) : null}
-        {error ? (
-          <div className="max-w-6xl mx-auto mb-4 p-3 rounded-lg border border-red-200 bg-red-50 text-red-700">
-            {error}
-          </div>
-        ) : null}
-
-        <section id="events-grid" className="max-w-6xl mx-auto">
-          {loading ? (
-            <div className="text-center py-12 text-gray-500">Loading upcoming events...</div>
-          ) : upcomingItems.length === 0 ? (
-            <div className="text-center py-12 rounded-xl border border-gray-200 bg-gray-50 text-gray-600">
-              No upcoming events found.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {upcomingItems.map((item) => {
-                const countdown = getCountdownData(item.date, now);
-
-                return (
-                  <article key={item._id} className="bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden">
-                    <div className="h-48 bg-gray-100 overflow-hidden">
-                      {resolveImageUrl(item.image) ? (
-                        <img
-                          src={resolveImageUrl(item.image)}
-                          alt={item.title}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-400">
-                          <span className="text-sm">No Image</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="p-6">
-                      <div className="inline-block mb-3">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
-                          {(item.eventType || 'event').replace('_', ' ')}
-                        </span>
-                      </div>
-
-                      <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2 text-sinhala">{item.title}</h3>
-
-                      <p className="text-sm text-gray-600 mb-4 line-clamp-3 text-sinhala">
-                        {item.description || 'No description provided for this event.'}
-                      </p>
-
-                      <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-100">
-                        <p className="text-xs font-semibold text-green-600 mb-2">{countdown.label}</p>
-                        {countdown.status === 'upcoming' ? (
-                          <div className="flex gap-3">
-                            <div className="text-center">
-                              <div className="text-lg font-bold text-green-700">{countdown.days}</div>
-                              <div className="text-xs text-green-600">Days</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-lg font-bold text-green-700">{countdown.hours}</div>
-                              <div className="text-xs text-green-600">Hours</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-lg font-bold text-green-700">{countdown.minutes}</div>
-                              <div className="text-xs text-green-600">Minutes</div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-sm font-semibold text-green-700">{countdown.label}</div>
-                        )}
-                      </div>
-
-                      <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600 border border-gray-100">
-                        <span className="font-semibold text-gray-700">Date: </span>
-                        {new Date(item.date).toLocaleDateString('en-GB', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
-                      </div>
-
-                      {isStudent ? (
-                        <div className="mb-4 flex flex-wrap gap-2">
-                          {(item.participationOptions || []).map((option) => {
-                            const status = getStudentApplicationStatus(item, option);
-                            if (!status) return null;
-
-                            const statusMeta = getStatusMeta(status);
-                            return (
-                              <button
-                                key={`${item._id}-${option}-status`}
-                                type="button"
-                                className={`px-3 py-1 rounded-full text-xs font-semibold cursor-default ${statusMeta.className}`}
-                                disabled
-                              >
-                                {formatOptionLabel(option)}: {statusMeta.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ) : null}
-
-                      <button
-                        type="button"
-                        className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-300"
-                        onClick={() => openEventDetails(item)}
-                      >
-                        View More
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {selectedEvent ? (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in overflow-y-auto" onClick={closeEventDetails}>
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-2xl my-8 animate-scale-in" onClick={(event) => event.stopPropagation()}>
+// ... rest of validateAskForm, handleAskFieldChange, handleAskFieldBlur, handleAskFormSubmit, and return JSX
               <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
                 <h3 className="text-xl font-semibold text-gray-800 mb-0">
                   {selectedOptions.length > 0 ? 'Application Form' : 'Event Details'}
                 </h3>
-                <button
-                  type="button"
-                  className="text-gray-400 hover:text-gray-600 text-2xl w-8 h-8 flex items-center justify-center"
-                  onClick={closeEventDetails}
-                >
-                  ×
-                </button>
-              </div>
-
+<button
+  type="button"
+  className="text-gray-400 hover:text-gray-600 text-2xl w-8 h-8 flex items-center justify-center"
+  onClick={closeEventDetails}
+>
+  ×
+</button>
               <div className="overflow-y-auto max-h-[calc(100vh-200px)]">
                 {selectedOptions.length > 0 ? (
                   <form
@@ -978,6 +857,7 @@ export default function EventsChill() {
                       Fill and submit all selected participation applications for <strong className="text-gray-800">{selectedEvent.title}</strong>.
                     </p>
 
+{/* Participation Options */}
                     <div>
                       <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Select Participation Options</h4>
                       <div className="flex flex-wrap gap-2">
@@ -1000,13 +880,14 @@ export default function EventsChill() {
                               disabled={applied}
                             >
                               {formatOptionLabel(option)}{' '}
-                              {applied ? `(${statusMeta.label})` : selected ? '✓' : ''}
+{applied ? `(${statusMeta.label})` : selected ? '✓' : ''}
                             </button>
                           );
                         })}
                       </div>
                     </div>
 
+{/* Form Fields for Selected Options */}
                     {selectedOptions.map((option) => {
                       const templateQuestions = getParticipationTemplate(selectedEvent, option);
                       const optionAnswers = applicationAnswersByOption[option] || {};
@@ -1075,6 +956,32 @@ export default function EventsChill() {
 
                                 <div>
                                   <label className="block text-sm font-medium text-gray-700 mb-2">
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    Student ID
+    <span className="text-red-500 ml-1">*</span>
+  </label>
+  <input
+    type="text"
+    value={optionAnswers.studentId || ''}
+    onChange={(event) =>
+      handleApplicationFieldChange(option, 'studentId', event.target.value)
+    }
+    onBlur={(event) =>
+      handleParticipationFieldBlur(option, 'studentId', event.target.value)
+    }
+    required
+    minLength={10}
+    maxLength={10}
+    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+  />
+  {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'studentId')])
+    && participationFieldErrors[getParticipationErrorKey(option, 'studentId')] ? (
+      <p className="text-xs text-red-600 mt-1">
+        {participationFieldErrors[getParticipationErrorKey(option, 'studentId')]}
+      </p>
+    ) : null}
+</div>
                                     Email
                                     <span className="text-red-500 ml-1">*</span>
                                   </label>
@@ -1115,9 +1022,10 @@ export default function EventsChill() {
                                     }
                                     placeholder="07X XXX XXXX"
                                     required
-                                    pattern="\d{10}"
-                                    minLength={10}
-                                    maxLength={10}
+<pattern="0\d{9}"
+minLength={10}
+maxLength={10}
+inputMode="numeric"
                                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                   />
                                   {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'phone')])
@@ -1160,9 +1068,33 @@ export default function EventsChill() {
                       );
                     })}
 
-                    <div className="flex gap-3 pt-6 border-t border-gray-100">
-                      <button
-                        type="button"
+{/* Form Actions */}
+<div className="flex gap-3 pt-6 border-t border-gray-100">
+  <button
+    type="button"
+    className="flex-1 px-6 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 font-semibold rounded-lg transition-all duration-300"
+    onClick={() => {
+      if (!selectedEvent) return;
+
+      setApplicationAnswersByOption((prev) => {
+        const next = { ...prev };
+        selectedOptions.forEach((option) => {
+          next[option] = createBlankAnswersForOption(selectedEvent, option);
+        });
+        return next;
+      });
+
+      setParticipationFieldErrors({});
+      setParticipationFieldTouched({});
+      setParticipationSubmitAttempted(false);
+      setApplyError('');
+      setApplyMessage('');
+    }}
+  >
+    Clear Form
+  </button>
+  <button
+    type="button"
                         className="flex-1 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all duration-300"
                         onClick={() => {
                           setSelectedOptions([]);
@@ -1187,6 +1119,7 @@ export default function EventsChill() {
                   </form>
                 ) : (
                   <div className="p-6 space-y-6">
+{/* Event Image */}
                     {resolveImageUrl(selectedEvent.image) ? (
                       <div className="w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
                         <img
@@ -1197,11 +1130,19 @@ export default function EventsChill() {
                       </div>
                     ) : null}
 
-                    <h3 className="text-2xl font-bold text-gray-800 text-sinhala">{selectedEvent.title}</h3>
-                    <p className="text-gray-600 text-sinhala leading-relaxed">
-                      {selectedEvent.description || 'No description provided for this event.'}
-                    </p>
+{/* Event Title */}
+<div>
+  <h3 className="text-2xl font-bold text-gray-800 text-sinhala">{selectedEvent.title}</h3>
+</div>
 
+{/* Event Description */}
+<div>
+  <p className="text-gray-600 text-sinhala leading-relaxed">
+    {selectedEvent.description || 'No description provided for this event.'}
+  </p>
+</div>
+
+{/* Event Details */}
                     <div className="space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
                       <div>
                         <span className="text-xs font-semibold text-gray-500 uppercase">Date</span>
@@ -1228,6 +1169,7 @@ export default function EventsChill() {
                       </div>
                     </div>
 
+{/* Participation Options */}
                     <div>
                       <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Participation Opportunities</h4>
 
@@ -1260,7 +1202,7 @@ export default function EventsChill() {
                                   onClick={() => toggleApplicationOption(option)}
                                   disabled={applied}
                                 >
-                                  {formatOptionLabel(option)} {applied ? `(${statusMeta.label})` : selected ? '✓' : ''}
+{formatOptionLabel(option)} {applied ? `(${statusMeta.label})` : selected ? '✓' : ''}
                                 </button>
 
                                 {canManagePending ? (
@@ -1291,7 +1233,12 @@ export default function EventsChill() {
                       )}
                     </div>
 
-                    {isStudent && selectedEvent.participationOptions && selectedEvent.participationOptions.length > 0 ? (
+{isStudent && selectedEvent.participationOptions && selectedEvent.participationOptions.length > 0 && (
+  // Action Buttons
+  <div className="flex gap-3 mt-6">
+    {/* your buttons here */}
+  </div>
+)}
                       <div className="flex gap-3 pt-4 border-t border-gray-100">
                         <button
                           type="button"
@@ -1300,16 +1247,17 @@ export default function EventsChill() {
                         >
                           Close
                         </button>
-                        {selectedOptions.length > 0 ? (
-                          <button
-                            type="button"
-                            className="flex-1 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300"
-                          >
-                            Apply Now
-                          </button>
-                        ) : null}
-                      </div>
-                    ) : null}
+{selectedOptions.length > 0 && (
+  <button
+    type="button"
+    className="flex-1 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300"
+    onClick={() => {
+      // Form will show when options are selected
+    }}
+  >
+    Apply Now
+  </button>
+)}
                   </div>
                 )}
               </div>
