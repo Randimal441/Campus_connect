@@ -25,6 +25,7 @@ const BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_URL || 'http://localhost:500
 
 const INITIAL_FORM = {
   title: '',
+  eventType: 'club_event',
   date: '',
   time: '',
   location: '',
@@ -32,7 +33,17 @@ const INITIAL_FORM = {
   image: '',
   participationOptions: [],
   participationForms: {},
+  participationBaseFields: {},
 };
+
+const APPLICATION_FORM_FIELDS = [
+  { key: 'full_name', label: 'Full Name' },
+  { key: 'email', label: 'Email Address' },
+  { key: 'phone', label: 'Phone Number' },
+  { key: 'student_id', label: 'Registration Number' },
+];
+
+const APPLICATION_FORM_FIELD_KEYS = new Set(APPLICATION_FORM_FIELDS.map((field) => field.key));
 
 const resolveImageUrl = (imagePath) => {
   if (!imagePath) return '';
@@ -57,6 +68,20 @@ const formatCardTime = (event) => {
   });
 };
 
+const EVENT_TYPE_OPTIONS = [
+  { value: 'chill_session', label: 'Chill Session' },
+  { value: 'club_event', label: 'Club Event' },
+  { value: 'competition', label: 'Competition' },
+  { value: 'workshop', label: 'Workshop' },
+  { value: 'conference', label: 'Conference' },
+  { value: 'cultural_event', label: 'Cultural Event' },
+  { value: 'exhibition', label: 'Exhibition' },
+];
+
+const getEventTypeLabel = (eventType) => {
+  const matched = EVENT_TYPE_OPTIONS.find((option) => option.value === eventType);
+  return matched?.label || 'Club Event';
+};
 const getApplicationStatusMeta = (status) => {
   const normalized = String(status || 'pending').toLowerCase();
 
@@ -108,6 +133,61 @@ export default function EventCoordinatorDashboard() {
     []
   );
 
+  const applicantCards = useMemo(() => {
+    const rows = [];
+
+    sortedItems.forEach((eventItem) => {
+      const applications = Array.isArray(eventItem.participationApplications)
+        ? eventItem.participationApplications
+        : [];
+
+      applications.forEach((entry) => {
+        rows.push({
+          eventId: eventItem._id,
+          eventTitle: eventItem.title,
+          entry,
+        });
+      });
+    });
+
+    return rows.sort(
+      (a, b) => new Date(b.entry.appliedAt).getTime() - new Date(a.entry.appliedAt).getTime()
+    );
+  }, [sortedItems]);
+
+  const selectedCategorySummary = useMemo(() => {
+    const applications = Array.isArray(selectedItem?.participationApplications)
+      ? selectedItem.participationApplications
+      : [];
+    const selectedOptions = Array.isArray(selectedItem?.participationOptions)
+      ? selectedItem.participationOptions
+      : [];
+
+    const map = {};
+
+    selectedOptions.forEach((option) => {
+      map[option] = { option, total: 0, approved: 0, pending: 0, rejected: 0 };
+    });
+
+    applications.forEach((entry) => {
+      const option = String(entry.option || '').trim();
+      if (!option) return;
+
+      if (!map[option]) {
+        map[option] = { option, total: 0, approved: 0, pending: 0, rejected: 0 };
+      }
+
+      const normalizedStatus = String(entry.status || 'pending').toLowerCase();
+      map[option].total += 1;
+
+      if (normalizedStatus === 'approved') map[option].approved += 1;
+      else if (normalizedStatus === 'rejected') map[option].rejected += 1;
+      else map[option].pending += 1;
+    });
+
+    return Object.values(map);
+  }, [selectedItem]);
+
   const loadEvents = async () => {
     try {
       const data = await getAllEvents();
@@ -136,21 +216,24 @@ export default function EventCoordinatorDashboard() {
 
   const openEditModal = (item) => {
     const mappedForms = {};
+    const mappedBaseFields = {};
 
     if (Array.isArray(item.participationForms)) {
       item.participationForms.forEach((formItem) => {
-        mappedForms[formItem.option] = Array.isArray(formItem.questions)
-          ? formItem.questions.map((question) => ({
-              label: question.label || '',
-              required: question.required !== false,
-            }))
-          : [];
+        const questions = Array.isArray(formItem.questions) ? formItem.questions : [];
+        const selected = questions
+          .map((question) => String(question?.key || '').trim().toLowerCase())
+          .filter((key) => APPLICATION_FORM_FIELD_KEYS.has(key));
+
+        mappedBaseFields[formItem.option] = selected;
+        mappedForms[formItem.option] = [];
       });
     }
 
     setEditingItem(item);
     setForm({
       title: item.title || '',
+      eventType: item.eventType || 'club_event',
       date: item.date ? new Date(item.date).toISOString().split('T')[0] : '',
       time: item.time || '',
       location: item.location || '',
@@ -160,6 +243,7 @@ export default function EventCoordinatorDashboard() {
         ? item.participationOptions
         : [],
       participationForms: mappedForms,
+      participationBaseFields: mappedBaseFields,
     });
     setImageFile(null);
     setMessage('');
@@ -189,10 +273,13 @@ export default function EventCoordinatorDashboard() {
       const exists = prev.participationOptions.includes(optionValue);
 
       const nextParticipationForms = { ...prev.participationForms };
+      const nextBaseFields = { ...prev.participationBaseFields };
       if (exists) {
         delete nextParticipationForms[optionValue];
+        delete nextBaseFields[optionValue];
       } else {
-        nextParticipationForms[optionValue] = [{ label: '', required: true }];
+        nextParticipationForms[optionValue] = [];
+        nextBaseFields[optionValue] = APPLICATION_FORM_FIELDS.map((field) => field.key);
       }
 
       return {
@@ -201,63 +288,27 @@ export default function EventCoordinatorDashboard() {
           ? prev.participationOptions.filter((value) => value !== optionValue)
           : [...prev.participationOptions, optionValue],
         participationForms: nextParticipationForms,
+        participationBaseFields: nextBaseFields,
       };
     });
   };
 
-  const handleAddQuestion = (optionValue) => {
+  const handleBaseFieldToggle = (optionValue, fieldKey) => {
     setForm((prev) => {
-      const existing = Array.isArray(prev.participationForms[optionValue])
-        ? prev.participationForms[optionValue]
+      const selected = Array.isArray(prev.participationBaseFields[optionValue])
+        ? prev.participationBaseFields[optionValue]
         : [];
+
+      const exists = selected.includes(fieldKey);
+      const nextSelected = exists
+        ? selected.filter((key) => key !== fieldKey)
+        : [...selected, fieldKey];
 
       return {
         ...prev,
-        participationForms: {
-          ...prev.participationForms,
-          [optionValue]: [...existing, { label: '', required: true }],
-        },
-      };
-    });
-  };
-
-  const handleQuestionChange = (optionValue, index, field, value) => {
-    setForm((prev) => {
-      const existing = Array.isArray(prev.participationForms[optionValue])
-        ? prev.participationForms[optionValue]
-        : [];
-
-      const updatedQuestions = existing.map((question, questionIndex) => {
-        if (questionIndex !== index) return question;
-        return {
-          ...question,
-          [field]: value,
-        };
-      });
-
-      return {
-        ...prev,
-        participationForms: {
-          ...prev.participationForms,
-          [optionValue]: updatedQuestions,
-        },
-      };
-    });
-  };
-
-  const handleRemoveQuestion = (optionValue, index) => {
-    setForm((prev) => {
-      const existing = Array.isArray(prev.participationForms[optionValue])
-        ? prev.participationForms[optionValue]
-        : [];
-
-      const updatedQuestions = existing.filter((_, questionIndex) => questionIndex !== index);
-
-      return {
-        ...prev,
-        participationForms: {
-          ...prev.participationForms,
-          [optionValue]: updatedQuestions,
+        participationBaseFields: {
+          ...prev.participationBaseFields,
+          [optionValue]: nextSelected,
         },
       };
     });
@@ -276,28 +327,36 @@ export default function EventCoordinatorDashboard() {
       payload.append('time', form.time);
       payload.append('location', form.location);
       payload.append('description', form.description);
-      payload.append('eventType', 'event');
+      payload.append('eventType', form.eventType || 'event');
       payload.append('image', form.image || '');
       form.participationOptions.forEach((option) => {
         payload.append('participationOptions', option);
       });
 
       const participationFormsPayload = form.participationOptions.map((option) => {
-        const questions = Array.isArray(form.participationForms[option])
-          ? form.participationForms[option]
+        const selectedBaseFields = Array.isArray(form.participationBaseFields[option])
+          ? form.participationBaseFields[option]
           : [];
 
         return {
           option,
-          questions: questions
-            .map((question, index) => ({
-              key: `q_${index + 1}`,
-              label: (question.label || '').trim(),
-              required: question.required !== false,
-            }))
-            .filter((question) => question.label),
+          questions: APPLICATION_FORM_FIELDS
+            .filter((field) => selectedBaseFields.includes(field.key))
+            .map((field) => ({
+              key: field.key,
+              label: field.label,
+              required: true,
+            })),
         };
       });
+
+      const hasEmptyOptionForm = participationFormsPayload.some(
+        (entry) => !Array.isArray(entry.questions) || entry.questions.length === 0
+      );
+
+      if (hasEmptyOptionForm) {
+        throw new Error('Please select at least one application field for every participation option.');
+      }
 
       payload.append('participationForms', JSON.stringify(participationFormsPayload));
 
@@ -454,57 +513,172 @@ export default function EventCoordinatorDashboard() {
                       <span className="text-sm mt-2">No Image</span>
                     </div>
                   )}
-                </div>
+</div>
 
-                {/* Content */}
-                <div className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-3 line-clamp-2">{item.title}</h3>
+{/* Content */}
+<div className="p-6">
+  <h3 className="text-lg font-semibold text-gray-800 mb-3 line-clamp-2">{item.title}</h3>
 
-                  <div className="space-y-2 mb-4 pb-4 border-b border-gray-100">
-                    <div className="flex items-center text-sm text-gray-600 gap-2">
-                      <CalendarDays size={16} className="text-green-600" />
-                      <span>{formatCardDate(item.date)}</span>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-600 gap-2">
-                      <Clock3 size={16} className="text-green-600" />
-                      <span>{formatCardTime(item)}</span>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-600 gap-2">
-                      <MapPin size={16} className="text-green-600" />
-                      <span>{item.location || 'TBA'}</span>
-                    </div>
-                  </div>
+  <span className="inline-flex items-center text-[11px] font-semibold uppercase tracking-wide text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-200 mb-3">
+    {getEventTypeLabel(item.eventType)}
+  </span>
 
-                  {/* Actions */}
-                  <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
-                      onClick={() => openDetails(item)} 
-                      className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold py-2 rounded-lg transition-all"
-                    >
-                      View Details
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      onClick={() => openEditModal(item)}
-                      className="flex-1 border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold py-2 rounded-lg transition-all"
-                    >
-                      <Pencil size={14} />
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      onClick={() => handleDelete(item._id)}
-                      className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold py-2 rounded-lg transition-all"
-                    >
-                      <Trash2 size={14} />
-                    </Button>
-                  </div>
-                </div>
+  <div className="space-y-2 mb-4 pb-4 border-b border-gray-100">
+    <div className="flex items-center text-sm text-gray-600 gap-2">
+      <CalendarDays size={16} className="text-green-600" />
+      <span>{formatCardDate(item.date)}</span>
+    </div>
+    <div className="flex items-center text-sm text-gray-600 gap-2">
+      <Clock3 size={16} className="text-green-600" />
+      <span>{formatCardTime(item)}</span>
+    </div>
+    <div className="flex items-center text-sm text-gray-600 gap-2">
+      <MapPin size={16} className="text-green-600" />
+      <span>{item.location || 'TBA'}</span>
+    </div>
+  </div>
+
+  {/* Actions */}
+  <div className="flex gap-2">
+    <Button 
+      size="sm" 
+      onClick={() => openDetails(item)} 
+      className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold py-2 rounded-lg transition-all"
+    >
+      View Details
+    </Button>
+    <Button 
+      size="sm" 
+      variant="outline" 
+      onClick={() => openEditModal(item)}
+      className="flex-1 border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold py-2 rounded-lg transition-all"
+    >
+      <Pencil size={14} />
+    </Button>
+    <Button 
+      size="sm" 
+      onClick={() => handleDelete(item._id)}
+      className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold py-2 rounded-lg transition-all"
+    >
+      <Trash2 size={14} />
+    </Button>
+  </div>
+</div>
               </article>
             ))}
           </div>
         )}
+
+        {!loading && sortedItems.length > 0 ? (
+          <section className="mt-12 bg-gray-50 border border-gray-200 rounded-2xl p-6 md:p-8">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">Participation Applicants</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Applicant details in a separate section below event cards.
+              </p>
+            </div>
+
+{applicantCards.length > 0 ? (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {applicantCards.map((card, index) => {
+      const { eventId, eventTitle, entry } = card;
+      const student = entry.student && typeof entry.student === 'object'
+        ? entry.student
+        : null;
+      const submittedAnswers = Array.isArray(entry.application?.answers)
+        ? entry.application.answers
+        : [];
+      const statusMeta = getApplicationStatusMeta(entry.status);
+      const approveKey = `${entry._id}:approved`;
+      const rejectKey = `${entry._id}:rejected`;
+
+      return (
+        <article key={`${entry._id || entry.option}-${index}`} className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <div>
+              <p className="text-sm font-semibold text-gray-800 line-clamp-1">
+                {student?.fullName || entry.application?.fullName || 'Student'}
+              </p>
+              <p className="text-xs text-gray-500 line-clamp-1">
+                {entry.application?.studentId || student?.idNumber || 'ID Not provided'}
+              </p>
+            </div>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-100 whitespace-nowrap">
+              {optionLabelMap[entry.option] || entry.option}
+            </span>
+          </div>
+
+          <p className="text-[11px] text-gray-500 mb-2 line-clamp-1">
+            Event: {eventTitle || 'Event'}
+          </p>
+
+          <div className="flex flex-wrap items-center gap-1.5 mb-2 pb-2 border-b border-gray-100">
+            <button
+              type="button"
+              className={`px-2 py-0.5 rounded-full text-[10px] font-semibold cursor-default ${statusMeta.className}`}
+              disabled
+            >
+              {statusMeta.label}
+            </button>
+            <Button
+              type="button"
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold py-1 px-2 rounded transition-all"
+              onClick={() =>
+                handleApplicationStatusUpdate(eventId, entry._id, 'approved')
+              }
+              disabled={reviewingKey === approveKey}
+            >
+              {reviewingKey === approveKey ? 'Updating...' : 'Approve'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="bg-red-600 hover:bg-red-700 text-white text-[10px] font-semibold py-1 px-2 rounded transition-all"
+              onClick={() =>
+                handleApplicationStatusUpdate(eventId, entry._id, 'rejected')
+              }
+              disabled={reviewingKey === rejectKey}
+            >
+              {reviewingKey === rejectKey ? 'Updating...' : 'Reject'}
+            </Button>
+          </div>
+
+          <div className="text-xs text-gray-600 space-y-0.5 mb-2">
+            <p className="truncate"><strong>Email:</strong> {student?.email || entry.application?.email || 'No email provided'}</p>
+            <p><strong>Phone:</strong> {entry.application?.phone || 'Not provided'}</p>
+            <p><strong>Applied:</strong> {new Date(entry.appliedAt).toLocaleDateString('en-GB')}</p>
+          </div>
+
+          {submittedAnswers.length > 0 ? (
+            <div className="bg-gray-50 rounded-lg p-2 space-y-1.5">
+              {submittedAnswers.slice(0, 2).map((answer, answerIndex) => (
+                <div key={`${answer.questionKey}-${answerIndex}`}>
+                  <p className="text-[11px] font-semibold text-gray-700 mb-0.5 line-clamp-1">{answer.label}</p>
+                  <p className="text-[11px] text-gray-600 line-clamp-2">{answer.answer}</p>
+                </div>
+              ))}
+              {submittedAnswers.length > 2 ? (
+                <p className="text-[10px] text-gray-500">+{submittedAnswers.length - 2} more responses</p>
+              ) : null}
+            </div>
+          ) : (
+            <div className="bg-gray-50 rounded-lg p-2">
+              <p className="text-[11px] font-semibold text-gray-700 mb-0.5">Notes</p>
+              <p className="text-[11px] text-gray-600 line-clamp-2">{entry.application?.notes || 'Not provided'}</p>
+            </div>
+          )}
+        </article>
+      );
+    })}
+  </div>
+) : (
+  <p className="text-gray-500 text-sm bg-white p-4 rounded-lg border border-gray-200">
+    No participation applicants yet.
+  </p>
+)}
+</section>
+        ) : null}
       </div>
 
       {isModalOpen ? (
@@ -535,7 +709,25 @@ export default function EventCoordinatorDashboard() {
                   required 
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
-              </div>
+</div>
+
+{/* Event Type */}
+<div>
+  <Label htmlFor="eventType" className="text-sm font-semibold text-gray-700 mb-2">Type</Label>
+  <select
+    id="eventType"
+    name="eventType"
+    value={form.eventType}
+    onChange={handleFormChange}
+    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+  >
+    {EVENT_TYPE_OPTIONS.map((option) => (
+      <option key={option.value} value={option.value}>
+        {option.label}
+      </option>
+    ))}
+  </select>
+</div>
 
               {/* Date & Time */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -567,7 +759,7 @@ export default function EventCoordinatorDashboard() {
 
               {/* Location */}
               <div>
-                <Label htmlFor="location" className="text-sm font-semibold text-gray-700 mb-2">Event Location</Label>
+<Label htmlFor="location" className="text-sm font-semibold text-gray-700 mb-2">Event Location</Label>
                 <Input 
                   id="location" 
                   name="location" 
@@ -633,61 +825,40 @@ export default function EventCoordinatorDashboard() {
                   <div className="space-y-4">
                     {form.participationOptions.map((optionValue) => {
                       const optionMeta = PARTICIPATION_OPTIONS.find((option) => option.value === optionValue);
-                      const questions = Array.isArray(form.participationForms[optionValue])
-                        ? form.participationForms[optionValue]
+                      const selectedBaseFields = Array.isArray(form.participationBaseFields[optionValue])
+                        ? form.participationBaseFields[optionValue]
                         : [];
 
                       return (
                         <div key={optionValue} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-semibold text-gray-800 mb-0">{optionMeta?.label || optionValue}</h4>
-                            <Button 
-                              type="button" 
-                              size="sm" 
-                              className="bg-green-600 hover:bg-green-700 text-white text-xs py-1 px-3 rounded"
-                              onClick={() => handleAddQuestion(optionValue)}
-                            >
-                              Add Question
-                            </Button>
-                          </div>
+<div className="mb-3">
+  <h4 className="font-semibold text-gray-800 mb-0">{optionMeta?.label || optionValue}</h4>
+</div>
 
-                          {questions.length === 0 ? (
-                            <p className="text-sm text-gray-500 mb-0">No questions yet. Add questions students should answer for this role.</p>
-                          ) : (
-                            <div className="space-y-2">
-                              {questions.map((question, questionIndex) => (
-                                <div key={`${optionValue}-${questionIndex}`} className="flex gap-2 items-center bg-white p-2 rounded border border-gray-100">
-                                  <Input
-                                    value={question.label}
-                                    onChange={(event) =>
-                                      handleQuestionChange(optionValue, questionIndex, 'label', event.target.value)
-                                    }
-                                    placeholder="Question label"
-                                    className="flex-1 text-xs px-2 py-1 border border-gray-200 rounded"
-                                  />
-                                  <label className="flex items-center gap-1 text-xs whitespace-nowrap">
-                                    <input
-                                      type="checkbox"
-                                      checked={question.required !== false}
-                                      onChange={(event) =>
-                                        handleQuestionChange(optionValue, questionIndex, 'required', event.target.checked)
-                                      }
-                                      className="w-3 h-3"
-                                    />
-                                    <span>Required</span>
-                                  </label>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    className="bg-red-600 hover:bg-red-700 text-white text-xs py-1 px-2 rounded"
-                                    onClick={() => handleRemoveQuestion(optionValue, questionIndex)}
-                                  >
-                                    Remove
-                                  </Button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+<p className="text-xs text-gray-500 mb-2">
+  Choose which fields students will see in the participation application form.
+</p>
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
+  {APPLICATION_FORM_FIELDS.map((field) => {
+    const checked = selectedBaseFields.includes(field.key);
+
+    return (
+      <label
+        key={`${optionValue}-${field.key}`}
+        className="flex items-center gap-2 text-sm bg-white p-2 rounded border border-gray-200"
+      >
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={() => handleBaseFieldToggle(optionValue, field.key)}
+          className="w-4 h-4"
+        />
+        <span>{field.label}</span>
+      </label>
+    );
+  })}
+</div>
                         </div>
                       );
                     })}
@@ -744,137 +915,138 @@ export default function EventCoordinatorDashboard() {
                   />
                 </div>
               ) : null}
+{/* Event Info */}
+<div>
+  <h3 className="text-2xl font-bold text-gray-800 mb-4">{selectedItem.title}</h3>
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+    <div>
+      <span className="text-xs font-semibold text-gray-500 uppercase">Date</span>
+      <p className="text-gray-700 font-medium">{formatCardDate(selectedItem.date)}</p>
+    </div>
+    <div>
+      <span className="text-xs font-semibold text-gray-500 uppercase">Time</span>
+      <p className="text-gray-700 font-medium">{formatCardTime(selectedItem)}</p>
+    </div>
+    <div>
+      <span className="text-xs font-semibold text-gray-500 uppercase">Location</span>
+      <p className="text-gray-700 font-medium">{selectedItem.location || 'TBA'}</p>
+    </div>
+  </div>
+</div>
 
-              {/* Event Info */}
-              <div>
-                <h3 className="text-2xl font-bold text-gray-800 mb-4">{selectedItem.title}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+{/* Description */}
+<div>
+  <h4 className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Description</h4>
+  <p className="text-gray-600">{selectedItem.description || 'No description provided.'}</p>
+</div>
+
+{/* Participation Applications */}
+<div className="border-t border-gray-100 pt-6">
+  <h4 className="text-lg font-semibold text-gray-800 mb-4">Participation Applications</h4>
+
+  {Array.isArray(selectedItem.participationApplications) && selectedItem.participationApplications.length > 0 ? (
+    <div className="space-y-4">
+      {[...selectedItem.participationApplications]
+        .sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime())
+        .map((entry, index) => {
+          const student = entry.student && typeof entry.student === 'object'
+            ? entry.student
+            : null;
+          const submittedAnswers = Array.isArray(entry.application?.answers)
+            ? entry.application.answers
+            : [];
+          const statusMeta = getApplicationStatusMeta(entry.status);
+          const approveKey = `${entry._id}:approved`;
+          const rejectKey = `${entry._id}:rejected`;
+
+          return (
+            <div key={`${entry._id || entry.option}-${index}`} className="border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
+              {/* Application Header */}
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800 mb-1">
+                    {student?.fullName || entry.application?.fullName || 'Student'}
+                  </p>
+                  <p className="text-xs text-gray-500">{student?.idNumber || 'ID Not provided'}</p>
+                </div>
+                <span className="text-xs font-semibold uppercase tracking-wide text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
+                  {optionLabelMap[entry.option] || entry.option}
+                </span>
+              </div>
+
+              {/* Status and Actions */}
+              <div className="flex flex-wrap items-center gap-2 mb-3 pb-3 border-b border-gray-100">
+                <button
+                  type="button"
+                  className={`px-3 py-1 rounded-full text-xs font-semibold cursor-default ${statusMeta.className}`}
+                  disabled
+                >
+                  {statusMeta.label}
+                </button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1 px-3 rounded transition-all"
+                  onClick={() =>
+                    handleApplicationStatusUpdate(selectedItem._id, entry._id, 'approved')
+                  }
+                  disabled={reviewingKey === approveKey}
+                >
+                  {reviewingKey === approveKey ? 'Updating...' : 'Approve'}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold py-1 px-3 rounded transition-all"
+                  onClick={() =>
+                    handleApplicationStatusUpdate(selectedItem._id, entry._id, 'rejected')
+                  }
+                  disabled={reviewingKey === rejectKey}
+                >
+                  {reviewingKey === rejectKey ? 'Updating...' : 'Reject'}
+                </Button>
+              </div>
+
+              {/* Contact Info */}
+              <div className="text-sm text-gray-600 mb-3 space-y-1">
+                <p className="mb-0"><strong>Email:</strong> {student?.email || entry.application?.email || 'No email provided'}</p>
+                <p className="mb-0"><strong>Applied:</strong> {new Date(entry.appliedAt).toLocaleString('en-GB')}</p>
+              </div>
+
+              {/* Application Answers */}
+              {submittedAnswers.length > 0 ? (
+                <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                  {submittedAnswers.map((answer, answerIndex) => (
+                    <div key={`${answer.questionKey}-${answerIndex}`}>
+                      <p className="text-xs font-semibold text-gray-700 mb-1">{answer.label}</p>
+                      <p className="text-xs text-gray-600">{answer.answer}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                   <div>
-                    <span className="text-xs font-semibold text-gray-500 uppercase">Date</span>
-                    <p className="text-gray-700 font-medium">{formatCardDate(selectedItem.date)}</p>
+                    <p className="text-xs font-semibold text-gray-700 mb-1">Phone</p>
+                    <p className="text-xs text-gray-600">{entry.application?.phone || 'Not provided'}</p>
                   </div>
                   <div>
-                    <span className="text-xs font-semibold text-gray-500 uppercase">Time</span>
-                    <p className="text-gray-700 font-medium">{formatCardTime(selectedItem)}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs font-semibold text-gray-500 uppercase">Location</span>
-                    <p className="text-gray-700 font-medium">{selectedItem.location || 'TBA'}</p>
+                    <p className="text-xs font-semibold text-gray-700 mb-1">Notes</p>
+                    <p className="text-xs text-gray-600">{entry.application?.notes || 'Not provided'}</p>
                   </div>
                 </div>
-              </div>
-
-              {/* Description */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Description</h4>
-                <p className="text-gray-600">{selectedItem.description || 'No description provided.'}</p>
-              </div>
-
-              {/* Applications Section */}
-              <div className="border-t border-gray-100 pt-6">
-                <h4 className="text-lg font-semibold text-gray-800 mb-4">Participation Applications</h4>
-
-                {Array.isArray(selectedItem.participationApplications) && selectedItem.participationApplications.length > 0 ? (
-                  <div className="space-y-4">
-                    {[...selectedItem.participationApplications]
-                      .sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime())
-                      .map((entry, index) => {
-                        const student = entry.student && typeof entry.student === 'object'
-                          ? entry.student
-                          : null;
-                        const submittedAnswers = Array.isArray(entry.application?.answers)
-                          ? entry.application.answers
-                          : [];
-                        const statusMeta = getApplicationStatusMeta(entry.status);
-                        const approveKey = `${entry._id}:approved`;
-                        const rejectKey = `${entry._id}:rejected`;
-
-                        return (
-                          <div key={`${entry._id || entry.option}-${index}`} className="border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
-                            {/* Application Header */}
-                            <div className="flex items-start justify-between mb-3">
-                              <div>
-                                <p className="text-sm font-semibold text-gray-800 mb-1">
-                                  {student?.fullName || entry.application?.fullName || 'Student'}
-                                </p>
-                                <p className="text-xs text-gray-500">{student?.idNumber || 'ID Not provided'}</p>
-                              </div>
-                              <span className="text-xs font-semibold uppercase tracking-wide text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
-                                {optionLabelMap[entry.option] || entry.option}
-                              </span>
-                            </div>
-
-                            {/* Status and Actions */}
-                            <div className="flex flex-wrap items-center gap-2 mb-3 pb-3 border-b border-gray-100">
-                              <button
-                                type="button"
-                                className={`px-3 py-1 rounded-full text-xs font-semibold cursor-default ${statusMeta.className}`}
-                                disabled
-                              >
-                                {statusMeta.label}
-                              </button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1 px-3 rounded transition-all"
-                                onClick={() =>
-                                  handleApplicationStatusUpdate(selectedItem._id, entry._id, 'approved')
-                                }
-                                disabled={reviewingKey === approveKey}
-                              >
-                                {reviewingKey === approveKey ? 'Updating...' : 'Approve'}
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold py-1 px-3 rounded transition-all"
-                                onClick={() =>
-                                  handleApplicationStatusUpdate(selectedItem._id, entry._id, 'rejected')
-                                }
-                                disabled={reviewingKey === rejectKey}
-                              >
-                                {reviewingKey === rejectKey ? 'Updating...' : 'Reject'}
-                              </Button>
-                            </div>
-
-                            {/* Contact Info */}
-                            <div className="text-sm text-gray-600 mb-3 space-y-1">
-                              <p className="mb-0"><strong>Email:</strong> {student?.email || entry.application?.email || 'No email provided'}</p>
-                              <p className="mb-0"><strong>Applied:</strong> {new Date(entry.appliedAt).toLocaleString('en-GB')}</p>
-                            </div>
-
-                            {/* Application Answers */}
-                            {submittedAnswers.length > 0 ? (
-                              <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                                {submittedAnswers.map((answer, answerIndex) => (
-                                  <div key={`${answer.questionKey}-${answerIndex}`}>
-                                    <p className="text-xs font-semibold text-gray-700 mb-1">{answer.label}</p>
-                                    <p className="text-xs text-gray-600">{answer.answer}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                                <div>
-                                  <p className="text-xs font-semibold text-gray-700 mb-1">Phone</p>
-                                  <p className="text-xs text-gray-600">{entry.application?.phone || 'Not provided'}</p>
-                                </div>
-                                <div>
-                                  <p className="text-xs font-semibold text-gray-700 mb-1">Notes</p>
-                                  <p className="text-xs text-gray-600">{entry.application?.notes || 'Not provided'}</p>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-sm bg-gray-50 p-4 rounded-lg border border-gray-100">No participation applications submitted yet.</p>
-                )}
+              )}
+            </div>
+          );
+        })}
+    </div>
+  ) : (
+    <p className="text-gray-500 text-sm bg-white p-4 rounded-lg border border-gray-200">
+      No participation applications yet.
+    </p>
+  )}
+</div>
               </div>
             </div>
-          </div>
         </div>
       ) : null}
     </>

@@ -24,6 +24,7 @@ const participationApplicationSchema = new mongoose.Schema(
     option: { type: String, enum: participationOptionEnum, required: true, index: true },
     application: {
       fullName: { type: String, default: '' },
+      studentId: { type: String, default: '' },
       email: { type: String, default: '' },
       phone: { type: String, default: '' },
       notes: { type: String, default: '' },
