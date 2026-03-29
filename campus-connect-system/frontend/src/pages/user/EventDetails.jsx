@@ -42,6 +42,8 @@ const askPhoneRegex = /^0\d{9}$/;
 const emailHasAtRegex = /^[^\s@]+@[^\s@]+$/;
 const studentIdRegex = /^.{10}$/;
 
+const FALLBACK_FIELDS = ['fullName', 'email', 'phone', 'studentId'];
+
 const getStatusMeta = (status) => {
   const normalized = String(status || '').toLowerCase();
 
@@ -151,7 +153,10 @@ export default function EventDetails() {
       : [];
 
     const matched = forms.find((form) => form.option === option);
-    return Array.isArray(matched?.questions) ? matched.questions : [];
+    const questions = Array.isArray(matched?.questions) ? matched.questions : [];
+    return questions.filter(
+      (question) => String(question?.key || '').toLowerCase() !== 'participation_options'
+    );
   };
 
   const createInitialAnswers = (option) => {
@@ -164,7 +169,20 @@ export default function EventDetails() {
       );
 
       return templateQuestions.reduce((acc, question) => {
-        acc[question.key] = String(answersMap.get(question.key) || '');
+        const keyText = String(question?.key || '').toLowerCase();
+        const savedAnswer = answersMap.get(question.key);
+
+        if (keyText === 'full_name') {
+          acc[question.key] = String(savedAnswer || user?.fullName || '');
+          return acc;
+        }
+
+        if (keyText === 'email') {
+          acc[question.key] = String(savedAnswer || user?.email || '');
+          return acc;
+        }
+
+        acc[question.key] = String(savedAnswer || '');
         return acc;
       }, {});
     }
@@ -174,7 +192,6 @@ export default function EventDetails() {
       studentId: savedApplication?.studentId || '',
       email: savedApplication?.email || user?.email || '',
       phone: savedApplication?.phone || '',
-      notes: savedApplication?.notes || '',
     };
   };
 
@@ -193,7 +210,6 @@ export default function EventDetails() {
       studentId: '',
       email: '',
       phone: '',
-      notes: '',
     };
   };
 
@@ -251,11 +267,6 @@ export default function EventDetails() {
     if (fieldKey === 'phone') {
       if (!trimmed) return 'Phone number is required.';
       if (!askPhoneRegex.test(trimmed)) return 'Phone number must start with 0 and contain exactly 10 digits.';
-      return '';
-    }
-
-    if (fieldKey === 'notes') {
-      if (!trimmed) return 'Application note is required.';
       return '';
     }
 
@@ -335,7 +346,7 @@ export default function EventDetails() {
         if (err) nextErrors[question.key] = err;
       });
     } else {
-      ['fullName', 'studentId', 'email', 'phone', 'notes'].forEach((fieldKey) => {
+      FALLBACK_FIELDS.forEach((fieldKey) => {
         const err = validateField(selectedOption, fieldKey, answers[fieldKey]);
         if (err) nextErrors[fieldKey] = err;
       });
@@ -355,12 +366,17 @@ export default function EventDetails() {
       return;
     }
 
+    const normalizedFullName = String(answers.full_name || answers.fullName || '').trim();
+    const normalizedStudentId = String(answers.student_id || answers.studentId || '').trim();
+    const normalizedEmail = String(answers.email || '').trim();
+    const normalizedPhone = String(answers.phone || '').trim();
+
     const payload = {
-      fullName: answers.fullName || '',
-      studentId: answers.studentId || '',
-      email: answers.email || '',
-      phone: answers.phone || '',
-      notes: answers.notes || '',
+      fullName: normalizedFullName,
+      studentId: normalizedStudentId,
+      email: normalizedEmail,
+      phone: normalizedPhone,
+      notes: 'N/A',
       answers:
         templateQuestions.length > 0
           ? templateQuestions.map((question) => ({
@@ -475,7 +491,7 @@ export default function EventDetails() {
       );
     }
 
-    return ['fullName', 'studentId', 'email', 'phone', 'notes'].every(
+    return FALLBACK_FIELDS.every(
       (fieldKey) => !validateField(selectedOption, fieldKey, answers[fieldKey])
     );
   })();
@@ -654,12 +670,14 @@ export default function EventDetails() {
                             {question.label}
                             {question.required ? <span className="text-red-500 ml-1">*</span> : ''}
                           </label>
-                          <textarea
-                            rows={4}
+                          <input
+                            type={String(question?.key || '').toLowerCase() === 'email' ? 'email' : 'text'}
                             value={answers[question.key] || ''}
                             onChange={(event) => handleAnswerChange(question.key, event.target.value)}
                             onBlur={(event) => handleFieldBlur(question.key, event.target.value)}
-                            className={getFieldClassName(question.key, true)}
+                            className={getFieldClassName(question.key)}
+                            inputMode={String(question?.key || '').toLowerCase() === 'phone' ? 'numeric' : undefined}
+                            maxLength={String(question?.key || '').toLowerCase() === 'student_id' ? 10 : undefined}
                             required={question.required !== false}
                           />
                           {(submitAttempted || fieldTouched[question.key]) && fieldErrors[question.key] ? (
@@ -698,7 +716,7 @@ export default function EventDetails() {
                           ) : null}
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Student ID *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Registration Number *</label>
                           <input
                             type="text"
                             value={answers.studentId || ''}
@@ -728,22 +746,21 @@ export default function EventDetails() {
                             <p className="text-xs text-red-600 mt-1">{fieldErrors.phone}</p>
                           ) : null}
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Why are you applying? *</label>
-                          <textarea
-                            rows={4}
-                            value={answers.notes || ''}
-                            onChange={(event) => handleAnswerChange('notes', event.target.value)}
-                            onBlur={(event) => handleFieldBlur('notes', event.target.value)}
-                            className={getFieldClassName('notes', true)}
-                            required
-                          />
-                          {(submitAttempted || fieldTouched.notes) && fieldErrors.notes ? (
-                            <p className="text-xs text-red-600 mt-1">{fieldErrors.notes}</p>
-                          ) : null}
-                        </div>
                       </>
                     )}
+
+                    {canManagePendingApplication ? (
+                      <div className="flex items-center justify-end pt-2">
+                        <button
+                          type="button"
+                          onClick={handleDeleteApplication}
+                          disabled={deleting || submitting}
+                          className="px-4 py-2 border border-red-300 bg-red-50 rounded-lg text-red-700 hover:bg-red-100 disabled:opacity-50"
+                        >
+                          {deleting ? 'Deleting...' : 'Delete Application'}
+                        </button>
+                      </div>
+                    ) : null}
 
                     <div className="flex items-center justify-end gap-2 pt-2">
                       <button
@@ -753,30 +770,15 @@ export default function EventDetails() {
                       >
                         Clear Form
                       </button>
-                      {canManagePendingApplication ? (
-                        <button
-                          type="button"
-                          onClick={handleDeleteApplication}
-                          disabled={deleting || submitting}
-                          className="px-4 py-2 border border-red-300 bg-red-50 rounded-lg text-red-700 hover:bg-red-100 disabled:opacity-50"
-                        >
-                          {deleting ? 'Deleting...' : 'Delete Application'}
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => setIsApplicationModalOpen(false)}
-                        className="px-4 py-2 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50"
-                      >
-                        Cancel
-                      </button>
                       <button
                         type="submit"
                         disabled={submitting || deleting || !isApplicationFormValid || (selectedApplication && !canManagePendingApplication)}
                         className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all disabled:opacity-50"
                       >
                         {submitting
-                          ? 'Submitting...'
+                          ? canManagePendingApplication
+                            ? 'Updating...'
+                            : 'Submitting...'
                           : canManagePendingApplication
                             ? 'Update Application'
                             : 'Submit Application'}

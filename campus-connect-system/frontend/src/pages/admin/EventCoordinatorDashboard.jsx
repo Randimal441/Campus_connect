@@ -33,7 +33,17 @@ const INITIAL_FORM = {
   image: '',
   participationOptions: [],
   participationForms: {},
+  participationBaseFields: {},
 };
+
+const APPLICATION_FORM_FIELDS = [
+  { key: 'full_name', label: 'Full Name' },
+  { key: 'email', label: 'Email Address' },
+  { key: 'phone', label: 'Phone Number' },
+  { key: 'student_id', label: 'Registration Number' },
+];
+
+const APPLICATION_FORM_FIELD_KEYS = new Set(APPLICATION_FORM_FIELDS.map((field) => field.key));
 
 const resolveImageUrl = (imagePath) => {
   if (!imagePath) return '';
@@ -207,15 +217,17 @@ export default function EventCoordinatorDashboard() {
 
   const openEditModal = (item) => {
     const mappedForms = {};
+    const mappedBaseFields = {};
 
     if (Array.isArray(item.participationForms)) {
       item.participationForms.forEach((formItem) => {
-        mappedForms[formItem.option] = Array.isArray(formItem.questions)
-          ? formItem.questions.map((question) => ({
-              label: question.label || '',
-              required: question.required !== false,
-            }))
-          : [];
+        const questions = Array.isArray(formItem.questions) ? formItem.questions : [];
+        const selected = questions
+          .map((question) => String(question?.key || '').trim().toLowerCase())
+          .filter((key) => APPLICATION_FORM_FIELD_KEYS.has(key));
+
+        mappedBaseFields[formItem.option] = selected;
+        mappedForms[formItem.option] = [];
       });
     }
 
@@ -232,6 +244,7 @@ export default function EventCoordinatorDashboard() {
         ? item.participationOptions
         : [],
       participationForms: mappedForms,
+      participationBaseFields: mappedBaseFields,
     });
     setImageFile(null);
     setMessage('');
@@ -261,10 +274,13 @@ export default function EventCoordinatorDashboard() {
       const exists = prev.participationOptions.includes(optionValue);
 
       const nextParticipationForms = { ...prev.participationForms };
+      const nextBaseFields = { ...prev.participationBaseFields };
       if (exists) {
         delete nextParticipationForms[optionValue];
+        delete nextBaseFields[optionValue];
       } else {
-        nextParticipationForms[optionValue] = [{ label: '', required: true }];
+        nextParticipationForms[optionValue] = [];
+        nextBaseFields[optionValue] = APPLICATION_FORM_FIELDS.map((field) => field.key);
       }
 
       return {
@@ -273,63 +289,27 @@ export default function EventCoordinatorDashboard() {
           ? prev.participationOptions.filter((value) => value !== optionValue)
           : [...prev.participationOptions, optionValue],
         participationForms: nextParticipationForms,
+        participationBaseFields: nextBaseFields,
       };
     });
   };
 
-  const handleAddQuestion = (optionValue) => {
+  const handleBaseFieldToggle = (optionValue, fieldKey) => {
     setForm((prev) => {
-      const existing = Array.isArray(prev.participationForms[optionValue])
-        ? prev.participationForms[optionValue]
+      const selected = Array.isArray(prev.participationBaseFields[optionValue])
+        ? prev.participationBaseFields[optionValue]
         : [];
+
+      const exists = selected.includes(fieldKey);
+      const nextSelected = exists
+        ? selected.filter((key) => key !== fieldKey)
+        : [...selected, fieldKey];
 
       return {
         ...prev,
-        participationForms: {
-          ...prev.participationForms,
-          [optionValue]: [...existing, { label: '', required: true }],
-        },
-      };
-    });
-  };
-
-  const handleQuestionChange = (optionValue, index, field, value) => {
-    setForm((prev) => {
-      const existing = Array.isArray(prev.participationForms[optionValue])
-        ? prev.participationForms[optionValue]
-        : [];
-
-      const updatedQuestions = existing.map((question, questionIndex) => {
-        if (questionIndex !== index) return question;
-        return {
-          ...question,
-          [field]: value,
-        };
-      });
-
-      return {
-        ...prev,
-        participationForms: {
-          ...prev.participationForms,
-          [optionValue]: updatedQuestions,
-        },
-      };
-    });
-  };
-
-  const handleRemoveQuestion = (optionValue, index) => {
-    setForm((prev) => {
-      const existing = Array.isArray(prev.participationForms[optionValue])
-        ? prev.participationForms[optionValue]
-        : [];
-
-      const updatedQuestions = existing.filter((_, questionIndex) => questionIndex !== index);
-
-      return {
-        ...prev,
-        participationForms: {
-          ...prev.participationForms,
-          [optionValue]: updatedQuestions,
+        participationBaseFields: {
+          ...prev.participationBaseFields,
+          [optionValue]: nextSelected,
         },
       };
     });
@@ -355,21 +335,29 @@ export default function EventCoordinatorDashboard() {
       });
 
       const participationFormsPayload = form.participationOptions.map((option) => {
-        const questions = Array.isArray(form.participationForms[option])
-          ? form.participationForms[option]
+        const selectedBaseFields = Array.isArray(form.participationBaseFields[option])
+          ? form.participationBaseFields[option]
           : [];
 
         return {
           option,
-          questions: questions
-            .map((question, index) => ({
-              key: `q_${index + 1}`,
-              label: (question.label || '').trim(),
-              required: question.required !== false,
-            }))
-            .filter((question) => question.label),
+          questions: APPLICATION_FORM_FIELDS
+            .filter((field) => selectedBaseFields.includes(field.key))
+            .map((field) => ({
+              key: field.key,
+              label: field.label,
+              required: true,
+            })),
         };
       });
+
+      const hasEmptyOptionForm = participationFormsPayload.some(
+        (entry) => !Array.isArray(entry.questions) || entry.questions.length === 0
+      );
+
+      if (hasEmptyOptionForm) {
+        throw new Error('Please select at least one application field for every participation option.');
+      }
 
       payload.append('participationForms', JSON.stringify(participationFormsPayload));
 
@@ -838,61 +826,40 @@ export default function EventCoordinatorDashboard() {
                   <div className="space-y-4">
                     {form.participationOptions.map((optionValue) => {
                       const optionMeta = PARTICIPATION_OPTIONS.find((option) => option.value === optionValue);
-                      const questions = Array.isArray(form.participationForms[optionValue])
-                        ? form.participationForms[optionValue]
+                      const selectedBaseFields = Array.isArray(form.participationBaseFields[optionValue])
+                        ? form.participationBaseFields[optionValue]
                         : [];
 
                       return (
                         <div key={optionValue} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                          <div className="flex items-center justify-between mb-3">
+                          <div className="mb-3">
                             <h4 className="font-semibold text-gray-800 mb-0">{optionMeta?.label || optionValue}</h4>
-                            <Button 
-                              type="button" 
-                              size="sm" 
-                              className="bg-green-600 hover:bg-green-700 text-white text-xs py-1 px-3 rounded"
-                              onClick={() => handleAddQuestion(optionValue)}
-                            >
-                              Add Question
-                            </Button>
                           </div>
 
-                          {questions.length === 0 ? (
-                            <p className="text-sm text-gray-500 mb-0">No questions yet. Add questions students should answer for this role.</p>
-                          ) : (
-                            <div className="space-y-2">
-                              {questions.map((question, questionIndex) => (
-                                <div key={`${optionValue}-${questionIndex}`} className="flex gap-2 items-center bg-white p-2 rounded border border-gray-100">
-                                  <Input
-                                    value={question.label}
-                                    onChange={(event) =>
-                                      handleQuestionChange(optionValue, questionIndex, 'label', event.target.value)
-                                    }
-                                    placeholder="Question label"
-                                    className="flex-1 text-xs px-2 py-1 border border-gray-200 rounded"
+                          <p className="text-xs text-gray-500 mb-2">
+                            Choose which fields students will see in the participation application form.
+                          </p>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {APPLICATION_FORM_FIELDS.map((field) => {
+                              const checked = selectedBaseFields.includes(field.key);
+
+                              return (
+                                <label
+                                  key={`${optionValue}-${field.key}`}
+                                  className="flex items-center gap-2 text-sm bg-white p-2 rounded border border-gray-200"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => handleBaseFieldToggle(optionValue, field.key)}
+                                    className="w-4 h-4"
                                   />
-                                  <label className="flex items-center gap-1 text-xs whitespace-nowrap">
-                                    <input
-                                      type="checkbox"
-                                      checked={question.required !== false}
-                                      onChange={(event) =>
-                                        handleQuestionChange(optionValue, questionIndex, 'required', event.target.checked)
-                                      }
-                                      className="w-3 h-3"
-                                    />
-                                    <span>Required</span>
-                                  </label>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    className="bg-red-600 hover:bg-red-700 text-white text-xs py-1 px-2 rounded"
-                                    onClick={() => handleRemoveQuestion(optionValue, questionIndex)}
-                                  >
-                                    Remove
-                                  </Button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                                  <span>{field.label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
                         </div>
                       );
                     })}

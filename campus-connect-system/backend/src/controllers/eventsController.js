@@ -12,6 +12,7 @@ const ALLOWED_APPLICATION_STATUSES = ['approved', 'rejected'];
 const EMAIL_HAS_AT_REGEX = /^[^\s@]+@[^\s@]+$/;
 const PHONE_STARTS_WITH_ZERO_REGEX = /^0\d{9}$/;
 const STUDENT_ID_LENGTH_REGEX = /^.{10}$/;
+const DEPRECATED_FORM_QUESTION_KEYS = new Set(['participation_options']);
 
 const normalizeParticipationOptions = (value) => {
   if (!value) return [];
@@ -51,6 +52,16 @@ const normalizeSubmittedAnswers = (rawAnswers) => (
         label: sanitizeApplicationField(answer?.label),
         answer: sanitizeApplicationField(answer?.answer),
       }))
+    : []
+);
+
+const sanitizeFormQuestions = (questions) => (
+  Array.isArray(questions)
+    ? questions.filter(
+        (question) => !DEPRECATED_FORM_QUESTION_KEYS.has(
+          sanitizeApplicationField(question?.key).toLowerCase()
+        )
+      )
     : []
 );
 
@@ -201,6 +212,7 @@ const normalizeParticipationForms = (value, selectedOptions = []) => {
 
         const keySource = sanitizeApplicationField(question?.key) || `q_${questionIndex + 1}`;
         const key = keySource.toLowerCase().replace(/[^a-z0-9_]+/g, '_');
+        if (DEPRECATED_FORM_QUESTION_KEYS.has(key)) return null;
 
         return {
           key: key || `q_${questionIndex + 1}`,
@@ -435,9 +447,7 @@ const applyForParticipation = async (req, res, next) => {
     const participationForm = (item.participationForms || []).find(
       (form) => form.option === option
     );
-    const formQuestions = Array.isArray(participationForm?.questions)
-      ? participationForm.questions
-      : [];
+    const formQuestions = sanitizeFormQuestions(participationForm?.questions);
 
     const alreadyApplied = await ParticipationApplication.findOne({
       event: item._id,
@@ -577,9 +587,7 @@ const updateOwnParticipationApplication = async (req, res, next) => {
     const participationForm = (item.participationForms || []).find(
       (form) => form.option === participationApplication.option
     );
-    const formQuestions = Array.isArray(participationForm?.questions)
-      ? participationForm.questions
-      : [];
+    const formQuestions = sanitizeFormQuestions(participationForm?.questions);
 
     const validatedApplication = validateApplicationPayload(req.body?.application, formQuestions);
 
