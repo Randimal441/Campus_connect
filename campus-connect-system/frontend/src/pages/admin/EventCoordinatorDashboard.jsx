@@ -564,7 +564,6 @@ export default function EventCoordinatorDashboard() {
     </Button>
   </div>
 </div>
-                </div>
               </article>
             ))}
           </div>
@@ -679,6 +678,7 @@ export default function EventCoordinatorDashboard() {
   </p>
 )}
 </section>
+        ) : null}
       </div>
 
       {isModalOpen ? (
@@ -728,7 +728,6 @@ export default function EventCoordinatorDashboard() {
     ))}
   </select>
 </div>
-              </div>
 
               {/* Date & Time */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -860,56 +859,6 @@ export default function EventCoordinatorDashboard() {
     );
   })}
 </div>
-
-<div className="flex items-center justify-between mb-2">
-  <h4 className="font-semibold text-gray-800 mb-0">Custom Questions</h4>
-  <Button 
-    type="button" 
-    size="sm" 
-    className="bg-green-600 hover:bg-green-700 text-white text-xs py-1 px-3 rounded"
-    onClick={() => handleAddQuestion(optionValue)}
-  >
-    Add Question
-  </Button>
-</div>
-
-{questions.length === 0 ? (
-  <p className="text-sm text-gray-500 mb-0">No questions yet. Add questions students should answer for this role.</p>
-) : (
-  <div className="space-y-2">
-    {questions.map((question, questionIndex) => (
-      <div key={`${optionValue}-${questionIndex}`} className="flex gap-2 items-center bg-white p-2 rounded border border-gray-100">
-        <Input
-          value={question.label}
-          onChange={(event) =>
-            handleQuestionChange(optionValue, questionIndex, 'label', event.target.value)
-          }
-          placeholder="Question label"
-          className="flex-1 text-xs px-2 py-1 border border-gray-200 rounded"
-        />
-        <label className="flex items-center gap-1 text-xs whitespace-nowrap">
-          <input
-            type="checkbox"
-            checked={question.required !== false}
-            onChange={(event) =>
-              handleQuestionChange(optionValue, questionIndex, 'required', event.target.checked)
-            }
-            className="w-3 h-3"
-          />
-          <span>Required</span>
-        </label>
-        <Button
-          type="button"
-          size="sm"
-          className="bg-red-600 hover:bg-red-700 text-white text-xs py-1 px-2 rounded"
-          onClick={() => handleRemoveQuestion(optionValue, questionIndex)}
-        >
-          Remove
-        </Button>
-      </div>
-    ))}
-  </div>
-)}
                         </div>
                       );
                     })}
@@ -1096,25 +1045,8 @@ export default function EventCoordinatorDashboard() {
     </p>
   )}
 </div>
-                          </div>
-                          <div className="bg-emerald-50 rounded px-2 py-1 border border-emerald-200">
-                            <p className="text-emerald-700">Approved</p>
-                            <p className="font-semibold text-emerald-800">{category.approved}</p>
-                          </div>
-                          <div className="bg-red-50 rounded px-2 py-1 border border-red-200">
-                            <p className="text-red-700">Rejected</p>
-                            <p className="font-semibold text-red-800">{category.rejected}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-sm bg-gray-50 p-4 rounded-lg border border-gray-100">No participation applications submitted yet.</p>
-                )}
               </div>
             </div>
-          </div>
         </div>
       ) : null}
     </>
