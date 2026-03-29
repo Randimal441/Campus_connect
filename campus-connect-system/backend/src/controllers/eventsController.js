@@ -64,7 +64,6 @@ const sanitizeFormQuestions = (questions) => (
       )
     : []
 );
-
 const validateApplicationPayload = (application, formQuestions) => {
   const submittedAnswers = normalizeSubmittedAnswers(application?.answers);
 
@@ -80,6 +79,9 @@ const validateApplicationPayload = (application, formQuestions) => {
     if (missingRequired) {
       throw new Error('Please complete all required questions in the application form.');
     }
+  } else {
+    const fullName = sanitizeApplicationField(application?.fullName);
+    const studentId = sanitizeApplicationField(application?.studentId);
 
     const hasInvalidEmailAnswer = formQuestions.some((question) => {
       const keyText = sanitizeApplicationField(question?.key).toLowerCase();
@@ -116,9 +118,10 @@ const validateApplicationPayload = (application, formQuestions) => {
     const hasInvalidStudentIdAnswer = formQuestions.some((question) => {
       const keyText = sanitizeApplicationField(question?.key).toLowerCase();
       const labelText = sanitizeApplicationField(question?.label).toLowerCase();
-      const isStudentIdQuestion = keyText.includes('studentid')
-        || keyText.includes('student_id')
-        || (labelText.includes('student') && labelText.includes('id'));
+      const isStudentIdQuestion =
+        keyText.includes('studentid') ||
+        keyText.includes('student_id') ||
+        (labelText.includes('student') && labelText.includes('id'));
       if (!isStudentIdQuestion) return false;
 
       const answer = sanitizeApplicationField(answersMap.get(question.key));
@@ -130,39 +133,36 @@ const validateApplicationPayload = (application, formQuestions) => {
     if (hasInvalidStudentIdAnswer) {
       throw new Error('Student ID must contain exactly 10 characters.');
     }
-  } else {
-    const fullName = sanitizeApplicationField(application?.fullName);
-    const studentId = sanitizeApplicationField(application?.studentId);
+  }
     const email = sanitizeApplicationField(application?.email);
     const phone = sanitizeApplicationField(application?.phone);
     const notes = sanitizeApplicationField(application?.notes);
 
-    if (!fullName || !studentId || !email || !phone || !notes) {
-      throw new Error('Please complete the participation application form.');
-    }
+if (!fullName || !studentId || !email || !phone || !notes) {
+  throw new Error('Please complete the participation application form.');
+}
 
-    if (!STUDENT_ID_LENGTH_REGEX.test(studentId)) {
-      throw new Error('Student ID must contain exactly 10 characters.');
-    }
+if (!STUDENT_ID_LENGTH_REGEX.test(studentId)) {
+  throw new Error('Student ID must contain exactly 10 characters.');
+}
 
-    if (!EMAIL_HAS_AT_REGEX.test(email)) {
-      throw new Error('Email address must include @.');
-    }
+if (!EMAIL_HAS_AT_REGEX.test(email)) {
+  throw new Error('Email address must include @.');
+}
 
-    if (!PHONE_STARTS_WITH_ZERO_REGEX.test(phone)) {
-      throw new Error('Phone number must start with 0 and contain exactly 10 digits.');
-    }
-  }
+if (!PHONE_STARTS_WITH_ZERO_REGEX.test(phone)) {
+  throw new Error('Phone number must start with 0 and contain exactly 10 digits.');
+}
 
-  const fullName = sanitizeApplicationField(application?.fullName);
-  const studentId = sanitizeApplicationField(application?.studentId);
+const fullName = sanitizeApplicationField(application?.fullName);
+const studentId = sanitizeApplicationField(application?.studentId);
   const email = sanitizeApplicationField(application?.email);
   const phone = sanitizeApplicationField(application?.phone);
   const notes = sanitizeApplicationField(application?.notes);
 
   return {
     fullName,
-    studentId,
+studentId,
     email,
     phone,
     notes,
@@ -460,12 +460,53 @@ const applyForParticipation = async (req, res, next) => {
     }
 
     const validatedApplication = validateApplicationPayload(application, formQuestions);
+const submittedAnswers = Array.isArray(validatedApplication?.answers)
+  ? validatedApplication.answers.map((answer) => ({
+      questionKey: sanitizeApplicationField(answer?.questionKey),
+      label: sanitizeApplicationField(answer?.label),
+      answer: sanitizeApplicationField(answer?.answer),
+    }))
+  : [];
 
+if (formQuestions.length > 0) {
+  const answersMap = new Map(
+    submittedAnswers.map((entry) => [entry.questionKey, entry.answer])
+  );
+
+  const missingRequired = formQuestions.some(
+    (question) => question.required && !sanitizeApplicationField(answersMap.get(question.key))
+  );
+
+  if (missingRequired) {
+    return res.status(400).json({
+      message: 'Please complete all required questions in the application form.',
+    });
+  }
+} else {
+  const fullName = sanitizeApplicationField(validatedApplication?.fullName);
+  const email = sanitizeApplicationField(validatedApplication?.email);
+  const phone = sanitizeApplicationField(validatedApplication?.phone);
+  const notes = sanitizeApplicationField(validatedApplication?.notes);
+
+  if (!fullName || !email || !phone || !notes) {
+    return res.status(400).json({
+      message: 'Please complete the participation application form.',
+    });
+  }
+}
     const created = await ParticipationApplication.create({
       event: item._id,
       student: req.user._id,
       option,
-      application: validatedApplication,
+application: {
+  fullName: sanitizeApplicationField(validatedApplication?.fullName),
+  email: sanitizeApplicationField(validatedApplication?.email),
+  phone: sanitizeApplicationField(validatedApplication?.phone),
+  notes: sanitizeApplicationField(validatedApplication?.notes),
+  answers: submittedAnswers.filter(
+    (entry) => entry.questionKey && entry.label && entry.answer
+  ),
+},
     });
 
     return res.json({
@@ -491,16 +532,16 @@ const getMyApplications = async (req, res, next) => {
       student: req.user._id,
     })
       .select('event option status application createdAt reviewedAt')
-      .populate('event', 'title date eventType')
+.populate('event', 'title date eventType')
       .sort({ createdAt: -1 })
       .lean();
 
     const mapped = applications.map((entry) => ({
       id: entry._id,
-      eventId: entry.event?._id || entry.event,
-      eventTitle: entry.event?.title || '',
-      eventDate: entry.event?.date || null,
-      eventType: entry.event?.eventType || '',
+eventId: entry.event?._id || entry.event,
+eventTitle: entry.event?.title || '',
+eventDate: entry.event?.date || null,
+eventType: entry.event?.eventType || '',
       option: entry.option,
       status: entry.status,
       application: entry.application,
@@ -587,7 +628,7 @@ const updateOwnParticipationApplication = async (req, res, next) => {
     const participationForm = (item.participationForms || []).find(
       (form) => form.option === participationApplication.option
     );
-    const formQuestions = sanitizeFormQuestions(participationForm?.questions);
+const formQuestions = sanitizeFormQuestions(participationForm?.questions);
 
     const validatedApplication = validateApplicationPayload(req.body?.application, formQuestions);
 

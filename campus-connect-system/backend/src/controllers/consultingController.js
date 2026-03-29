@@ -21,6 +21,51 @@ const MENTAL_HEALTH_QUESTIONS = [
   'Have you had any thoughts of harming yourself or feeling life isn\'t worth living?',
 ];
 
+const timeToMinutes = (time) => {
+  const [hours, minutes] = String(time || '').split(':').map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+  return hours * 60 + minutes;
+};
+
+const hasTimeOverlap = (aStart, aEnd, bStart, bEnd) => {
+  return aStart < bEnd && aEnd > bStart;
+};
+
+const findSessionOverlap = async ({ counselorId, day, startTime, endTime, excludeSessionId = null }) => {
+  const newStart = timeToMinutes(startTime);
+  const newEnd = timeToMinutes(endTime);
+
+  if (newStart === null || newEnd === null || newStart >= newEnd) {
+    return { invalidTime: true, overlap: null };
+  }
+
+  const query = {
+    counselor: counselorId,
+    day,
+  };
+
+  if (excludeSessionId) {
+    query._id = { $ne: excludeSessionId };
+  }
+
+  const sameDaySessions = await ConsultingSession.find(query)
+    .select('startTime endTime')
+    .lean();
+
+  const overlap = sameDaySessions.find((session) => {
+    const existingStart = timeToMinutes(session.startTime);
+    const existingEnd = timeToMinutes(session.endTime);
+
+    if (existingStart === null || existingEnd === null) {
+      return false;
+    }
+
+    return hasTimeOverlap(newStart, newEnd, existingStart, existingEnd);
+  });
+
+  return { invalidTime: false, overlap: overlap || null };
+};
+
 // ─── GEMINI: Analyze mental status ───────────────────────────────────────────
 const analyzeMentalStatus = async (answers) => {
   try {
@@ -138,6 +183,23 @@ const createSession = async (req, res, next) => {
       return res.status(400).json({ message: 'day, startTime, endTime, and place are required.' });
     }
 
+    const { invalidTime, overlap } = await findSessionOverlap({
+      counselorId: req.user._id,
+      day,
+      startTime,
+      endTime,
+    });
+
+    if (invalidTime) {
+      return res.status(400).json({ message: 'Invalid time range. endTime must be after startTime.' });
+    }
+
+    if (overlap) {
+      return res.status(409).json({
+        message: `You already have a session on ${day} that overlaps (${overlap.startTime}-${overlap.endTime}). Please choose a different time.`,
+      });
+    }
+
     const slots = ConsultingSession.generateSlots(startTime, endTime);
 
     if (slots.length === 0) {
@@ -240,6 +302,24 @@ const updateSession = async (req, res, next) => {
     if (startTime) session.startTime = startTime;
     if (endTime)   session.endTime   = endTime;
     if (place)     session.place     = place;
+
+    const { invalidTime, overlap } = await findSessionOverlap({
+      counselorId: req.user._id,
+      day: session.day,
+      startTime: session.startTime,
+      endTime: session.endTime,
+      excludeSessionId: session._id,
+    });
+
+    if (invalidTime) {
+      return res.status(400).json({ message: 'Invalid time range. endTime must be after startTime.' });
+    }
+
+    if (overlap) {
+      return res.status(409).json({
+        message: `You already have another session on ${session.day} that overlaps (${overlap.startTime}-${overlap.endTime}). Please choose a different time.`,
+      });
+    }
 
     // Regenerate slots only if time changed
     if (startTime || endTime) {

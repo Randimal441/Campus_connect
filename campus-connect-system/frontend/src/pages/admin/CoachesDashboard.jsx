@@ -346,6 +346,13 @@ function ClubManagePanel({ club, onClose, onClubUpdated }) {
   const [scheduleModal, setScheduleModal] = useState(null); // null | 'new' | schedule-obj
   const [teamModal, setTeamModal]         = useState(null); // null | 'new' | team-obj
   const [memberPicker, setMemberPicker]   = useState(null); // teamId whose picker is open
+  const [successMessage, setSuccessMessage] = useState('');
+
+  useEffect(() => {
+    if (!successMessage) return undefined;
+    const timer = setTimeout(() => setSuccessMessage(''), 2500);
+    return () => clearTimeout(timer);
+  }, [successMessage]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -362,12 +369,14 @@ function ClubManagePanel({ club, onClose, onClubUpdated }) {
 
   /* schedules */
   const saveSchedule = async (form) => {
-    if (scheduleModal && scheduleModal._id) {
+    const isEditing = Boolean(scheduleModal && scheduleModal._id);
+    if (isEditing) {
       await api(`/clubs-sports/schedules/${scheduleModal._id}`, { method: 'PATCH', body: form });
     } else {
       await api(`/clubs-sports/${club._id}/schedules`, { method: 'POST', body: form });
     }
     await load();
+    if (isEditing) setSuccessMessage('Successfully updated.');
   };
 
   const deleteSchedule = async (id) => {
@@ -378,12 +387,14 @@ function ClubManagePanel({ club, onClose, onClubUpdated }) {
 
   /* teams */
   const saveTeam = async (form) => {
-    if (teamModal && teamModal._id) {
+    const isEditing = Boolean(teamModal && teamModal._id);
+    if (isEditing) {
       await api(`/clubs-sports/teams/${teamModal._id}`, { method: 'PATCH', body: form });
     } else {
       await api(`/clubs-sports/${club._id}/teams`, { method: 'POST', body: form });
     }
     await load();
+    if (isEditing) setSuccessMessage('Successfully updated.');
   };
 
   const deleteTeam = async (id) => {
@@ -443,6 +454,12 @@ function ClubManagePanel({ club, onClose, onClubUpdated }) {
         </div>
 
         <div className="p-5">
+          {successMessage && (
+            <div className="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+              {successMessage}
+            </div>
+          )}
+
           {loading ? (
             <div className="py-12 text-center"><div className="loader mx-auto"></div></div>
           ) : (
@@ -672,6 +689,9 @@ export default function CoachesDashboard() {
   const [loading, setLoading]       = useState(true);
   const [clubModal, setClubModal]   = useState(null);  // null | 'new' | club-obj
   const [manageClub, setManageClub] = useState(null);  // club being managed
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const fetchClubs = useCallback(async () => {
     const endpoint = isSuperAdmin ? '/clubs-sports/admin/all' : '/clubs-sports/my-clubs';
@@ -684,19 +704,34 @@ export default function CoachesDashboard() {
     fetchClubs().finally(() => setLoading(false));
   }, [fetchClubs]);
 
+  useEffect(() => {
+    if (!successMessage) return undefined;
+    const timer = setTimeout(() => setSuccessMessage(''), 2500);
+    return () => clearTimeout(timer);
+  }, [successMessage]);
+
   const saveClub = async (form) => {
-    if (clubModal && clubModal._id) {
+    const isEditing = Boolean(clubModal && clubModal._id);
+    if (isEditing) {
       await api(`/clubs-sports/${clubModal._id}`, { method: 'PATCH', body: form });
     } else {
       await api('/clubs-sports', { method: 'POST', body: form });
     }
     await fetchClubs();
+    if (isEditing) {
+      setSuccessMessage('Successfully updated.');
+    }
   };
 
   const deleteClub = async (id) => {
-    if (!window.confirm('Remove this club?')) return;
-    await api(`/clubs-sports/${id}`, { method: 'DELETE' });
-    await fetchClubs();
+    setDeleteLoading(true);
+    try {
+      await api(`/clubs-sports/${id}`, { method: 'DELETE' });
+      await fetchClubs();
+      setDeleteTarget(null);
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   return (
@@ -710,6 +745,12 @@ export default function CoachesDashboard() {
           + New Club / Sport
         </button>
       </div>
+
+      {successMessage && (
+        <div className="fixed top-5 right-5 z-[60] w-full max-w-sm rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800 shadow-lg animate-fade-in-up">
+          {successMessage}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center min-h-[400px]">
@@ -755,7 +796,7 @@ export default function CoachesDashboard() {
                 </button>
                 <button
                   className="btn btn-sm btn-destructive"
-                  onClick={() => deleteClub(item._id)}
+                  onClick={() => setDeleteTarget(item)}
                 >
                   Delete
                 </button>
@@ -779,6 +820,41 @@ export default function CoachesDashboard() {
           onClose={() => setManageClub(null)}
           onClubUpdated={fetchClubs}
         />
+      )}
+
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => !deleteLoading && setDeleteTarget(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <h2 className="text-xl font-bold mb-2">Delete Club / Sport?</h2>
+              <p className="text-sm text-muted-foreground mb-5">
+                Are you sure you want to delete "{deleteTarget.title}"? This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  className="btn btn-outline flex-1"
+                  onClick={() => setDeleteTarget(null)}
+                  disabled={deleteLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-destructive flex-1"
+                  onClick={() => deleteClub(deleteTarget._id)}
+                  disabled={deleteLoading}
+                >
+                  {deleteLoading ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Super Admin moderation panel – only visible to super_admin */}

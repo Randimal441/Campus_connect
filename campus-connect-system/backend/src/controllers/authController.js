@@ -1,30 +1,43 @@
 const { User, ROLES } = require('../models/UserModel');
 const { generateToken } = require('../utils/generateToken');
 
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+
 const signup = async (req, res, next) => {
   try {
     const { fullName, idNumber, email, password, role } = req.body;
+    const normalizedFullName = fullName?.trim();
+    const normalizedIdNumber = idNumber?.trim();
+    const normalizedEmail = email?.trim().toLowerCase();
+    const normalizedRole = role?.trim();
 
-    if (!fullName || !idNumber || !email || !password || !role) {
+    if (!normalizedFullName || !normalizedIdNumber || !normalizedEmail || !password || !normalizedRole) {
       return res.status(400).json({ message: 'All fields are required.' });
     }
 
-    if (!ROLES.includes(role)) {
+    if (!PASSWORD_REGEX.test(password)) {
+      return res.status(400).json({
+        message:
+          'Password must be at least 8 characters and include uppercase, lowercase, a number, and a symbol.',
+      });
+    }
+
+    if (!ROLES.includes(normalizedRole)) {
       return res.status(400).json({ message: 'Invalid role selected.' });
     }
 
-    const existing = await User.findOne({ email });
+    const existing = await User.findOne({ email: normalizedEmail });
     if (existing) {
       return res.status(400).json({ message: 'Email already registered.' });
     }
 
-    const isApproved = role === 'super_admin';
+    const isApproved = normalizedRole === 'super_admin';
     const user = await User.create({
-      fullName,
-      idNumber,
-      email,
+      fullName: normalizedFullName,
+      idNumber: normalizedIdNumber,
+      email: normalizedEmail,
       password,
-      role,
+      role: normalizedRole,
       isApproved,
     });
 

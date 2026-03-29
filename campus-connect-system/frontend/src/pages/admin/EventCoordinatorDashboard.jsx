@@ -82,7 +82,6 @@ const getEventTypeLabel = (eventType) => {
   const matched = EVENT_TYPE_OPTIONS.find((option) => option.value === eventType);
   return matched?.label || 'Club Event';
 };
-
 const getApplicationStatusMeta = (status) => {
   const normalized = String(status || 'pending').toLowerCase();
 
@@ -514,56 +513,57 @@ export default function EventCoordinatorDashboard() {
                       <span className="text-sm mt-2">No Image</span>
                     </div>
                   )}
-                </div>
+</div>
 
-                {/* Content */}
-                <div className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-3 line-clamp-2">{item.title}</h3>
+{/* Content */}
+<div className="p-6">
+  <h3 className="text-lg font-semibold text-gray-800 mb-3 line-clamp-2">{item.title}</h3>
 
-                  <span className="inline-flex items-center text-[11px] font-semibold uppercase tracking-wide text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-200 mb-3">
-                    {getEventTypeLabel(item.eventType)}
-                  </span>
+  <span className="inline-flex items-center text-[11px] font-semibold uppercase tracking-wide text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-200 mb-3">
+    {getEventTypeLabel(item.eventType)}
+  </span>
 
-                  <div className="space-y-2 mb-4 pb-4 border-b border-gray-100">
-                    <div className="flex items-center text-sm text-gray-600 gap-2">
-                      <CalendarDays size={16} className="text-green-600" />
-                      <span>{formatCardDate(item.date)}</span>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-600 gap-2">
-                      <Clock3 size={16} className="text-green-600" />
-                      <span>{formatCardTime(item)}</span>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-600 gap-2">
-                      <MapPin size={16} className="text-green-600" />
-                      <span>{item.location || 'TBA'}</span>
-                    </div>
-                  </div>
+  <div className="space-y-2 mb-4 pb-4 border-b border-gray-100">
+    <div className="flex items-center text-sm text-gray-600 gap-2">
+      <CalendarDays size={16} className="text-green-600" />
+      <span>{formatCardDate(item.date)}</span>
+    </div>
+    <div className="flex items-center text-sm text-gray-600 gap-2">
+      <Clock3 size={16} className="text-green-600" />
+      <span>{formatCardTime(item)}</span>
+    </div>
+    <div className="flex items-center text-sm text-gray-600 gap-2">
+      <MapPin size={16} className="text-green-600" />
+      <span>{item.location || 'TBA'}</span>
+    </div>
+  </div>
 
-                  {/* Actions */}
-                  <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
-                      onClick={() => openDetails(item)} 
-                      className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold py-2 rounded-lg transition-all"
-                    >
-                      View Details
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      onClick={() => openEditModal(item)}
-                      className="flex-1 border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold py-2 rounded-lg transition-all"
-                    >
-                      <Pencil size={14} />
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      onClick={() => handleDelete(item._id)}
-                      className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold py-2 rounded-lg transition-all"
-                    >
-                      <Trash2 size={14} />
-                    </Button>
-                  </div>
+  {/* Actions */}
+  <div className="flex gap-2">
+    <Button 
+      size="sm" 
+      onClick={() => openDetails(item)} 
+      className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold py-2 rounded-lg transition-all"
+    >
+      View Details
+    </Button>
+    <Button 
+      size="sm" 
+      variant="outline" 
+      onClick={() => openEditModal(item)}
+      className="flex-1 border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold py-2 rounded-lg transition-all"
+    >
+      <Pencil size={14} />
+    </Button>
+    <Button 
+      size="sm" 
+      onClick={() => handleDelete(item._id)}
+      className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold py-2 rounded-lg transition-all"
+    >
+      <Trash2 size={14} />
+    </Button>
+  </div>
+</div>
                 </div>
               </article>
             ))}
@@ -579,107 +579,106 @@ export default function EventCoordinatorDashboard() {
               </p>
             </div>
 
-            {applicantCards.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {applicantCards.map((card, index) => {
-                  const { eventId, eventTitle, entry } = card;
-                  const student = entry.student && typeof entry.student === 'object'
-                    ? entry.student
-                    : null;
-                  const submittedAnswers = Array.isArray(entry.application?.answers)
-                    ? entry.application.answers
-                    : [];
-                  const statusMeta = getApplicationStatusMeta(entry.status);
-                  const approveKey = `${entry._id}:approved`;
-                  const rejectKey = `${entry._id}:rejected`;
+{applicantCards.length > 0 ? (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {applicantCards.map((card, index) => {
+      const { eventId, eventTitle, entry } = card;
+      const student = entry.student && typeof entry.student === 'object'
+        ? entry.student
+        : null;
+      const submittedAnswers = Array.isArray(entry.application?.answers)
+        ? entry.application.answers
+        : [];
+      const statusMeta = getApplicationStatusMeta(entry.status);
+      const approveKey = `${entry._id}:approved`;
+      const rejectKey = `${entry._id}:rejected`;
 
-                  return (
-                    <article key={`${entry._id || entry.option}-${index}`} className="bg-white border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div>
-                          <p className="text-sm font-semibold text-gray-800 line-clamp-1">
-                            {student?.fullName || entry.application?.fullName || 'Student'}
-                          </p>
-                          <p className="text-xs text-gray-500 line-clamp-1">
-                            {entry.application?.studentId || student?.idNumber || 'ID Not provided'}
-                          </p>
-                        </div>
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-100 whitespace-nowrap">
-                          {optionLabelMap[entry.option] || entry.option}
-                        </span>
-                      </div>
-
-                      <p className="text-[11px] text-gray-500 mb-2 line-clamp-1">
-                        Event: {eventTitle || 'Event'}
-                      </p>
-
-                      <div className="flex flex-wrap items-center gap-1.5 mb-2 pb-2 border-b border-gray-100">
-                        <button
-                          type="button"
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold cursor-default ${statusMeta.className}`}
-                          disabled
-                        >
-                          {statusMeta.label}
-                        </button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold py-1 px-2 rounded transition-all"
-                          onClick={() =>
-                            handleApplicationStatusUpdate(eventId, entry._id, 'approved')
-                          }
-                          disabled={reviewingKey === approveKey}
-                        >
-                          {reviewingKey === approveKey ? 'Updating...' : 'Approve'}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="bg-red-600 hover:bg-red-700 text-white text-[10px] font-semibold py-1 px-2 rounded transition-all"
-                          onClick={() =>
-                            handleApplicationStatusUpdate(eventId, entry._id, 'rejected')
-                          }
-                          disabled={reviewingKey === rejectKey}
-                        >
-                          {reviewingKey === rejectKey ? 'Updating...' : 'Reject'}
-                        </Button>
-                      </div>
-
-                      <div className="text-xs text-gray-600 space-y-0.5 mb-2">
-                        <p className="truncate"><strong>Email:</strong> {student?.email || entry.application?.email || 'No email provided'}</p>
-                        <p><strong>Phone:</strong> {entry.application?.phone || 'Not provided'}</p>
-                        <p><strong>Applied:</strong> {new Date(entry.appliedAt).toLocaleDateString('en-GB')}</p>
-                      </div>
-
-                      {submittedAnswers.length > 0 ? (
-                        <div className="bg-gray-50 rounded-lg p-2 space-y-1.5">
-                          {submittedAnswers.slice(0, 2).map((answer, answerIndex) => (
-                            <div key={`${answer.questionKey}-${answerIndex}`}>
-                              <p className="text-[11px] font-semibold text-gray-700 mb-0.5 line-clamp-1">{answer.label}</p>
-                              <p className="text-[11px] text-gray-600 line-clamp-2">{answer.answer}</p>
-                            </div>
-                          ))}
-                          {submittedAnswers.length > 2 ? (
-                            <p className="text-[10px] text-gray-500">+{submittedAnswers.length - 2} more responses</p>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <div className="bg-gray-50 rounded-lg p-2">
-                          <p className="text-[11px] font-semibold text-gray-700 mb-0.5">Notes</p>
-                          <p className="text-[11px] text-gray-600 line-clamp-2">{entry.application?.notes || 'Not provided'}</p>
-                        </div>
-                      )}
-                    </article>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-sm bg-white p-4 rounded-lg border border-gray-200">
-                No participation applicants yet.
+      return (
+        <article key={`${entry._id || entry.option}-${index}`} className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <div>
+              <p className="text-sm font-semibold text-gray-800 line-clamp-1">
+                {student?.fullName || entry.application?.fullName || 'Student'}
               </p>
-            )}
-          </section>
-        ) : null}
+              <p className="text-xs text-gray-500 line-clamp-1">
+                {entry.application?.studentId || student?.idNumber || 'ID Not provided'}
+              </p>
+            </div>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-100 whitespace-nowrap">
+              {optionLabelMap[entry.option] || entry.option}
+            </span>
+          </div>
+
+          <p className="text-[11px] text-gray-500 mb-2 line-clamp-1">
+            Event: {eventTitle || 'Event'}
+          </p>
+
+          <div className="flex flex-wrap items-center gap-1.5 mb-2 pb-2 border-b border-gray-100">
+            <button
+              type="button"
+              className={`px-2 py-0.5 rounded-full text-[10px] font-semibold cursor-default ${statusMeta.className}`}
+              disabled
+            >
+              {statusMeta.label}
+            </button>
+            <Button
+              type="button"
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold py-1 px-2 rounded transition-all"
+              onClick={() =>
+                handleApplicationStatusUpdate(eventId, entry._id, 'approved')
+              }
+              disabled={reviewingKey === approveKey}
+            >
+              {reviewingKey === approveKey ? 'Updating...' : 'Approve'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="bg-red-600 hover:bg-red-700 text-white text-[10px] font-semibold py-1 px-2 rounded transition-all"
+              onClick={() =>
+                handleApplicationStatusUpdate(eventId, entry._id, 'rejected')
+              }
+              disabled={reviewingKey === rejectKey}
+            >
+              {reviewingKey === rejectKey ? 'Updating...' : 'Reject'}
+            </Button>
+          </div>
+
+          <div className="text-xs text-gray-600 space-y-0.5 mb-2">
+            <p className="truncate"><strong>Email:</strong> {student?.email || entry.application?.email || 'No email provided'}</p>
+            <p><strong>Phone:</strong> {entry.application?.phone || 'Not provided'}</p>
+            <p><strong>Applied:</strong> {new Date(entry.appliedAt).toLocaleDateString('en-GB')}</p>
+          </div>
+
+          {submittedAnswers.length > 0 ? (
+            <div className="bg-gray-50 rounded-lg p-2 space-y-1.5">
+              {submittedAnswers.slice(0, 2).map((answer, answerIndex) => (
+                <div key={`${answer.questionKey}-${answerIndex}`}>
+                  <p className="text-[11px] font-semibold text-gray-700 mb-0.5 line-clamp-1">{answer.label}</p>
+                  <p className="text-[11px] text-gray-600 line-clamp-2">{answer.answer}</p>
+                </div>
+              ))}
+              {submittedAnswers.length > 2 ? (
+                <p className="text-[10px] text-gray-500">+{submittedAnswers.length - 2} more responses</p>
+              ) : null}
+            </div>
+          ) : (
+            <div className="bg-gray-50 rounded-lg p-2">
+              <p className="text-[11px] font-semibold text-gray-700 mb-0.5">Notes</p>
+              <p className="text-[11px] text-gray-600 line-clamp-2">{entry.application?.notes || 'Not provided'}</p>
+            </div>
+          )}
+        </article>
+      );
+    })}
+  </div>
+) : (
+  <p className="text-gray-500 text-sm bg-white p-4 rounded-lg border border-gray-200">
+    No participation applicants yet.
+  </p>
+)}
+</section>
       </div>
 
       {isModalOpen ? (
@@ -710,24 +709,25 @@ export default function EventCoordinatorDashboard() {
                   required 
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
-              </div>
+</div>
 
-              {/* Event Type */}
-              <div>
-                <Label htmlFor="eventType" className="text-sm font-semibold text-gray-700 mb-2">Type</Label>
-                <select
-                  id="eventType"
-                  name="eventType"
-                  value={form.eventType}
-                  onChange={handleFormChange}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  {EVENT_TYPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+{/* Event Type */}
+<div>
+  <Label htmlFor="eventType" className="text-sm font-semibold text-gray-700 mb-2">Type</Label>
+  <select
+    id="eventType"
+    name="eventType"
+    value={form.eventType}
+    onChange={handleFormChange}
+    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+  >
+    {EVENT_TYPE_OPTIONS.map((option) => (
+      <option key={option.value} value={option.value}>
+        {option.label}
+      </option>
+    ))}
+  </select>
+</div>
               </div>
 
               {/* Date & Time */}
@@ -760,7 +760,7 @@ export default function EventCoordinatorDashboard() {
 
               {/* Location */}
               <div>
-                <Label htmlFor="location" className="text-sm font-semibold text-gray-700 mb-2">Location</Label>
+<Label htmlFor="location" className="text-sm font-semibold text-gray-700 mb-2">Event Location</Label>
                 <Input 
                   id="location" 
                   name="location" 
@@ -832,34 +832,84 @@ export default function EventCoordinatorDashboard() {
 
                       return (
                         <div key={optionValue} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                          <div className="mb-3">
-                            <h4 className="font-semibold text-gray-800 mb-0">{optionMeta?.label || optionValue}</h4>
-                          </div>
+<div className="mb-3">
+  <h4 className="font-semibold text-gray-800 mb-0">{optionMeta?.label || optionValue}</h4>
+</div>
 
-                          <p className="text-xs text-gray-500 mb-2">
-                            Choose which fields students will see in the participation application form.
-                          </p>
+<p className="text-xs text-gray-500 mb-2">
+  Choose which fields students will see in the participation application form.
+</p>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {APPLICATION_FORM_FIELDS.map((field) => {
-                              const checked = selectedBaseFields.includes(field.key);
+<div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
+  {APPLICATION_FORM_FIELDS.map((field) => {
+    const checked = selectedBaseFields.includes(field.key);
 
-                              return (
-                                <label
-                                  key={`${optionValue}-${field.key}`}
-                                  className="flex items-center gap-2 text-sm bg-white p-2 rounded border border-gray-200"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={() => handleBaseFieldToggle(optionValue, field.key)}
-                                    className="w-4 h-4"
-                                  />
-                                  <span>{field.label}</span>
-                                </label>
-                              );
-                            })}
-                          </div>
+    return (
+      <label
+        key={`${optionValue}-${field.key}`}
+        className="flex items-center gap-2 text-sm bg-white p-2 rounded border border-gray-200"
+      >
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={() => handleBaseFieldToggle(optionValue, field.key)}
+          className="w-4 h-4"
+        />
+        <span>{field.label}</span>
+      </label>
+    );
+  })}
+</div>
+
+<div className="flex items-center justify-between mb-2">
+  <h4 className="font-semibold text-gray-800 mb-0">Custom Questions</h4>
+  <Button 
+    type="button" 
+    size="sm" 
+    className="bg-green-600 hover:bg-green-700 text-white text-xs py-1 px-3 rounded"
+    onClick={() => handleAddQuestion(optionValue)}
+  >
+    Add Question
+  </Button>
+</div>
+
+{questions.length === 0 ? (
+  <p className="text-sm text-gray-500 mb-0">No questions yet. Add questions students should answer for this role.</p>
+) : (
+  <div className="space-y-2">
+    {questions.map((question, questionIndex) => (
+      <div key={`${optionValue}-${questionIndex}`} className="flex gap-2 items-center bg-white p-2 rounded border border-gray-100">
+        <Input
+          value={question.label}
+          onChange={(event) =>
+            handleQuestionChange(optionValue, questionIndex, 'label', event.target.value)
+          }
+          placeholder="Question label"
+          className="flex-1 text-xs px-2 py-1 border border-gray-200 rounded"
+        />
+        <label className="flex items-center gap-1 text-xs whitespace-nowrap">
+          <input
+            type="checkbox"
+            checked={question.required !== false}
+            onChange={(event) =>
+              handleQuestionChange(optionValue, questionIndex, 'required', event.target.checked)
+            }
+            className="w-3 h-3"
+          />
+          <span>Required</span>
+        </label>
+        <Button
+          type="button"
+          size="sm"
+          className="bg-red-600 hover:bg-red-700 text-white text-xs py-1 px-2 rounded"
+          onClick={() => handleRemoveQuestion(optionValue, questionIndex)}
+        >
+          Remove
+        </Button>
+      </div>
+    ))}
+  </div>
+)}
                         </div>
                       );
                     })}
@@ -916,51 +966,136 @@ export default function EventCoordinatorDashboard() {
                   />
                 </div>
               ) : null}
+{/* Event Info */}
+<div>
+  <h3 className="text-2xl font-bold text-gray-800 mb-4">{selectedItem.title}</h3>
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+    <div>
+      <span className="text-xs font-semibold text-gray-500 uppercase">Date</span>
+      <p className="text-gray-700 font-medium">{formatCardDate(selectedItem.date)}</p>
+    </div>
+    <div>
+      <span className="text-xs font-semibold text-gray-500 uppercase">Time</span>
+      <p className="text-gray-700 font-medium">{formatCardTime(selectedItem)}</p>
+    </div>
+    <div>
+      <span className="text-xs font-semibold text-gray-500 uppercase">Location</span>
+      <p className="text-gray-700 font-medium">{selectedItem.location || 'TBA'}</p>
+    </div>
+  </div>
+</div>
 
-              {/* Event Info */}
-              <div>
-                <h3 className="text-2xl font-bold text-gray-800 mb-4">{selectedItem.title}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+{/* Description */}
+<div>
+  <h4 className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Description</h4>
+  <p className="text-gray-600">{selectedItem.description || 'No description provided.'}</p>
+</div>
+
+{/* Participation Applications */}
+<div className="border-t border-gray-100 pt-6">
+  <h4 className="text-lg font-semibold text-gray-800 mb-4">Participation Applications</h4>
+
+  {Array.isArray(selectedItem.participationApplications) && selectedItem.participationApplications.length > 0 ? (
+    <div className="space-y-4">
+      {[...selectedItem.participationApplications]
+        .sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime())
+        .map((entry, index) => {
+          const student = entry.student && typeof entry.student === 'object'
+            ? entry.student
+            : null;
+          const submittedAnswers = Array.isArray(entry.application?.answers)
+            ? entry.application.answers
+            : [];
+          const statusMeta = getApplicationStatusMeta(entry.status);
+          const approveKey = `${entry._id}:approved`;
+          const rejectKey = `${entry._id}:rejected`;
+
+          return (
+            <div key={`${entry._id || entry.option}-${index}`} className="border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
+              {/* Application Header */}
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800 mb-1">
+                    {student?.fullName || entry.application?.fullName || 'Student'}
+                  </p>
+                  <p className="text-xs text-gray-500">{student?.idNumber || 'ID Not provided'}</p>
+                </div>
+                <span className="text-xs font-semibold uppercase tracking-wide text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
+                  {optionLabelMap[entry.option] || entry.option}
+                </span>
+              </div>
+
+              {/* Status and Actions */}
+              <div className="flex flex-wrap items-center gap-2 mb-3 pb-3 border-b border-gray-100">
+                <button
+                  type="button"
+                  className={`px-3 py-1 rounded-full text-xs font-semibold cursor-default ${statusMeta.className}`}
+                  disabled
+                >
+                  {statusMeta.label}
+                </button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1 px-3 rounded transition-all"
+                  onClick={() =>
+                    handleApplicationStatusUpdate(selectedItem._id, entry._id, 'approved')
+                  }
+                  disabled={reviewingKey === approveKey}
+                >
+                  {reviewingKey === approveKey ? 'Updating...' : 'Approve'}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold py-1 px-3 rounded transition-all"
+                  onClick={() =>
+                    handleApplicationStatusUpdate(selectedItem._id, entry._id, 'rejected')
+                  }
+                  disabled={reviewingKey === rejectKey}
+                >
+                  {reviewingKey === rejectKey ? 'Updating...' : 'Reject'}
+                </Button>
+              </div>
+
+              {/* Contact Info */}
+              <div className="text-sm text-gray-600 mb-3 space-y-1">
+                <p className="mb-0"><strong>Email:</strong> {student?.email || entry.application?.email || 'No email provided'}</p>
+                <p className="mb-0"><strong>Applied:</strong> {new Date(entry.appliedAt).toLocaleString('en-GB')}</p>
+              </div>
+
+              {/* Application Answers */}
+              {submittedAnswers.length > 0 ? (
+                <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                  {submittedAnswers.map((answer, answerIndex) => (
+                    <div key={`${answer.questionKey}-${answerIndex}`}>
+                      <p className="text-xs font-semibold text-gray-700 mb-1">{answer.label}</p>
+                      <p className="text-xs text-gray-600">{answer.answer}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                   <div>
-                    <span className="text-xs font-semibold text-gray-500 uppercase">Date</span>
-                    <p className="text-gray-700 font-medium">{formatCardDate(selectedItem.date)}</p>
+                    <p className="text-xs font-semibold text-gray-700 mb-1">Phone</p>
+                    <p className="text-xs text-gray-600">{entry.application?.phone || 'Not provided'}</p>
                   </div>
                   <div>
-                    <span className="text-xs font-semibold text-gray-500 uppercase">Time</span>
-                    <p className="text-gray-700 font-medium">{formatCardTime(selectedItem)}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs font-semibold text-gray-500 uppercase">Location</span>
-                    <p className="text-gray-700 font-medium">{selectedItem.location || 'TBA'}</p>
+                    <p className="text-xs font-semibold text-gray-700 mb-1">Notes</p>
+                    <p className="text-xs text-gray-600">{entry.application?.notes || 'Not provided'}</p>
                   </div>
                 </div>
-              </div>
-
-              {/* Description */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Description</h4>
-                <p className="text-gray-600">{selectedItem.description || 'No description provided.'}</p>
-              </div>
-
-              {/* Category-wise Applications */}
-              <div className="border-t border-gray-100 pt-6">
-                <h4 className="text-lg font-semibold text-gray-800 mb-4">Category-wise Applications</h4>
-
-                {selectedCategorySummary.some((category) => category.total > 0) ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {selectedCategorySummary.map((category) => (
-                      <div key={category.option} className="bg-white border border-gray-200 rounded-lg p-3">
-                        <p className="text-sm font-semibold text-gray-800 mb-2 line-clamp-1">
-                          {optionLabelMap[category.option] || category.option}
-                        </p>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div className="bg-gray-50 rounded px-2 py-1 border border-gray-200">
-                            <p className="text-gray-500">Total</p>
-                            <p className="font-semibold text-gray-800">{category.total}</p>
-                          </div>
-                          <div className="bg-amber-50 rounded px-2 py-1 border border-amber-200">
-                            <p className="text-amber-700">Pending</p>
-                            <p className="font-semibold text-amber-800">{category.pending}</p>
+              )}
+            </div>
+          );
+        })}
+    </div>
+  ) : (
+    <p className="text-gray-500 text-sm bg-white p-4 rounded-lg border border-gray-200">
+      No participation applications yet.
+    </p>
+  )}
+</div>
                           </div>
                           <div className="bg-emerald-50 rounded px-2 py-1 border border-emerald-200">
                             <p className="text-emerald-700">Approved</p>

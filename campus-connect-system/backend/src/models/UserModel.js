@@ -8,7 +8,7 @@ const userSchema = new mongoose.Schema(
     fullName: { type: String, required: true, trim: true },
     idNumber: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password: { type: String, required: true, minlength: 6 },
+    password: { type: String, required: true, minlength: 8 },
     role: { type: String, enum: ROLES, required: true },
     isApproved: { type: Boolean, default: false },
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
