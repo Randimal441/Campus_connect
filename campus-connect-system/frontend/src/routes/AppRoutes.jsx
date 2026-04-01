@@ -19,6 +19,7 @@ import ProtectedRoute from '../components/protected/ProtectedRoute';
 import { ROLES } from '../utils/constants';
 import ConsultantDetails from '../pages/user/ConsultingDetails';
 import ConsultingReviewDashboard from '../pages/admin/ConsultingReviewDasboard';
+import CouncellingHistory from '../pages/user/CouncellingHistory';
 
 export default function AppRoutes() {
   return (
@@ -35,6 +36,7 @@ export default function AppRoutes() {
       <Route path="/user/consulting" element={<Consulting />} />
       <Route path="/user/events-chill" element={<EventsChill />} />
       <Route path="/user/consulting/:id" element={<ConsultantDetails />}/>
+      <Route path="/user/councelling-history" element={<CouncellingHistory />} />
 
       <Route
         path="/admin/super"

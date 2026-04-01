@@ -417,7 +417,7 @@ const cancelBooking = async (req, res, next) => {
     // Only allow cancellation if risk level is low
     if (slot.booking.riskLevel !== 'low') {
       return res.status(403).json({
-        message: 'Cancellation not allowed. Your mental health assessment requires a confirmed session. Please contact your counselor directly.',
+        message: 'Cancellation not allowed. Your mental health risk level for this session is assessed as medium or high. Please contact your counselor directly if you need to reschedule.',
       });
     }
 
@@ -461,7 +461,7 @@ const getMyBookings = async (req, res, next) => {
             slotEndTime:   slot.endTime,
             counselor: {
               id:    session.counselor._id,
-              name:  session.counselor.name,
+              name:  session.counselorName,
               email: session.counselor.email,
             },
             booking: {
