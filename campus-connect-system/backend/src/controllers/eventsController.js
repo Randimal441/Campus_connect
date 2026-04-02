@@ -10,6 +10,9 @@ const ALLOWED_PARTICIPATION_OPTIONS = [
 ];
 const ALLOWED_APPLICATION_STATUSES = ['approved', 'rejected'];
 const EMAIL_HAS_AT_REGEX = /^[^\s@]+@[^\s@]+$/;
+const PHONE_STARTS_WITH_ZERO_REGEX = /^0\d{9}$/;
+const STUDENT_ID_LENGTH_REGEX = /^.{10}$/;
+const DEPRECATED_FORM_QUESTION_KEYS = new Set(['participation_options']);
 
 const normalizeParticipationOptions = (value) => {
   if (!value) return [];
@@ -52,6 +55,16 @@ const normalizeSubmittedAnswers = (rawAnswers) => (
     : []
 );
 
+const sanitizeFormQuestions = (questions) => (
+  Array.isArray(questions)
+    ? questions.filter(
+        (question) => !DEPRECATED_FORM_QUESTION_KEYS.has(
+          sanitizeApplicationField(question?.key).toLowerCase()
+        )
+      )
+    : []
+);
+
 const validateApplicationPayload = (application, formQuestions) => {
   const submittedAnswers = normalizeSubmittedAnswers(application?.answers);
 
@@ -67,28 +80,90 @@ const validateApplicationPayload = (application, formQuestions) => {
     if (missingRequired) {
       throw new Error('Please complete all required questions in the application form.');
     }
+
+    const hasInvalidEmailAnswer = formQuestions.some((question) => {
+      const keyText = sanitizeApplicationField(question?.key).toLowerCase();
+      const labelText = sanitizeApplicationField(question?.label).toLowerCase();
+      const isEmailQuestion = keyText.includes('email') || labelText.includes('email');
+      if (!isEmailQuestion) return false;
+
+      const answer = sanitizeApplicationField(answersMap.get(question.key));
+      if (!answer) return false;
+
+      return !EMAIL_HAS_AT_REGEX.test(answer);
+    });
+
+    if (hasInvalidEmailAnswer) {
+      throw new Error('Email address must include @.');
+    }
+
+    const hasInvalidPhoneAnswer = formQuestions.some((question) => {
+      const keyText = sanitizeApplicationField(question?.key).toLowerCase();
+      const labelText = sanitizeApplicationField(question?.label).toLowerCase();
+      const isPhoneQuestion = keyText.includes('phone') || labelText.includes('phone');
+      if (!isPhoneQuestion) return false;
+
+      const answer = sanitizeApplicationField(answersMap.get(question.key));
+      if (!answer) return false;
+
+      return !PHONE_STARTS_WITH_ZERO_REGEX.test(answer);
+    });
+
+    if (hasInvalidPhoneAnswer) {
+      throw new Error('Phone number must start with 0 and contain exactly 10 digits.');
+    }
+
+    const hasInvalidStudentIdAnswer = formQuestions.some((question) => {
+      const keyText = sanitizeApplicationField(question?.key).toLowerCase();
+      const labelText = sanitizeApplicationField(question?.label).toLowerCase();
+      const isStudentIdQuestion =
+        keyText.includes('studentid') ||
+        keyText.includes('student_id') ||
+        (labelText.includes('student') && labelText.includes('id'));
+      if (!isStudentIdQuestion) return false;
+
+      const answer = sanitizeApplicationField(answersMap.get(question.key));
+      if (!answer) return false;
+
+      return !STUDENT_ID_LENGTH_REGEX.test(answer);
+    });
+
+    if (hasInvalidStudentIdAnswer) {
+      throw new Error('Student ID must contain exactly 10 characters.');
+    }
   } else {
     const fullName = sanitizeApplicationField(application?.fullName);
+    const studentId = sanitizeApplicationField(application?.studentId);
     const email = sanitizeApplicationField(application?.email);
     const phone = sanitizeApplicationField(application?.phone);
     const notes = sanitizeApplicationField(application?.notes);
 
-    if (!fullName || !email || !phone || !notes) {
+    if (!fullName || !studentId || !email || !phone || !notes) {
       throw new Error('Please complete the participation application form.');
+    }
+
+    if (!STUDENT_ID_LENGTH_REGEX.test(studentId)) {
+      throw new Error('Student ID must contain exactly 10 characters.');
     }
 
     if (!EMAIL_HAS_AT_REGEX.test(email)) {
       throw new Error('Email address must include @.');
     }
+
+    if (!PHONE_STARTS_WITH_ZERO_REGEX.test(phone)) {
+      throw new Error('Phone number must start with 0 and contain exactly 10 digits.');
+    }
   }
 
   const fullName = sanitizeApplicationField(application?.fullName);
+  const studentId = sanitizeApplicationField(application?.studentId);
   const email = sanitizeApplicationField(application?.email);
   const phone = sanitizeApplicationField(application?.phone);
   const notes = sanitizeApplicationField(application?.notes);
 
   return {
     fullName,
+    studentId,
     email,
     phone,
     notes,
@@ -138,6 +213,7 @@ const normalizeParticipationForms = (value, selectedOptions = []) => {
 
         const keySource = sanitizeApplicationField(question?.key) || `q_${questionIndex + 1}`;
         const key = keySource.toLowerCase().replace(/[^a-z0-9_]+/g, '_');
+        if (DEPRECATED_FORM_QUESTION_KEYS.has(key)) return null;
 
         return {
           key: key || `q_${questionIndex + 1}`,
@@ -248,7 +324,7 @@ const create = async (req, res, next) => {
     const item = await Events.create({
       title,
       description: description || '',
-      eventType: eventType || 'event',
+      eventType: eventType || 'club_event',
       date: date || new Date(),
       time: time || '',
       location: location || '',
@@ -281,7 +357,7 @@ const update = async (req, res, next) => {
 
     if ('title' in updateData) item.title = updateData.title;
     if ('description' in updateData) item.description = updateData.description || '';
-    if ('eventType' in updateData) item.eventType = updateData.eventType || 'event';
+    if ('eventType' in updateData) item.eventType = updateData.eventType || 'club_event';
     if ('date' in updateData) item.date = updateData.date || item.date;
     if ('time' in updateData) item.time = updateData.time || '';
     if ('location' in updateData) item.location = updateData.location || '';
@@ -372,9 +448,7 @@ const applyForParticipation = async (req, res, next) => {
     const participationForm = (item.participationForms || []).find(
       (form) => form.option === option
     );
-    const formQuestions = Array.isArray(participationForm?.questions)
-      ? participationForm.questions
-      : [];
+    const formQuestions = sanitizeFormQuestions(participationForm?.questions);
 
     const alreadyApplied = await ParticipationApplication.findOne({
       event: item._id,
@@ -387,54 +461,53 @@ const applyForParticipation = async (req, res, next) => {
     }
 
     const validatedApplication = validateApplicationPayload(application, formQuestions);
-    const submittedAnswers = Array.isArray(validatedApplication?.answers)
-      ? validatedApplication.answers.map((answer) => ({
-          questionKey: sanitizeApplicationField(answer?.questionKey),
-          label: sanitizeApplicationField(answer?.label),
-          answer: sanitizeApplicationField(answer?.answer),
-        }))
-      : [];
+const submittedAnswers = Array.isArray(validatedApplication?.answers)
+  ? validatedApplication.answers.map((answer) => ({
+      questionKey: sanitizeApplicationField(answer?.questionKey),
+      label: sanitizeApplicationField(answer?.label),
+      answer: sanitizeApplicationField(answer?.answer),
+    }))
+  : [];
 
-    if (formQuestions.length > 0) {
-      const answersMap = new Map(
-        submittedAnswers.map((entry) => [entry.questionKey, entry.answer])
-      );
+if (formQuestions.length > 0) {
+  const answersMap = new Map(
+    submittedAnswers.map((entry) => [entry.questionKey, entry.answer])
+  );
 
-      const missingRequired = formQuestions.some(
-        (question) => question.required && !sanitizeApplicationField(answersMap.get(question.key))
-      );
+  const missingRequired = formQuestions.some(
+    (question) => question.required && !sanitizeApplicationField(answersMap.get(question.key))
+  );
 
-      if (missingRequired) {
-        return res.status(400).json({
-          message: 'Please complete all required questions in the application form.',
-        });
-      }
-    } else {
-      const fullName = sanitizeApplicationField(validatedApplication?.fullName);
-      const email = sanitizeApplicationField(validatedApplication?.email);
-      const phone = sanitizeApplicationField(validatedApplication?.phone);
-      const notes = sanitizeApplicationField(validatedApplication?.notes);
+  if (missingRequired) {
+    return res.status(400).json({
+      message: 'Please complete all required questions in the application form.',
+    });
+  }
+} else {
+  const fullName = sanitizeApplicationField(validatedApplication?.fullName);
+  const email = sanitizeApplicationField(validatedApplication?.email);
+  const phone = sanitizeApplicationField(validatedApplication?.phone);
+  const notes = sanitizeApplicationField(validatedApplication?.notes);
 
-      if (!fullName || !email || !phone || !notes) {
-        return res.status(400).json({
-          message: 'Please complete the participation application form.',
-        });
-      }
-    }
-
+  if (!fullName || !email || !phone || !notes) {
+    return res.status(400).json({
+      message: 'Please complete the participation application form.',
+    });
+  }
+}
     const created = await ParticipationApplication.create({
       event: item._id,
       student: req.user._id,
       option,
-      application: {
-        fullName: sanitizeApplicationField(validatedApplication?.fullName),
-        email: sanitizeApplicationField(validatedApplication?.email),
-        phone: sanitizeApplicationField(validatedApplication?.phone),
-        notes: sanitizeApplicationField(validatedApplication?.notes),
-        answers: submittedAnswers.filter(
-          (entry) => entry.questionKey && entry.label && entry.answer
-        ),
-      },
+application: {
+  fullName: sanitizeApplicationField(validatedApplication?.fullName),
+  email: sanitizeApplicationField(validatedApplication?.email),
+  phone: sanitizeApplicationField(validatedApplication?.phone),
+  notes: sanitizeApplicationField(validatedApplication?.notes),
+  answers: submittedAnswers.filter(
+    (entry) => entry.questionKey && entry.label && entry.answer
+  ),
+},
     });
 
     return res.json({
@@ -460,12 +533,16 @@ const getMyApplications = async (req, res, next) => {
       student: req.user._id,
     })
       .select('event option status application createdAt reviewedAt')
+.populate('event', 'title date eventType')
       .sort({ createdAt: -1 })
       .lean();
 
     const mapped = applications.map((entry) => ({
       id: entry._id,
-      eventId: entry.event,
+eventId: entry.event?._id || entry.event,
+eventTitle: entry.event?.title || '',
+eventDate: entry.event?.date || null,
+eventType: entry.event?.eventType || '',
       option: entry.option,
       status: entry.status,
       application: entry.application,
@@ -552,9 +629,7 @@ const updateOwnParticipationApplication = async (req, res, next) => {
     const participationForm = (item.participationForms || []).find(
       (form) => form.option === participationApplication.option
     );
-    const formQuestions = Array.isArray(participationForm?.questions)
-      ? participationForm.questions
-      : [];
+const formQuestions = sanitizeFormQuestions(participationForm?.questions);
 
     const validatedApplication = validateApplicationPayload(req.body?.application, formQuestions);
 

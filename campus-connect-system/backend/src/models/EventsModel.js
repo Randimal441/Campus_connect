@@ -29,7 +29,20 @@ const eventsSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
     description: { type: String, default: '' },
-    eventType: { type: String, enum: ['event', 'chill_session'], required: true },
+    eventType: {
+      type: String,
+      enum: [
+        'event',
+        'chill_session',
+        'club_event',
+        'competition',
+        'workshop',
+        'conference',
+        'cultural_event',
+        'exhibition',
+      ],
+      required: true,
+    },
     date: { type: Date, required: true },
     time: { type: String, default: '' },
     location: { type: String, default: '' },
