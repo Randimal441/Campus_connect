@@ -393,7 +393,8 @@ export default function CouncellingHistory() {
                   </p>
                 </div>
 
-                <p className="mt-4 line-clamp-2 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+                <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Risk Summary</p>
+                <p className="mt-1 line-clamp-2 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
                   {booking.booking?.riskSummary || 'No summary available.'}
                 </p>
 
