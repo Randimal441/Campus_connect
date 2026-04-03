@@ -214,7 +214,7 @@ export default function Consulting() {
               Easily access and review your previous consultation bookings in one place. This section allows you to check past appointment details, including dates, consultation notes, and doctor information. Stay organized and keep track of your healthcare history for better and more informed future consultations.
             </p>
             <button
-              onClick={() => document.getElementById('consultants').scrollIntoView({ behavior: 'smooth' })}
+              onClick={() => navigate(`/user/councelling-history`)}
               className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
             >
               Read More

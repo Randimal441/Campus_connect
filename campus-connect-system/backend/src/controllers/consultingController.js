@@ -359,15 +359,24 @@ const bookSlot = async (req, res, next) => {
     const session = await ConsultingSession.findById(sessionId);
     if (!session) return res.status(404).json({ message: 'Session not found.' });
 
+    const hasExistingBookingInSession = session.slots.some(
+      (s) => s.isBooked && s.bookedBy && s.bookedBy.toString() === req.user._id.toString()
+    );
+
+    if (hasExistingBookingInSession) {
+      return res.status(409).json({
+        message: 'You have already booked a slot in this session.',
+      });
+    }
+
     const slot = session.slots.id(slotId);
     if (!slot)      return res.status(404).json({ message: 'Slot not found.' });
     if (slot.isBooked) return res.status(400).json({ message: 'Slot already booked.' });
 
     // Call Gemini to analyze mental status
     //following line comment to stop work of gemini api key
-    //const { riskLevel, riskSummary } = await analyzeMentalStatus(answers);
-    const riskLevel = 'medium'; // this one is tempory
-    const riskSummary = 'AI summary temporarily unavailable. Manual review required.'; //this one is tempory
+    const { riskLevel, riskSummary } = await analyzeMentalStatus(answers);
+
 
     // Use authenticated user info (fullName) for student name; avoid an extra DB call
     const studentName = req.user.fullName || 'Unknown';
@@ -417,7 +426,7 @@ const cancelBooking = async (req, res, next) => {
     // Only allow cancellation if risk level is low
     if (slot.booking.riskLevel !== 'low') {
       return res.status(403).json({
-        message: 'Cancellation not allowed. Your mental health assessment requires a confirmed session. Please contact your counselor directly.',
+        message: 'Cancellation not allowed. Your mental health risk level for this session is assessed as medium or high. Please contact your counselor directly if you need to reschedule.',
       });
     }
 
@@ -461,7 +470,7 @@ const getMyBookings = async (req, res, next) => {
             slotEndTime:   slot.endTime,
             counselor: {
               id:    session.counselor._id,
-              name:  session.counselor.name,
+              name:  session.counselorName,
               email: session.counselor.email,
             },
             booking: {
