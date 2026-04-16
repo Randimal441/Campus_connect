@@ -6,86 +6,13 @@ import Footer from '../../components/common/Footer';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
 
-const DUMMY_REVIEWS = [
-  {
-    _id: 'r1',
-    name: 'Emily H.',
-    rating: 5,
-    date: 'Feb 12, 2024',
-    text: 'Dr. Mitchell helped me work through my anxiety with such patience and understanding. Her approach is both professional and caring.',
-  },
-  {
-    _id: 'r2',
-    name: 'Michael J.',
-    rating: 5,
-    date: 'Feb 8, 2024',
-    text: 'Excellent therapist. The CBT techniques she taught me have been life changing. Highly recommend!',
-  },
-  {
-    _id: 'r3',
-    name: 'Anna L.',
-    rating: 4,
-    date: 'Feb 3, 2024',
-    text: 'Very knowledgeable and creates a safe space for healing. The couples therapy sessions really helped our relationship.',
-  },
-  {
-    _id: 'r4',
-    name: 'David K.',
-    rating: 5,
-    date: 'Jan 28, 2024',
-    text: 'The sessions were structured and practical. I now have better coping strategies for stressful days.',
-  },
-  {
-    _id: 'r5',
-    name: 'Sofia R.',
-    rating: 4,
-    date: 'Jan 20, 2024',
-    text: 'Warm and understanding counselor. I felt listened to from the very first appointment.',
-  },
-  {
-    _id: 'r6',
-    name: 'Kevin P.',
-    rating: 5,
-    date: 'Jan 14, 2024',
-    text: 'Great guidance for handling exam anxiety. The breathing techniques are very effective.',
-  },
-  {
-    _id: 'r7',
-    name: 'Nadeesha M.',
-    rating: 4,
-    date: 'Jan 9, 2024',
-    text: 'Professional and kind. The communication was clear and I always knew what to focus on next.',
-  },
-  {
-    _id: 'r8',
-    name: 'Liam T.',
-    rating: 5,
-    date: 'Jan 2, 2024',
-    text: 'Helped me build confidence and improve my daily routine. Highly recommended service.',
-  },
-  {
-    _id: 'r9',
-    name: 'Harini S.',
-    rating: 4,
-    date: 'Dec 22, 2023',
-    text: 'Very supportive and non-judgmental. I felt safe discussing difficult topics.',
-  },
-  {
-    _id: 'r10',
-    name: 'Rohan D.',
-    rating: 5,
-    date: 'Dec 15, 2023',
-    text: 'Excellent counselor with practical advice. I noticed positive changes after a few sessions.',
-  },
-];
-
 export default function ConsultantDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [consultant, setConsultant] = useState(null);
   const [sessions, setSessions] = useState([]);
-  const [reviews, setReviews] = useState(DUMMY_REVIEWS);
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showBookingModalStep1, setShowBookingModalStep1] = useState(false);
   const [showBookingModalStep2, setShowBookingModalStep2] = useState(false);
@@ -98,7 +25,8 @@ export default function ConsultantDetails() {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(null);
   const [reviewInput, setReviewInput] = useState('');
-    const [sessionFilter, setSessionFilter] = useState('Upcoming');
+  const [sessionFilter, setSessionFilter] = useState('Upcoming');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [selectedReviewRating, setSelectedReviewRating] = useState(5);
   const [hoverReviewRating, setHoverReviewRating] = useState(0);
   const averageRating = reviews.length
@@ -146,37 +74,54 @@ export default function ConsultantDetails() {
     return true;
   };
 
-  const handleAddReview = () => {
+  const handleAddReview = async () => {
     const text = reviewInput.trim();
     if (!text) return;
 
-    const newReview = {
-      _id: `r-${Date.now()}`,
-      name: user?.fullName || user?.name || 'Student',
-      rating: selectedReviewRating,
-      date: new Date().toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      }),
-      text,
-    };
+    setReviewSubmitting(true);
+    try {
+      await api(`/consulting/reviews/consultant/${id}`, {
+        method: 'POST',
+        body: {
+          rating: selectedReviewRating,
+          text,
+        },
+      });
 
-    setReviews((prev) => [newReview, ...prev]);
-    setReviewInput('');
-    setSelectedReviewRating(5);
+      setReviewInput('');
+      setSelectedReviewRating(5);
+      toast.success('Review submitted. It will be visible after admin approval.');
+    } catch (error) {
+      toast.error(error.message || 'Failed to submit review.');
+    } finally {
+      setReviewSubmitting(false);
+    }
   };
 
   useEffect(() => {
     setLoading(true);
-    // Fetch consultant profile and public sessions
+    // Fetch consultant profile, sessions, and approved reviews
     Promise.all([
       api(`/consulting/${id}`),
       api(`/consulting/sessions/public/${id}`),
+      api(`/consulting/reviews/consultant/${id}`),
     ])
-      .then(([consultantData, sessionsData]) => {
+      .then(([consultantData, sessionsData, reviewsData]) => {
         setConsultant(consultantData);
         setSessions(sessionsData || []);
+        setReviews(
+          (reviewsData || []).map((review) => ({
+            _id: review._id,
+            name: review.studentName || 'Student',
+            rating: review.rating,
+            text: review.text,
+            date: new Date(review.createdAt).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            }),
+          }))
+        );
       })
       .catch((err) => {
         console.error('Failed to load consultant details', err);
@@ -315,10 +260,10 @@ export default function ConsultantDetails() {
                   <button
                     type="button"
                     onClick={handleAddReview}
-                    disabled={!reviewInput.trim()}
-                    className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition ${reviewInput.trim() ? 'bg-teal-600 hover:bg-teal-700' : 'bg-gray-300 cursor-not-allowed'}`}
+                    disabled={!reviewInput.trim() || reviewSubmitting}
+                    className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition ${reviewInput.trim() && !reviewSubmitting ? 'bg-teal-600 hover:bg-teal-700' : 'bg-gray-300 cursor-not-allowed'}`}
                   >
-                    Add
+                    {reviewSubmitting ? 'Submitting...' : 'Add'}
                   </button>
                 </div>
                 <p className="mt-2 text-xs text-gray-500">Press Enter or click Add to submit your review.</p>
