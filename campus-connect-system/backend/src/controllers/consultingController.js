@@ -1,5 +1,6 @@
 const ConsultingSession = require('../models/ConsultingSessionModel.js');
 const { User } = require('../models/UserModel.js');
+const { sendEmail, isMailConfigured, verifyMailer } = require('../utils/mailer');
 
 // ─── Gemini Setup (dynamic import for ESM-only package) ───────────────────────
 // Lazily import the ESM package and initialize the client. This avoids requiring
@@ -336,12 +337,84 @@ const updateSession = async (req, res, next) => {
 
 const deleteSession = async (req, res, next) => {
   try {
-    const session = await ConsultingSession.findOneAndDelete({
+    const session = await ConsultingSession.findOne({
       _id: req.params.sessionId,
       counselor: req.user._id,
     });
     if (!session) return res.status(404).json({ message: 'Session not found.' });
-    res.status(200).json({ message: 'Session deleted.' });
+
+    const bookedStudentIds = [
+      ...new Set(
+        session.slots
+          .filter((slot) => slot.isBooked && slot.bookedBy)
+          .map((slot) => String(slot.bookedBy))
+      ),
+    ];
+
+    const bookedStudents = bookedStudentIds.length
+      ? await User.find({ _id: { $in: bookedStudentIds } }).select('fullName email').lean()
+      : [];
+
+    const studentsWithEmail = bookedStudents.filter((student) => student.email);
+
+    const emailText = [
+      'Your booked consulting slot was canceled because the consultant deleted this session day.',
+      'book are delete you can rebook another day using web site.',
+      '',
+      `Date: ${session.day}`,
+      `Time: ${session.startTime} - ${session.endTime}`,
+      `Place: ${session.place}`,
+      '',
+      'Please log in and rebook another available day.',
+    ].join('\n');
+
+    let emailAttempted = 0;
+    let emailSent = 0;
+    let firstEmailError = null;
+
+    if (studentsWithEmail.length > 0) {
+      emailAttempted = studentsWithEmail.length;
+
+      if (isMailConfigured()) {
+        const verifyResult = await verifyMailer();
+        if (!verifyResult.ok) {
+          firstEmailError = verifyResult.reason || 'SMTP verification failed.';
+        }
+
+        const mailResults = await Promise.allSettled(
+          studentsWithEmail
+            .map((student) =>
+              sendEmail({
+                to: student.email,
+                subject: 'Consulting Booking Canceled - Please Rebook',
+                text: `Hello ${student.fullName || 'Student'},\n\n${emailText}`,
+              })
+            )
+        );
+
+        emailSent = mailResults.filter((r) => r.status === 'fulfilled').length;
+        const firstRejected = mailResults.find((r) => r.status === 'rejected');
+        if (!firstEmailError && firstRejected) {
+          firstEmailError = firstRejected.reason?.message || 'Unknown SMTP error.';
+        }
+      }
+    }
+
+    await session.deleteOne();
+
+    let message = 'Session deleted.';
+    if (emailAttempted > 0) {
+      if (isMailConfigured()) {
+        message += ` Notification emails sent to ${emailSent}/${emailAttempted} booked users.`;
+        if (firstEmailError) {
+          message += ` First email error: ${firstEmailError}`;
+        }
+      } else {
+        message += ' Booked users were found, but mailer is not configured.';
+      }
+    }
+
+    res.status(200).json({ message });
   } catch (error) {
     next(error);
   }
