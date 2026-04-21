@@ -11,6 +11,7 @@ const consultingReviewRoutes = require('./routes/consultingReviewRoutes');
 const consultingRoutes = require('./routes/consultingRoutes');
 const eventsRoutes = require('./routes/eventsRoutes');
 const studyMaterialRoutes = require('./routes/studyMaterialRoutes');
+const medicationChatRoutes = require('./routes/medicationChatRoutes');
 const { errorHandler } = require('./middlewares/errorMiddleware');
 
 const app = express();
@@ -28,6 +29,7 @@ app.use('/api/consulting/reviews', consultingReviewRoutes);
 app.use('/api/consulting', consultingRoutes);
 app.use('/api/events', eventsRoutes);
 app.use('/api/study-materials', studyMaterialRoutes);
+app.use('/api/medication-chat', medicationChatRoutes);
 
 app.use(errorHandler);
 
