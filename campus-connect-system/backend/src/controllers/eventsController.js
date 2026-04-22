@@ -1,6 +1,16 @@
 const Events = require('../models/EventsModel');
 const ParticipationApplication = require('../models/ParticipationApplicationModel');
 
+const GEMINI_MODEL_CANDIDATES = [
+  process.env.GEMINI_MODEL,
+  'gemini-2.5-flash',
+  'gemini-flash-latest',
+  'gemini-1.5-flash-latest',
+  'gemini-1.5-flash',
+]
+  .map((model) => String(model || '').trim())
+  .filter(Boolean);
+
 const ALLOWED_PARTICIPATION_OPTIONS = [
   'audition_singing',
   'audition_dancing',
@@ -226,6 +236,145 @@ const normalizeParticipationForms = (value, selectedOptions = []) => {
   return deduped
     .sort((a, b) => a._position - b._position)
     .map(({ _position, ...form }) => form);
+};
+
+const formatEventAssistantContext = (eventItem) => {
+  const participationOptions = Array.isArray(eventItem.participationOptions)
+    ? eventItem.participationOptions.join(', ')
+    : 'None';
+
+  const participationForms = Array.isArray(eventItem.participationForms)
+    ? eventItem.participationForms
+        .map((form) => {
+          const questions = Array.isArray(form.questions) ? form.questions : [];
+          const questionLabels = questions
+            .map((question) => String(question?.label || '').trim())
+            .filter(Boolean)
+            .join('; ');
+
+          return `${form.option || 'option'}: ${questionLabels || 'No custom questions'}`;
+        })
+        .join(' | ')
+    : 'None';
+
+  return [
+    `Title: ${eventItem.title || 'Untitled event'}`,
+    `Type: ${eventItem.eventType || 'club_event'}`,
+    `Date: ${eventItem.date ? new Date(eventItem.date).toLocaleDateString('en-GB') : 'TBA'}`,
+    `Time: ${eventItem.time || 'TBA'}`,
+    `Location: ${eventItem.location || 'TBA'}`,
+    `Description: ${String(eventItem.description || '').trim() || 'No description provided.'}`,
+    `Participation options: ${participationOptions}`,
+    `Application forms: ${participationForms}`,
+  ].join('\n');
+};
+
+const askAboutEvents = async (req, res, next) => {
+  try {
+    const question = String(req.body?.question || '').trim();
+    const history = Array.isArray(req.body?.history) ? req.body.history.slice(-8) : [];
+
+    if (!question) {
+      return res.status(400).json({ message: 'Question is required.' });
+    }
+
+    const apiKey = String(process.env.GEMINI_API_KEY_HIMANSHA || '').trim();
+    if (!apiKey) {
+      return res.status(503).json({ message: 'The event assistant is not configured yet.' });
+    }
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const upcomingEvents = await Events.find({
+      isActive: true,
+      date: { $gte: startOfToday },
+    })
+      .sort({ date: 1 })
+      .limit(12)
+      .lean();
+
+    const eventContext = upcomingEvents.length > 0
+      ? upcomingEvents.map((eventItem) => formatEventAssistantContext(eventItem)).join('\n\n')
+      : 'No upcoming events are currently available.';
+
+    const conversationContext = history
+      .map((entry) => {
+        const role = String(entry?.role || 'user').toLowerCase() === 'assistant' ? 'Assistant' : 'User';
+        const text = String(entry?.text || '').trim();
+        return text ? `${role}: ${text}` : '';
+      })
+      .filter(Boolean)
+      .join('\n');
+
+    const prompt = [
+      'You are the Campus Connect events assistant.',
+      'Answer only using the event information provided below.',
+      'If the answer is not in the provided data, say that you could not find it in the listed events and suggest checking the events page.',
+      'Keep responses concise, friendly, and practical.',
+      '',
+      'Conversation so far:',
+      conversationContext || 'No prior conversation.',
+      '',
+      'Available event data:',
+      eventContext,
+      '',
+      `Current question: ${question}`,
+    ].join('\n');
+
+    let lastModelError = '';
+    let answer = '';
+
+    for (const model of GEMINI_MODEL_CANDIDATES) {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: prompt }],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.3,
+              maxOutputTokens: 400,
+            },
+          }),
+        }
+      );
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        lastModelError = payload?.error?.message || `Model ${model} failed.`;
+        continue;
+      }
+
+      answer = payload?.candidates?.[0]?.content?.parts
+        ?.map((part) => String(part?.text || '').trim())
+        .filter(Boolean)
+        .join('\n')
+        .trim();
+
+      if (answer) break;
+      lastModelError = 'The event assistant did not return a response.';
+    }
+
+    if (!answer) {
+      return res.status(502).json({ message: lastModelError || 'Failed to generate an event assistant response.' });
+    }
+
+    return res.json({
+      answer,
+      eventCount: upcomingEvents.length,
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 // Get all active events
@@ -686,4 +835,5 @@ module.exports = {
   updateOwnParticipationApplication,
   removeOwnParticipationApplication,
   updateApplicationStatus,
+  askAboutEvents,
 };

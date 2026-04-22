@@ -4,6 +4,12 @@ export const getUpcomingEvents = () => api('/events/upcoming');
 
 export const getMyEventApplications = () => api('/events/my-applications');
 
+export const askAboutEvents = (payload) =>
+	api('/events/ask', {
+		method: 'POST',
+		body: JSON.stringify(payload),
+	});
+
 export const applyForParticipation = (eventId, payload) =>
 	api(`/events/${eventId}/apply-participation`, {
 		method: 'POST',

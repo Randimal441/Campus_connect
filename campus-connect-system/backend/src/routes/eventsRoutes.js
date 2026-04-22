@@ -11,6 +11,7 @@ const {
   updateOwnParticipationApplication,
   removeOwnParticipationApplication,
   updateApplicationStatus,
+  askAboutEvents,
 } = require('../controllers/eventsController');
 const { protect } = require('../middlewares/authMiddleware');
 const { restrictTo } = require('../middlewares/roleMiddleware');
@@ -19,6 +20,7 @@ const { uploadEventImage } = require('../middlewares/uploadMiddleware');
 const router = express.Router();
 
 router.get('/upcoming', getUpcoming);
+router.post('/ask', askAboutEvents);
 router.get('/my-applications', protect, restrictTo('student'), getMyApplications);
 router.get('/', protect, restrictTo('super_admin', 'event_coordinator'), getAll);
 router.use(protect);

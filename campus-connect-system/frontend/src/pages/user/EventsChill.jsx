@@ -9,11 +9,17 @@ import {
 } from '../../services/eventsService';
 import Navbar from '../../components/common/Navbar';
 import Footer from '../../components/common/Footer';
+import EventsAskChat from '../../components/user/EventsAskChat';
 import { useAuth } from '../../hooks/useAuth';
 import { PARTICIPATION_OPTIONS, ROLES } from '../../utils/constants';
 
 const BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 const askEventsImage = 'https://img.freepik.com/free-vector/chat-bot-concept-illustration_114360-5522.jpg';
+const EVENT_HEADER_FALLBACK_IMAGES = [
+  'https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80',
+];
 const EVENT_TYPE_OPTIONS = [
   { value: 'chill_session', label: 'Chill Session' },
   { value: 'club_event', label: 'Club Event' },
@@ -109,6 +115,42 @@ const getEventTypeLabel = (eventType) => {
   const matched = EVENT_TYPE_OPTIONS.find((option) => option.value === eventType);
   return matched?.label || 'Club Event';
 };
+
+const getCountdownStatusLabel = (status) => {
+  if (status === 'ended') return 'Ended';
+  if (status === 'started') return 'Live';
+  return 'Upcoming';
+};
+
+const formatCountdownUnit = (value) => String(value).padStart(2, '0');
+
+const getCountdownTone = (status) => {
+  if (status === 'ended') {
+    return {
+      container: 'border-red-200 bg-red-50/70',
+      heading: 'text-red-700',
+      value: 'text-red-700',
+      unit: 'text-red-500',
+    };
+  }
+
+  if (status === 'started') {
+    return {
+      container: 'border-amber-200 bg-amber-50/80',
+      heading: 'text-amber-700',
+      value: 'text-amber-700',
+      unit: 'text-amber-500',
+    };
+  }
+
+  return {
+    container: 'border-sky-200 bg-sky-50/75',
+    heading: 'text-sky-700',
+    value: 'text-sky-700',
+    unit: 'text-sky-500',
+  };
+};
+
 export default function EventsChill() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -139,6 +181,8 @@ const [myEventRequests, setMyEventRequests] = useState([]);
 const [activeTab, setActiveTab] = useState('events');
 const [selectedEventType, setSelectedEventType] = useState('all');
 const [searchEventName, setSearchEventName] = useState('');
+const [headerImageIndex, setHeaderImageIndex] = useState(0);
+const [showAllEvents, setShowAllEvents] = useState(false);
 
 // Ask panel state
 const [isAskPanelOpen, setIsAskPanelOpen] = useState(false);
@@ -210,6 +254,15 @@ const [askFormMessage, setAskFormMessage] = useState('');
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [items, searchEventName, selectedEventType]);
 
+  useEffect(() => {
+    setShowAllEvents(false);
+  }, [selectedEventType, searchEventName]);
+
+  const visibleUpcomingItems = useMemo(() => {
+    if (showAllEvents) return upcomingItems;
+    return upcomingItems.slice(0, 6);
+  }, [showAllEvents, upcomingItems]);
+
   const myRequestsWithEventDetails = useMemo(() => {
     const byEventId = new Map(items.map((eventItem) => [String(eventItem._id), eventItem]));
 
@@ -226,6 +279,30 @@ const [askFormMessage, setAskFormMessage] = useState('');
       };
     });
   }, [items, myEventRequests]);
+
+  const headerImages = useMemo(() => {
+    const existingEventImages = items
+      .map((eventItem) => resolveImageUrl(eventItem?.image))
+      .filter(Boolean);
+
+    const uniqueImages = [...new Set(existingEventImages)];
+    if (uniqueImages.length > 0) return uniqueImages;
+
+    return EVENT_HEADER_FALLBACK_IMAGES;
+  }, [items]);
+
+  useEffect(() => {
+    if (headerImages.length <= 1) {
+      setHeaderImageIndex(0);
+      return;
+    }
+
+    const swipeTimer = setInterval(() => {
+      setHeaderImageIndex((prev) => (prev + 1) % headerImages.length);
+    }, 2800);
+
+    return () => clearInterval(swipeTimer);
+  }, [headerImages]);
 
   const formatOptionLabel = (option) => optionLabelMap[option] || option;
 
@@ -852,55 +929,125 @@ throw new Error(`Phone number must start with 0 and contain exactly 10 digits fo
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-sky-50">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -left-24 top-20 h-72 w-72 rounded-full bg-emerald-200/30 blur-3xl" />
+        <div className="absolute right-0 top-40 h-80 w-80 rounded-full bg-sky-200/30 blur-3xl" />
+        <div className="absolute bottom-10 left-1/2 h-72 w-72 rounded-full bg-amber-200/20 blur-3xl" />
+      </div>
       <Navbar />
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <section className="mb-8 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-          <h1 className="text-3xl font-bold text-gray-900">Events and Chill Sessions</h1>
-          <p className="text-gray-600 mt-2">Discover upcoming campus events and apply for participation roles.</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveTab('events')}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold ${activeTab === 'events' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-            >
-              Upcoming Events
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('requests')}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold ${activeTab === 'requests' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-            >
-              My Requests
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsAskPanelOpen(true)}
-              className="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-50 text-blue-700 border border-blue-200"
-            >
-              Ask About Events
-            </button>
+      <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <section className="mb-8 overflow-hidden rounded-[2rem] border border-white/60 bg-white/80 shadow-[0_20px_60px_-30px_rgba(15,23,42,0.35)] backdrop-blur-md">
+          <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="p-6 sm:p-8 lg:p-10">
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                Events & Chill Sessions
+              </div>
+              <h1 className="mt-4 text-3xl font-bold text-gray-900 sm:text-4xl lg:text-5xl">
+                Discover campus events with a cleaner, more visual dashboard.
+              </h1>
+              <p className="mt-4 max-w-2xl text-sm sm:text-base text-gray-600 leading-7">
+                Browse upcoming events, review your participation requests, and ask the assistant for event details in one place.
+              </p>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Upcoming</p>
+                  <p className="mt-1 text-lg font-bold text-gray-900">Live events</p>
+                  <p className="text-xs text-gray-600">Freshly styled with image previews.</p>
+                </div>
+                <div className="rounded-2xl border border-sky-100 bg-sky-50/80 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">Requests</p>
+                  <p className="mt-1 text-lg font-bold text-gray-900">Track status</p>
+                  <p className="text-xs text-gray-600">See pending, approved, and rejected.</p>
+                </div>
+                <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Assistant</p>
+                  <p className="mt-1 text-lg font-bold text-gray-900">Ask anything</p>
+                  <p className="text-xs text-gray-600">Chat about events quickly.</p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('events')}
+                  className={`px-4 py-2 rounded-full text-sm font-semibold transition ${activeTab === 'events' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'}`}
+                >
+                  Upcoming Events
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('requests')}
+                  className={`px-4 py-2 rounded-full text-sm font-semibold transition ${activeTab === 'requests' ? 'bg-sky-600 text-white shadow-md shadow-sky-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'}`}
+                >
+                  My Requests
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAskPanelOpen(true)}
+                  className="px-4 py-2 rounded-full text-sm font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-200 hover:from-blue-700 hover:to-indigo-700"
+                >
+                  Ask About Events
+                </button>
+              </div>
+            </div>
+
+            <div className="flex bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 p-4 sm:p-5 lg:p-6 text-white">
+              <div className="relative h-full min-h-[320px] w-full overflow-hidden rounded-[1.5rem] border border-white/10 shadow-xl lg:min-h-[420px]">
+                <div
+                  className="flex h-full transition-transform duration-700 ease-out"
+                  style={{ transform: `translateX(-${headerImageIndex * 100}%)` }}
+                >
+                  {headerImages.map((imageSrc, index) => (
+                    <img
+                      key={`${imageSrc}-${index}`}
+                      src={imageSrc}
+                      alt={`Event header ${index + 1}`}
+                      className="h-full w-full flex-shrink-0 object-cover"
+                    />
+                  ))}
+                </div>
+
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/50 via-transparent to-transparent" />
+
+                {headerImages.length > 1 ? (
+                  <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/25 px-2 py-1 backdrop-blur-sm">
+                    {headerImages.map((_, dotIndex) => (
+                      <button
+                        key={`dot-${dotIndex}`}
+                        type="button"
+                        onClick={() => setHeaderImageIndex(dotIndex)}
+                        className={`h-2 w-2 rounded-full transition ${dotIndex === headerImageIndex ? 'bg-white' : 'bg-white/45 hover:bg-white/70'}`}
+                        aria-label={`Show event image ${dotIndex + 1}`}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+            </div>
           </div>
         </section>
 
-        {error ? <p className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 border border-red-200">{error}</p> : null}
-        {applyError ? <p className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 border border-red-200">{applyError}</p> : null}
-        {applyMessage ? <p className="mb-4 p-3 rounded-lg bg-green-50 text-green-700 border border-green-200">{applyMessage}</p> : null}
+        {error ? <p className="mb-4 rounded-2xl border border-red-200 bg-red-50/90 p-4 text-red-700 shadow-sm backdrop-blur-sm">{error}</p> : null}
+        {applyError ? <p className="mb-4 rounded-2xl border border-red-200 bg-red-50/90 p-4 text-red-700 shadow-sm backdrop-blur-sm">{applyError}</p> : null}
+        {applyMessage ? <p className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50/90 p-4 text-emerald-700 shadow-sm backdrop-blur-sm">{applyMessage}</p> : null}
 
         {activeTab === 'events' ? (
           <>
-            <section className="mb-6 flex flex-col md:flex-row gap-3">
+            <section className="mb-6 flex flex-col md:flex-row gap-3 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur-md">
               <input
                 type="text"
                 value={searchEventName}
                 onChange={(event) => setSearchEventName(event.target.value)}
                 placeholder="Search by event name"
-                className="w-full md:w-2/3 px-3 py-2 border border-gray-200 rounded-lg"
+                className="w-full md:w-2/3 px-4 py-3 border border-gray-200 rounded-xl bg-white/90 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
               <select
                 value={selectedEventType}
                 onChange={(event) => setSelectedEventType(event.target.value)}
-                className="w-full md:w-1/3 px-3 py-2 border border-gray-200 rounded-lg"
+                className="w-full md:w-1/3 px-4 py-3 border border-gray-200 rounded-xl bg-white/90 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 <option value="all">All event types</option>
                 {EVENT_TYPE_OPTIONS.map((option) => (
@@ -912,42 +1059,100 @@ throw new Error(`Phone number must start with 0 and contain exactly 10 digits fo
             {loading ? (
               <p className="text-gray-500">Loading events...</p>
             ) : upcomingItems.length === 0 ? (
-              <p className="text-gray-500">No upcoming events found.</p>
+              <p className="rounded-2xl border border-gray-200 bg-white/80 p-4 text-gray-500 shadow-sm">No upcoming events found.</p>
             ) : (
-              <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {upcomingItems.map((item) => {
+              <>
+                <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {visibleUpcomingItems.map((item) => {
                   const countdown = getCountdownData(item.date, now);
+                  const countdownTone = getCountdownTone(countdown.status);
                   return (
-                    <article key={item._id} className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-                      {resolveImageUrl(item.image) ? (
-                        <img src={resolveImageUrl(item.image)} alt={item.title} className="h-44 w-full object-cover" />
-                      ) : null}
+                    <article key={item._id} className="group overflow-hidden rounded-[1.5rem] border border-white/70 bg-white/85 shadow-[0_14px_40px_-26px_rgba(15,23,42,0.45)] backdrop-blur-md transition hover:-translate-y-1 hover:shadow-xl">
+                      <div className="relative h-48 overflow-hidden">
+                        {resolveImageUrl(item.image) ? (
+                          <img src={resolveImageUrl(item.image)} alt={item.title} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-100 via-white to-sky-100 text-gray-400">
+                            <ImageIcon size={36} />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-slate-900/10 to-transparent" />
+                        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
+                          <span className="rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 shadow-sm">
+                            {getEventTypeLabel(item.eventType)}
+                          </span>
+                          <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide bg-white/90 shadow-sm ${countdown.status === 'ended' ? 'text-red-700' : countdown.status === 'started' ? 'text-amber-700' : 'text-sky-700'}`}>
+                            {getCountdownStatusLabel(countdown.status)}
+                          </span>
+                        </div>
+                      </div>
                       <div className="p-5">
-                        <p className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 inline-flex px-2 py-1 rounded-full">
-                          {getEventTypeLabel(item.eventType)}
-                        </p>
-                        <h3 className="mt-3 text-lg font-semibold text-gray-900">{item.title}</h3>
-                        <p className="text-sm text-gray-600 mt-1">{new Date(item.date).toLocaleString('en-GB')}</p>
+                        <h3 className="mt-0 text-lg font-semibold text-gray-900">{item.title}</h3>
+                        <p className="mt-1 text-sm text-gray-600">{new Date(item.date).toLocaleString('en-GB')}</p>
                         <p className="text-sm text-gray-600">{item.location || 'TBA'}</p>
-                        <p className={`mt-2 text-xs font-semibold ${countdown.status === 'ended' ? 'text-red-600' : countdown.status === 'started' ? 'text-amber-600' : 'text-blue-600'}`}>
-                          {countdown.label}
-                        </p>
+                        <div className={`mt-3 rounded-xl border p-3 ${countdownTone.container}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className={`text-[11px] font-semibold uppercase tracking-wide ${countdownTone.heading}`}>
+                              {countdown.status === 'upcoming' ? 'Time Remaining' : 'Event Status'}
+                            </p>
+                            {countdown.status === 'started' ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+                                Live now
+                              </span>
+                            ) : null}
+                          </div>
+
+                          {countdown.status === 'upcoming' ? (
+                            <div className="mt-2 grid grid-cols-3 gap-2">
+                              <div className="rounded-lg bg-white/85 p-2 text-center">
+                                <p className={`text-lg font-bold leading-none ${countdownTone.value}`}>{formatCountdownUnit(countdown.days)}</p>
+                                <p className={`mt-1 text-[10px] font-semibold uppercase tracking-wide ${countdownTone.unit}`}>Days</p>
+                              </div>
+                              <div className="rounded-lg bg-white/85 p-2 text-center">
+                                <p className={`text-lg font-bold leading-none ${countdownTone.value}`}>{formatCountdownUnit(countdown.hours)}</p>
+                                <p className={`mt-1 text-[10px] font-semibold uppercase tracking-wide ${countdownTone.unit}`}>Hours</p>
+                              </div>
+                              <div className="rounded-lg bg-white/85 p-2 text-center">
+                                <p className={`text-lg font-bold leading-none ${countdownTone.value}`}>{formatCountdownUnit(countdown.minutes)}</p>
+                                <p className={`mt-1 text-[10px] font-semibold uppercase tracking-wide ${countdownTone.unit}`}>Mins</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className={`mt-2 text-xs font-semibold ${countdownTone.heading}`}>
+                              {countdown.label}
+                            </p>
+                          )}
+                        </div>
                         <button
                           type="button"
                           onClick={() => openEventDetails(item)}
-                          className="mt-4 w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold"
+                          className="mt-4 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 px-3 py-2.5 text-sm font-semibold text-white shadow-md shadow-emerald-200 transition hover:from-emerald-700 hover:to-green-700"
                         >
                           View Details
                         </button>
                       </div>
                     </article>
                   );
-                })}
-              </section>
+                  })}
+                </section>
+
+                {!showAllEvents && upcomingItems.length > 6 ? (
+                  <div className="mt-6 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowAllEvents(true)}
+                      className="rounded-full bg-gradient-to-r from-sky-600 to-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-sky-200 transition hover:from-sky-700 hover:to-blue-700"
+                    >
+                      Discover more events
+                    </button>
+                  </div>
+                ) : null}
+              </>
             )}
           </>
         ) : (
-          <section className="bg-white border border-gray-100 rounded-2xl p-5">
+          <section className="rounded-2xl border border-white/70 bg-white/80 p-5 shadow-sm backdrop-blur-md">
             {myRequestsWithEventDetails.length === 0 ? (
               <p className="text-gray-500">No participation requests yet.</p>
             ) : (
@@ -955,7 +1160,7 @@ throw new Error(`Phone number must start with 0 and contain exactly 10 digits fo
                 {myRequestsWithEventDetails.map((request) => {
                   const meta = getStatusMeta(request.status);
                   return (
-                    <article key={request.id} className="border border-gray-200 rounded-lg p-4">
+                    <article key={request.id} className="rounded-xl border border-gray-200 bg-white/90 p-4 shadow-sm">
                       <p className="font-semibold text-gray-900">{request.eventTitle}</p>
                       <p className="text-sm text-gray-600">{new Date(request.eventDate).toLocaleString('en-GB')}</p>
                       <p className="text-sm text-gray-600">Role: {formatOptionLabel(request.option)}</p>
@@ -971,14 +1176,14 @@ throw new Error(`Phone number must start with 0 and contain exactly 10 digits fo
         )}
 
         {selectedEvent ? (
-          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={closeEventDetails}>
-            <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden" onClick={(event) => event.stopPropagation()}>
-              <div className="flex items-center justify-between p-5 border-b border-gray-100">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm" onClick={closeEventDetails}>
+            <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-white/70 bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+              <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-emerald-50 via-white to-sky-50 p-5">
                 <h3 className="text-xl font-semibold text-gray-900">{selectedOptions.length > 0 ? 'Application Form' : 'Event Details'}</h3>
                 <button type="button" onClick={closeEventDetails} className="text-gray-500">X</button>
               </div>
 
-              <div className="p-5 overflow-y-auto max-h-[75vh] space-y-5">
+              <div className="max-h-[75vh] overflow-y-auto p-5 space-y-5">
                 {selectedOptions.length > 0 ? (
                   <form
                     className="space-y-5"
@@ -991,7 +1196,7 @@ throw new Error(`Phone number must start with 0 and contain exactly 10 digits fo
                       const templateQuestions = getParticipationTemplate(selectedEvent, option);
                       const answers = applicationAnswersByOption[option] || {};
                       return (
-                        <div key={option} className="border border-gray-200 rounded-lg p-4 space-y-3">
+                        <div key={option} className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                           <h4 className="font-semibold text-gray-800">{formatOptionLabel(option)}</h4>
                           {templateQuestions.length > 0 ? (
                             templateQuestions.map((question) => (
@@ -1046,7 +1251,9 @@ throw new Error(`Phone number must start with 0 and contain exactly 10 digits fo
                 ) : (
                   <>
                     {resolveImageUrl(selectedEvent.image) ? (
-                      <img src={resolveImageUrl(selectedEvent.image)} alt={selectedEvent.title} className="h-52 w-full object-cover rounded-lg" />
+                      <div className="overflow-hidden rounded-2xl border border-gray-200 shadow-sm">
+                        <img src={resolveImageUrl(selectedEvent.image)} alt={selectedEvent.title} className="h-56 w-full object-cover" />
+                      </div>
                     ) : null}
                     <h4 className="text-2xl font-semibold text-gray-900">{selectedEvent.title}</h4>
                     <p className="text-gray-600">{selectedEvent.description || 'No description provided.'}</p>
@@ -1103,44 +1310,28 @@ throw new Error(`Phone number must start with 0 and contain exactly 10 digits fo
 
         {isAskPanelOpen ? (
           <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setIsAskPanelOpen(false)}>
-            <div className="bg-white rounded-2xl w-full max-w-xl p-6" onClick={(event) => event.stopPropagation()}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-semibold text-gray-900">Ask About Events</h3>
+            <div className="bg-white rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl" onClick={(event) => event.stopPropagation()}>
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-emerald-50 via-white to-sky-50">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">Ask About Events</h3>
+                  <p className="text-sm text-gray-500">Chat with the assistant about upcoming events and chill sessions.</p>
+                </div>
                 <button type="button" onClick={() => setIsAskPanelOpen(false)} className="text-gray-500">X</button>
               </div>
-              <img src={askEventsImage} alt="Ask events" className="w-full h-36 object-cover rounded-lg mb-4" />
-              {askFormMessage ? <p className="mb-3 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg">{askFormMessage}</p> : null}
-              <form onSubmit={handleAskFormSubmit} className="space-y-3">
-                {['name', 'email', 'phone'].map((field) => (
-                  <div key={field}>
-                    <input
-                      type={field === 'email' ? 'email' : 'text'}
-                      value={askForm[field]}
-                      onChange={(event) => handleAskFieldChange(field, event.target.value)}
-                      onBlur={(event) => handleAskFieldBlur(field, event.target.value)}
-                      placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg"
-                    />
-                    {(askSubmitAttempted || askFormTouched[field]) && askFormErrors[field] ? (
-                      <p className="text-xs text-red-600 mt-1">{askFormErrors[field]}</p>
-                    ) : null}
-                  </div>
-                ))}
-                <div>
-                  <textarea
-                    rows={4}
-                    value={askForm.question}
-                    onChange={(event) => handleAskFieldChange('question', event.target.value)}
-                    onBlur={(event) => handleAskFieldBlur('question', event.target.value)}
-                    placeholder="Your question"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg"
-                  />
-                  {(askSubmitAttempted || askFormTouched.question) && askFormErrors.question ? (
-                    <p className="text-xs text-red-600 mt-1">{askFormErrors.question}</p>
-                  ) : null}
+              <div className="grid h-[78vh] max-h-[780px] grid-cols-1 gap-4 p-4 sm:p-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+                <aside className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <img src={askEventsImage} alt="Ask events" className="w-full h-40 object-cover rounded-xl mb-4" />
+                  <h4 className="text-sm font-semibold text-slate-900">How to use it</h4>
+                  <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                    <li>Ask about dates, places, roles, and event details.</li>
+                    <li>Use the quick prompts for faster questions.</li>
+                    <li>The assistant answers from the live events list.</li>
+                  </ul>
+                </aside>
+                <div className="flex min-h-0 flex-col">
+                  <EventsAskChat events={upcomingItems} />
                 </div>
-                <button type="submit" className="w-full px-4 py-2 bg-green-600 text-white rounded-lg font-semibold">Submit Question</button>
-              </form>
+              </div>
             </div>
           </div>
         ) : null}

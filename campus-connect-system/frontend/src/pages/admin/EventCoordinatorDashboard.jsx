@@ -115,7 +115,6 @@ export default function EventCoordinatorDashboard() {
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [form, setForm] = useState(INITIAL_FORM);
-  const [imageFile, setImageFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [reviewingKey, setReviewingKey] = useState('');
 
@@ -208,7 +207,6 @@ export default function EventCoordinatorDashboard() {
   const openAddModal = () => {
     setEditingItem(null);
     setForm(INITIAL_FORM);
-    setImageFile(null);
     setMessage('');
     setError('');
     setIsModalOpen(true);
@@ -263,7 +261,6 @@ export default function EventCoordinatorDashboard() {
       participationForms: mappedForms,
       participationBaseFields: mappedBaseFields,
     });
-    setImageFile(null);
     setMessage('');
     setError('');
     setIsModalOpen(true);
@@ -273,17 +270,11 @@ export default function EventCoordinatorDashboard() {
     setIsModalOpen(false);
     setEditingItem(null);
     setForm(INITIAL_FORM);
-    setImageFile(null);
   };
 
   const handleFormChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleFileChange = (event) => {
-    const file = event.target.files?.[0] || null;
-    setImageFile(file);
   };
 
   const handleParticipationOptionToggle = (optionValue) => {
@@ -399,17 +390,16 @@ export default function EventCoordinatorDashboard() {
     setError('');
 
     try {
-      const payload = new FormData();
-      payload.append('title', form.title);
-      payload.append('date', form.date);
-      payload.append('time', form.time);
-      payload.append('location', form.location);
-      payload.append('description', form.description);
-      payload.append('eventType', form.eventType || 'event');
-      payload.append('image', form.image || '');
-      form.participationOptions.forEach((option) => {
-        payload.append('participationOptions', option);
-      });
+      const payload = {
+        title: form.title,
+        date: form.date,
+        time: form.time,
+        location: form.location,
+        description: form.description,
+        eventType: form.eventType || 'event',
+        image: form.image || '',
+        participationOptions: [...form.participationOptions],
+      };
 
       const participationFormsPayload = form.participationOptions.map((option) => {
         const selectedBaseFields = Array.isArray(form.participationBaseFields[option])
@@ -456,11 +446,7 @@ export default function EventCoordinatorDashboard() {
         throw new Error('Please select at least one application field for every participation option.');
       }
 
-      payload.append('participationForms', JSON.stringify(participationFormsPayload));
-
-      if (imageFile) {
-        payload.append('imageFile', imageFile);
-      }
+      payload.participationForms = JSON.stringify(participationFormsPayload);
 
       if (editingItem) {
         await updateEvent(editingItem._id, payload);
@@ -591,79 +577,100 @@ export default function EventCoordinatorDashboard() {
             <p className="text-gray-600">Click "Add Event" to create your first event.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sortedItems.map((item) => (
-              <article 
-                key={item._id} 
-                className="bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden"
-              >
-                {/* Image */}
-                <div className="w-full h-48 bg-gray-100 overflow-hidden">
-                  {resolveImageUrl(item.image) ? (
-                    <img 
-                      src={resolveImageUrl(item.image)} 
-                      alt={item.title} 
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-400">
-                      <ImageIcon size={32} />
-                      <span className="text-sm mt-2">No Image</span>
-                    </div>
-                  )}
-</div>
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Image</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Event</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Time</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Location</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Applicants</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 bg-white">
+                  {sortedItems.map((item) => {
+                    const applicantCount = Array.isArray(item.participationApplications)
+                      ? item.participationApplications.length
+                      : 0;
 
-{/* Content */}
-<div className="p-6">
-  <h3 className="text-lg font-semibold text-gray-800 mb-3 line-clamp-2">{item.title}</h3>
-
-  <span className="inline-flex items-center text-[11px] font-semibold uppercase tracking-wide text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-200 mb-3">
-    {getEventTypeLabel(item.eventType)}
-  </span>
-
-  <div className="space-y-2 mb-4 pb-4 border-b border-gray-100">
-    <div className="flex items-center text-sm text-gray-600 gap-2">
-      <CalendarDays size={16} className="text-green-600" />
-      <span>{formatCardDate(item.date)}</span>
-    </div>
-    <div className="flex items-center text-sm text-gray-600 gap-2">
-      <Clock3 size={16} className="text-green-600" />
-      <span>{formatCardTime(item)}</span>
-    </div>
-    <div className="flex items-center text-sm text-gray-600 gap-2">
-      <MapPin size={16} className="text-green-600" />
-      <span>{item.location || 'TBA'}</span>
-    </div>
-  </div>
-
-  {/* Actions */}
-  <div className="flex gap-2">
-    <Button 
-      size="sm" 
-      onClick={() => openDetails(item)} 
-      className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold py-2 rounded-lg transition-all"
-    >
-      View Details
-    </Button>
-    <Button 
-      size="sm" 
-      variant="outline" 
-      onClick={() => openEditModal(item)}
-      className="flex-1 border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold py-2 rounded-lg transition-all"
-    >
-      <Pencil size={14} />
-    </Button>
-    <Button 
-      size="sm" 
-      onClick={() => handleDelete(item._id)}
-      className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold py-2 rounded-lg transition-all"
-    >
-      <Trash2 size={14} />
-    </Button>
-  </div>
-</div>
-              </article>
-            ))}
+                    return (
+                      <tr key={item._id} className="hover:bg-gray-50/70 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="h-12 w-16 rounded-md bg-gray-100 overflow-hidden border border-gray-200">
+                            {resolveImageUrl(item.image) ? (
+                              <img
+                                src={resolveImageUrl(item.image)}
+                                alt={item.title}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center text-gray-400">
+                                <ImageIcon size={16} />
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-sm font-semibold text-gray-800 max-w-[240px] truncate">{item.title}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center text-[11px] font-semibold uppercase tracking-wide text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-200">
+                            {getEventTypeLabel(item.eventType)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="inline-flex items-center gap-1.5 text-sm text-gray-700">
+                            <CalendarDays size={14} className="text-green-600" />
+                            <span>{formatCardDate(item.date)}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="inline-flex items-center gap-1.5 text-sm text-gray-700">
+                            <Clock3 size={14} className="text-green-600" />
+                            <span>{formatCardTime(item)}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="inline-flex items-center gap-1.5 text-sm text-gray-700 max-w-[220px]">
+                            <MapPin size={14} className="text-green-600 shrink-0" />
+                            <span className="truncate">{item.location || 'TBA'}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700 border border-gray-200">
+                            {applicantCount}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openEditModal(item)}
+                              className="border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold py-2 px-3 rounded-lg"
+                            >
+                              <Pencil size={14} />
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleDelete(item._id)}
+                              className="bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold py-2 px-3 rounded-lg"
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -677,98 +684,118 @@ export default function EventCoordinatorDashboard() {
             </div>
 
 {applicantCards.length > 0 ? (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-    {applicantCards.map((card, index) => {
-      const { eventId, eventTitle, entry } = card;
-      const student = entry.student && typeof entry.student === 'object'
-        ? entry.student
-        : null;
-      const submittedAnswers = Array.isArray(entry.application?.answers)
-        ? entry.application.answers
-        : [];
-      const statusMeta = getApplicationStatusMeta(entry.status);
-      const approveKey = `${entry._id}:approved`;
-      const rejectKey = `${entry._id}:rejected`;
+  <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Applicant</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Event</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Role</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Contact</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Applied</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Responses</th>
+            <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100 bg-white">
+          {applicantCards.map((card, index) => {
+            const { eventId, eventTitle, entry } = card;
+            const student = entry.student && typeof entry.student === 'object'
+              ? entry.student
+              : null;
+            const submittedAnswers = Array.isArray(entry.application?.answers)
+              ? entry.application.answers
+              : [];
+            const statusMeta = getApplicationStatusMeta(entry.status);
+            const approveKey = `${entry._id}:approved`;
+            const rejectKey = `${entry._id}:rejected`;
 
-      return (
-        <article key={`${entry._id || entry.option}-${index}`} className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="flex items-start justify-between gap-2 mb-2">
-            <div>
-              <p className="text-sm font-semibold text-gray-800 line-clamp-1">
-                {student?.fullName || entry.application?.fullName || 'Student'}
-              </p>
-              <p className="text-xs text-gray-500 line-clamp-1">
-                {entry.application?.studentId || student?.idNumber || 'ID Not provided'}
-              </p>
-            </div>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-100 whitespace-nowrap">
-              {optionLabelMap[entry.option] || entry.option}
-            </span>
-          </div>
-
-          <p className="text-[11px] text-gray-500 mb-2 line-clamp-1">
-            Event: {eventTitle || 'Event'}
-          </p>
-
-          <div className="flex flex-wrap items-center gap-1.5 mb-2 pb-2 border-b border-gray-100">
-            <button
-              type="button"
-              className={`px-2 py-0.5 rounded-full text-[10px] font-semibold cursor-default ${statusMeta.className}`}
-              disabled
-            >
-              {statusMeta.label}
-            </button>
-            <Button
-              type="button"
-              size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold py-1 px-2 rounded transition-all"
-              onClick={() =>
-                handleApplicationStatusUpdate(eventId, entry._id, 'approved')
-              }
-              disabled={reviewingKey === approveKey}
-            >
-              {reviewingKey === approveKey ? 'Updating...' : 'Approve'}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="bg-red-600 hover:bg-red-700 text-white text-[10px] font-semibold py-1 px-2 rounded transition-all"
-              onClick={() =>
-                handleApplicationStatusUpdate(eventId, entry._id, 'rejected')
-              }
-              disabled={reviewingKey === rejectKey}
-            >
-              {reviewingKey === rejectKey ? 'Updating...' : 'Reject'}
-            </Button>
-          </div>
-
-          <div className="text-xs text-gray-600 space-y-0.5 mb-2">
-            <p className="truncate"><strong>Email:</strong> {student?.email || entry.application?.email || 'No email provided'}</p>
-            <p><strong>Phone:</strong> {entry.application?.phone || 'Not provided'}</p>
-            <p><strong>Applied:</strong> {new Date(entry.appliedAt).toLocaleDateString('en-GB')}</p>
-          </div>
-
-          {submittedAnswers.length > 0 ? (
-            <div className="bg-gray-50 rounded-lg p-2 space-y-1.5">
-              {submittedAnswers.slice(0, 2).map((answer, answerIndex) => (
-                <div key={`${answer.questionKey}-${answerIndex}`}>
-                  <p className="text-[11px] font-semibold text-gray-700 mb-0.5 line-clamp-1">{answer.label}</p>
-                  <p className="text-[11px] text-gray-600 line-clamp-2">{answer.answer}</p>
-                </div>
-              ))}
-              {submittedAnswers.length > 2 ? (
-                <p className="text-[10px] text-gray-500">+{submittedAnswers.length - 2} more responses</p>
-              ) : null}
-            </div>
-          ) : (
-            <div className="bg-gray-50 rounded-lg p-2">
-              <p className="text-[11px] font-semibold text-gray-700 mb-0.5">Notes</p>
-              <p className="text-[11px] text-gray-600 line-clamp-2">{entry.application?.notes || 'Not provided'}</p>
-            </div>
-          )}
-        </article>
-      );
-    })}
+            return (
+              <tr key={`${entry._id || entry.option}-${index}`} className="hover:bg-gray-50/70 transition-colors align-top">
+                <td className="px-4 py-4">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800 leading-5">
+                      {student?.fullName || entry.application?.fullName || 'Student'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {entry.application?.studentId || student?.idNumber || 'ID Not provided'}
+                    </p>
+                  </div>
+                </td>
+                <td className="px-4 py-4">
+                  <p className="text-sm text-gray-700 max-w-[220px] truncate">{eventTitle || 'Event'}</p>
+                </td>
+                <td className="px-4 py-4">
+                  <span className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-green-700">
+                    {optionLabelMap[entry.option] || entry.option}
+                  </span>
+                </td>
+                <td className="px-4 py-4">
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${statusMeta.className}`}>
+                    {statusMeta.label}
+                  </span>
+                </td>
+                <td className="px-4 py-4 text-sm text-gray-700 space-y-1">
+                  <p className="truncate max-w-[220px]"><strong>Email:</strong> {student?.email || entry.application?.email || 'No email provided'}</p>
+                  <p><strong>Phone:</strong> {entry.application?.phone || 'Not provided'}</p>
+                </td>
+                <td className="px-4 py-4 text-sm text-gray-700">
+                  {new Date(entry.appliedAt).toLocaleDateString('en-GB')}
+                </td>
+                <td className="px-4 py-4 min-w-[260px]">
+                  {submittedAnswers.length > 0 ? (
+                    <div className="space-y-2">
+                      {submittedAnswers.slice(0, 2).map((answer, answerIndex) => (
+                        <div key={`${answer.questionKey}-${answerIndex}`} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                          <p className="text-[11px] font-semibold text-gray-700 mb-0.5 line-clamp-1">{answer.label}</p>
+                          <p className="text-[11px] text-gray-600 line-clamp-2">{answer.answer}</p>
+                        </div>
+                      ))}
+                      {submittedAnswers.length > 2 ? (
+                        <p className="text-[10px] text-gray-500">+{submittedAnswers.length - 2} more responses</p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                      <p className="text-[11px] font-semibold text-gray-700 mb-0.5">Notes</p>
+                      <p className="text-[11px] text-gray-600 line-clamp-2">{entry.application?.notes || 'Not provided'}</p>
+                    </div>
+                  )}
+                </td>
+                <td className="px-4 py-4">
+                  <div className="flex items-center justify-end gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold py-1 px-2 rounded transition-all"
+                      onClick={() =>
+                        handleApplicationStatusUpdate(eventId, entry._id, 'approved')
+                      }
+                      disabled={reviewingKey === approveKey}
+                    >
+                      {reviewingKey === approveKey ? 'Updating...' : 'Approve'}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="bg-red-600 hover:bg-red-700 text-white text-[10px] font-semibold py-1 px-2 rounded transition-all"
+                      onClick={() =>
+                        handleApplicationStatusUpdate(eventId, entry._id, 'rejected')
+                      }
+                      disabled={reviewingKey === rejectKey}
+                    >
+                      {reviewingKey === rejectKey ? 'Updating...' : 'Reject'}
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   </div>
 ) : (
   <p className="text-gray-500 text-sm bg-white p-4 rounded-lg border border-gray-200">
@@ -884,15 +911,28 @@ export default function EventCoordinatorDashboard() {
 
               {/* Image Upload */}
               <div>
-                <Label htmlFor="imageFile" className="text-sm font-semibold text-gray-700 mb-2">Event Image</Label>
+                <Label htmlFor="image" className="text-sm font-semibold text-gray-700 mb-2">Event Image URL</Label>
                 <Input 
-                  id="imageFile" 
-                  name="imageFile" 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={handleFileChange}
-                  className="w-full"
+                  id="image" 
+                  name="image" 
+                  type="url" 
+                  value={form.image} 
+                  onChange={handleFormChange} 
+                  placeholder="https://example.com/event-banner.jpg"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
+                <p className="mt-2 text-xs text-gray-500">
+                  Use a public image URL so the banner loads on any device or laptop.
+                </p>
+                {resolveImageUrl(form.image) ? (
+                  <div className="mt-3 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                    <img
+                      src={resolveImageUrl(form.image)}
+                      alt="Event preview"
+                      className="h-40 w-full object-cover"
+                    />
+                  </div>
+                ) : null}
               </div>
 
               {/* Participation Options */}
