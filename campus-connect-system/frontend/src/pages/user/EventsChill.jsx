@@ -135,8 +135,6 @@ const [applicationMetaMap, setApplicationMetaMap] = useState({});
   const [participationFieldErrors, setParticipationFieldErrors] = useState({});
   const [participationFieldTouched, setParticipationFieldTouched] = useState({});
   const [participationSubmitAttempted, setParticipationSubmitAttempted] = useState(false);
-const [applicationStatusMap, setApplicationStatusMap] = useState({});
-const [applicationMetaMap, setApplicationMetaMap] = useState({});
 const [myEventRequests, setMyEventRequests] = useState([]);
 const [activeTab, setActiveTab] = useState('events');
 const [selectedEventType, setSelectedEventType] = useState('all');
@@ -242,20 +240,6 @@ const [askFormMessage, setAskFormMessage] = useState('');
     return Array.isArray(matched?.questions) ? matched.questions : [];
   };
 
-const getStudentApplicationStatus = (eventItem, option) => {
-  if (!user?._id) return null;
-
-  const applications = Array.isArray(eventItem.participationApplications)
-    ? eventItem.participationApplications
-    : [];
-
-  const found = applications.find((entry) => {
-    const studentId = typeof entry.student === 'object' ? entry.student?._id : entry.student;
-    return String(studentId) === String(user._id) && entry.option === option;
-  });
-
-  return found?.status || null;
-};
   const validateParticipationField = (eventItem, option, fieldKey, value) => {
     const trimmed = String(value || '').trim();
     const templateQuestions = getParticipationTemplate(eventItem, option);
@@ -312,8 +296,6 @@ if (fieldKey === 'phone') {
   if (!askPhoneRegex.test(trimmed)) return 'Phone number must start with 0 and contain exactly 10 digits.';
   return '';
 }
-      return '';
-    }
 
     if (fieldKey === 'notes') {
       if (!trimmed) return 'Application note is required.';
@@ -816,451 +798,349 @@ throw new Error(`Phone number must start with 0 and contain exactly 10 digits fo
 
   const validateAskField = (field, value) => {
     const trimmed = String(value || '').trim();
-if (!trimmed) {
-  return `${field.charAt(0).toUpperCase()}${field.slice(1)} is required.`;
-}
+    if (!trimmed) {
+      return `${field.charAt(0).toUpperCase()}${field.slice(1)} is required.`;
+    }
 
-if (field === 'name' && !askNameRegex.test(trimmed)) {
-  return 'Name must contain letters only. Numbers are not allowed.';
-}
+    if (field === 'name' && !askNameRegex.test(trimmed)) {
+      return 'Name must contain letters only. Numbers are not allowed.';
+    }
 
-if (field === 'email' && !emailHasAtRegex.test(trimmed)) {
-  return 'Email must include @.';
-}
+    if (field === 'email' && !emailHasAtRegex.test(trimmed)) {
+      return 'Email must include @.';
+    }
 
-if (field === 'phone' && !askPhoneRegex.test(trimmed)) {
-  return 'Phone number must start with 0 and contain exactly 10 digits.';
-}
+    if (field === 'phone' && !askPhoneRegex.test(trimmed)) {
+      return 'Phone number must start with 0 and contain exactly 10 digits.';
+    }
 
-// ... rest of validateAskForm, handleAskFieldChange, handleAskFieldBlur, handleAskFormSubmit, and return JSX
-              <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
-                <h3 className="text-xl font-semibold text-gray-800 mb-0">
-                  {selectedOptions.length > 0 ? 'Application Form' : 'Event Details'}
-                </h3>
-<button
-  type="button"
-  className="text-gray-400 hover:text-gray-600 text-2xl w-8 h-8 flex items-center justify-center"
-  onClick={closeEventDetails}
->
-  ×
-</button>
-              <div className="overflow-y-auto max-h-[calc(100vh-200px)]">
+    return '';
+  };
+
+  const validateAskForm = (values) => ({
+    name: validateAskField('name', values.name),
+    email: validateAskField('email', values.email),
+    phone: validateAskField('phone', values.phone),
+    question: validateAskField('question', values.question),
+  });
+
+  const handleAskFieldChange = (field, value) => {
+    setAskForm((prev) => ({ ...prev, [field]: value }));
+    if (askSubmitAttempted || askFormTouched[field]) {
+      setAskFormErrors((prev) => ({ ...prev, [field]: validateAskField(field, value) }));
+    }
+  };
+
+  const handleAskFieldBlur = (field, value) => {
+    setAskFormTouched((prev) => ({ ...prev, [field]: true }));
+    setAskFormErrors((prev) => ({ ...prev, [field]: validateAskField(field, value) }));
+  };
+
+  const handleAskFormSubmit = (event) => {
+    event.preventDefault();
+    setAskSubmitAttempted(true);
+
+    const nextErrors = validateAskForm(askForm);
+    setAskFormErrors(nextErrors);
+
+    const hasErrors = Object.values(nextErrors).some(Boolean);
+    if (hasErrors) return;
+
+    setAskFormMessage('Your question has been recorded. A coordinator will contact you soon.');
+    setAskFormTouched({});
+    setAskForm({ name: '', email: '', phone: '', question: '' });
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <section className="mb-8 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+          <h1 className="text-3xl font-bold text-gray-900">Events and Chill Sessions</h1>
+          <p className="text-gray-600 mt-2">Discover upcoming campus events and apply for participation roles.</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab('events')}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold ${activeTab === 'events' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+            >
+              Upcoming Events
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('requests')}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold ${activeTab === 'requests' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+            >
+              My Requests
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsAskPanelOpen(true)}
+              className="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-50 text-blue-700 border border-blue-200"
+            >
+              Ask About Events
+            </button>
+          </div>
+        </section>
+
+        {error ? <p className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 border border-red-200">{error}</p> : null}
+        {applyError ? <p className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 border border-red-200">{applyError}</p> : null}
+        {applyMessage ? <p className="mb-4 p-3 rounded-lg bg-green-50 text-green-700 border border-green-200">{applyMessage}</p> : null}
+
+        {activeTab === 'events' ? (
+          <>
+            <section className="mb-6 flex flex-col md:flex-row gap-3">
+              <input
+                type="text"
+                value={searchEventName}
+                onChange={(event) => setSearchEventName(event.target.value)}
+                placeholder="Search by event name"
+                className="w-full md:w-2/3 px-3 py-2 border border-gray-200 rounded-lg"
+              />
+              <select
+                value={selectedEventType}
+                onChange={(event) => setSelectedEventType(event.target.value)}
+                className="w-full md:w-1/3 px-3 py-2 border border-gray-200 rounded-lg"
+              >
+                <option value="all">All event types</option>
+                {EVENT_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </section>
+
+            {loading ? (
+              <p className="text-gray-500">Loading events...</p>
+            ) : upcomingItems.length === 0 ? (
+              <p className="text-gray-500">No upcoming events found.</p>
+            ) : (
+              <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {upcomingItems.map((item) => {
+                  const countdown = getCountdownData(item.date, now);
+                  return (
+                    <article key={item._id} className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+                      {resolveImageUrl(item.image) ? (
+                        <img src={resolveImageUrl(item.image)} alt={item.title} className="h-44 w-full object-cover" />
+                      ) : null}
+                      <div className="p-5">
+                        <p className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 inline-flex px-2 py-1 rounded-full">
+                          {getEventTypeLabel(item.eventType)}
+                        </p>
+                        <h3 className="mt-3 text-lg font-semibold text-gray-900">{item.title}</h3>
+                        <p className="text-sm text-gray-600 mt-1">{new Date(item.date).toLocaleString('en-GB')}</p>
+                        <p className="text-sm text-gray-600">{item.location || 'TBA'}</p>
+                        <p className={`mt-2 text-xs font-semibold ${countdown.status === 'ended' ? 'text-red-600' : countdown.status === 'started' ? 'text-amber-600' : 'text-blue-600'}`}>
+                          {countdown.label}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => openEventDetails(item)}
+                          className="mt-4 w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold"
+                        >
+                          View Details
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </section>
+            )}
+          </>
+        ) : (
+          <section className="bg-white border border-gray-100 rounded-2xl p-5">
+            {myRequestsWithEventDetails.length === 0 ? (
+              <p className="text-gray-500">No participation requests yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {myRequestsWithEventDetails.map((request) => {
+                  const meta = getStatusMeta(request.status);
+                  return (
+                    <article key={request.id} className="border border-gray-200 rounded-lg p-4">
+                      <p className="font-semibold text-gray-900">{request.eventTitle}</p>
+                      <p className="text-sm text-gray-600">{new Date(request.eventDate).toLocaleString('en-GB')}</p>
+                      <p className="text-sm text-gray-600">Role: {formatOptionLabel(request.option)}</p>
+                      <span className={`inline-flex mt-2 px-2.5 py-1 rounded-full text-xs font-semibold ${meta.className}`}>
+                        {meta.label || 'Unknown'}
+                      </span>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {selectedEvent ? (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={closeEventDetails}>
+            <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden" onClick={(event) => event.stopPropagation()}>
+              <div className="flex items-center justify-between p-5 border-b border-gray-100">
+                <h3 className="text-xl font-semibold text-gray-900">{selectedOptions.length > 0 ? 'Application Form' : 'Event Details'}</h3>
+                <button type="button" onClick={closeEventDetails} className="text-gray-500">X</button>
+              </div>
+
+              <div className="p-5 overflow-y-auto max-h-[75vh] space-y-5">
                 {selectedOptions.length > 0 ? (
                   <form
-                    className="p-6 space-y-6"
+                    className="space-y-5"
                     onSubmit={(event) => {
                       event.preventDefault();
                       handleApplySelected(selectedEvent._id);
                     }}
                   >
-                    <p className="text-gray-600">
-                      Fill and submit all selected participation applications for <strong className="text-gray-800">{selectedEvent.title}</strong>.
-                    </p>
-
-{/* Participation Options */}
-                    <div>
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Select Participation Options</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedEvent.participationOptions.map((option) => {
-                          const status = getStudentApplicationStatus(selectedEvent, option);
-                          const applied = !!status;
-                          const selected = selectedOptions.includes(option);
-                          const statusMeta = getStatusMeta(status);
-
-                          return (
-                            <button
-                              key={`selected-${option}`}
-                              type="button"
-                              className={
-                                applied
-                                  ? `px-4 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
-                                  : `px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-200 ${selected ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-200 bg-white text-gray-700 hover:border-green-500'}`
-                              }
-                              onClick={() => toggleApplicationOption(option)}
-                              disabled={applied}
-                            >
-                              {formatOptionLabel(option)}{' '}
-{applied ? `(${statusMeta.label})` : selected ? '✓' : ''}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-{/* Form Fields for Selected Options */}
                     {selectedOptions.map((option) => {
                       const templateQuestions = getParticipationTemplate(selectedEvent, option);
-                      const optionAnswers = applicationAnswersByOption[option] || {};
-
+                      const answers = applicationAnswersByOption[option] || {};
                       return (
-                        <div key={option} className="pt-4 border-t border-gray-100">
-                          <h4 className="text-sm font-semibold text-gray-700 mb-4">{formatOptionLabel(option)} Details</h4>
-
+                        <div key={option} className="border border-gray-200 rounded-lg p-4 space-y-3">
+                          <h4 className="font-semibold text-gray-800">{formatOptionLabel(option)}</h4>
                           {templateQuestions.length > 0 ? (
-                            <div className="space-y-4">
-                              {templateQuestions.map((question) => (
-                                <div key={`${option}-${question.key}`}>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    {question.label}
-                                    {question.required ? <span className="text-red-500 ml-1">*</span> : ''}
-                                  </label>
-                                  <textarea
-                                    rows={3}
-                                    value={optionAnswers[question.key] || ''}
-                                    onChange={(event) =>
-                                      handleApplicationFieldChange(option, question.key, event.target.value)
-                                    }
-                                    onBlur={(event) =>
-                                      handleParticipationFieldBlur(option, question.key, event.target.value)
-                                    }
-                                    required={question.required !== false}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                  />
-                                  {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, question.key)])
-                                    && participationFieldErrors[getParticipationErrorKey(option, question.key)] ? (
-                                      <p className="text-xs text-red-600 mt-1">
-                                        {participationFieldErrors[getParticipationErrorKey(option, question.key)]}
-                                      </p>
-                                    ) : null}
-                                </div>
-                              ))}
-                            </div>
+                            templateQuestions.map((question) => (
+                              <div key={`${option}-${question.key}`}>
+                                <label className="block text-sm text-gray-700 mb-1">{question.label}</label>
+                                <textarea
+                                  rows={3}
+                                  value={answers[question.key] || ''}
+                                  onChange={(event) => handleApplicationFieldChange(option, question.key, event.target.value)}
+                                  onBlur={(event) => handleParticipationFieldBlur(option, question.key, event.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                                />
+                              </div>
+                            ))
                           ) : (
                             <>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Full Name
-                                    <span className="text-red-500 ml-1">*</span>
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={optionAnswers.fullName || ''}
-                                    onChange={(event) =>
-                                      handleApplicationFieldChange(option, 'fullName', event.target.value)
-                                    }
-                                    onBlur={(event) =>
-                                      handleParticipationFieldBlur(option, 'fullName', event.target.value)
-                                    }
-                                    required
-                                    pattern="[A-Za-z\s]+"
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                  />
-                                  {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'fullName')])
-                                    && participationFieldErrors[getParticipationErrorKey(option, 'fullName')] ? (
-                                      <p className="text-xs text-red-600 mt-1">
-                                        {participationFieldErrors[getParticipationErrorKey(option, 'fullName')]}
-                                      </p>
-                                    ) : null}
+                              {['fullName', 'studentId', 'email', 'phone', 'notes'].map((fieldKey) => (
+                                <div key={`${option}-${fieldKey}`}>
+                                  <label className="block text-sm text-gray-700 mb-1">{fieldKey}</label>
+                                  {fieldKey === 'notes' ? (
+                                    <textarea
+                                      rows={3}
+                                      value={answers[fieldKey] || ''}
+                                      onChange={(event) => handleApplicationFieldChange(option, fieldKey, event.target.value)}
+                                      onBlur={(event) => handleParticipationFieldBlur(option, fieldKey, event.target.value)}
+                                      className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                                    />
+                                  ) : (
+                                    <input
+                                      type={fieldKey === 'email' ? 'email' : 'text'}
+                                      value={answers[fieldKey] || ''}
+                                      onChange={(event) => handleApplicationFieldChange(option, fieldKey, event.target.value)}
+                                      onBlur={(event) => handleParticipationFieldBlur(option, fieldKey, event.target.value)}
+                                      className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                                    />
+                                  )}
                                 </div>
-
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">
-<div>
-  <label className="block text-sm font-medium text-gray-700 mb-2">
-    Student ID
-    <span className="text-red-500 ml-1">*</span>
-  </label>
-  <input
-    type="text"
-    value={optionAnswers.studentId || ''}
-    onChange={(event) =>
-      handleApplicationFieldChange(option, 'studentId', event.target.value)
-    }
-    onBlur={(event) =>
-      handleParticipationFieldBlur(option, 'studentId', event.target.value)
-    }
-    required
-    minLength={10}
-    maxLength={10}
-    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-  />
-  {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'studentId')])
-    && participationFieldErrors[getParticipationErrorKey(option, 'studentId')] ? (
-      <p className="text-xs text-red-600 mt-1">
-        {participationFieldErrors[getParticipationErrorKey(option, 'studentId')]}
-      </p>
-    ) : null}
-</div>
-                                    Email
-                                    <span className="text-red-500 ml-1">*</span>
-                                  </label>
-                                  <input
-                                    type="email"
-                                    value={optionAnswers.email || ''}
-                                    onChange={(event) =>
-                                      handleApplicationFieldChange(option, 'email', event.target.value)
-                                    }
-                                    onBlur={(event) =>
-                                      handleParticipationFieldBlur(option, 'email', event.target.value)
-                                    }
-                                    required
-                                    pattern="[^\s@]+@[^\s@]+"
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                  />
-                                  {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'email')])
-                                    && participationFieldErrors[getParticipationErrorKey(option, 'email')] ? (
-                                      <p className="text-xs text-red-600 mt-1">
-                                        {participationFieldErrors[getParticipationErrorKey(option, 'email')]}
-                                      </p>
-                                    ) : null}
-                                </div>
-
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Phone Number
-                                    <span className="text-red-500 ml-1">*</span>
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={optionAnswers.phone || ''}
-                                    onChange={(event) =>
-                                      handleApplicationFieldChange(option, 'phone', event.target.value)
-                                    }
-                                    onBlur={(event) =>
-                                      handleParticipationFieldBlur(option, 'phone', event.target.value)
-                                    }
-                                    placeholder="07X XXX XXXX"
-                                    required
-<pattern="0\d{9}"
-minLength={10}
-maxLength={10}
-inputMode="numeric"
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                  />
-                                  {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'phone')])
-                                    && participationFieldErrors[getParticipationErrorKey(option, 'phone')] ? (
-                                      <p className="text-xs text-red-600 mt-1">
-                                        {participationFieldErrors[getParticipationErrorKey(option, 'phone')]}
-                                      </p>
-                                    ) : null}
-                                </div>
-                              </div>
-
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  Why are you applying for this role?
-                                  <span className="text-red-500 ml-1">*</span>
-                                </label>
-                                <textarea
-                                  rows={4}
-                                  value={optionAnswers.notes || ''}
-                                  onChange={(event) =>
-                                    handleApplicationFieldChange(option, 'notes', event.target.value)
-                                  }
-                                  onBlur={(event) =>
-                                    handleParticipationFieldBlur(option, 'notes', event.target.value)
-                                  }
-                                  placeholder="Share your relevant skills, interest, or experience."
-                                  required
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                />
-                                {(participationSubmitAttempted || participationFieldTouched[getParticipationErrorKey(option, 'notes')])
-                                  && participationFieldErrors[getParticipationErrorKey(option, 'notes')] ? (
-                                    <p className="text-xs text-red-600 mt-1">
-                                      {participationFieldErrors[getParticipationErrorKey(option, 'notes')]}
-                                    </p>
-                                  ) : null}
-                              </div>
+                              ))}
                             </>
                           )}
                         </div>
                       );
                     })}
 
-{/* Form Actions */}
-<div className="flex gap-3 pt-6 border-t border-gray-100">
-  <button
-    type="button"
-    className="flex-1 px-6 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 font-semibold rounded-lg transition-all duration-300"
-    onClick={() => {
-      if (!selectedEvent) return;
-
-      setApplicationAnswersByOption((prev) => {
-        const next = { ...prev };
-        selectedOptions.forEach((option) => {
-          next[option] = createBlankAnswersForOption(selectedEvent, option);
-        });
-        return next;
-      });
-
-      setParticipationFieldErrors({});
-      setParticipationFieldTouched({});
-      setParticipationSubmitAttempted(false);
-      setApplyError('');
-      setApplyMessage('');
-    }}
-  >
-    Clear Form
-  </button>
-  <button
-    type="button"
-                        className="flex-1 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all duration-300"
-                        onClick={() => {
-                          setSelectedOptions([]);
-                          setApplicationAnswersByOption({});
-                          setParticipationFieldErrors({});
-                          setParticipationFieldTouched({});
-                          setParticipationSubmitAttempted(false);
-                        }}
-                      >
-                        Back to Details
-                      </button>
-                      <button
-                        type="submit"
-                        className="flex-1 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={applyingKey === selectedEvent._id}
-                      >
-                        {applyingKey === selectedEvent._id
-                          ? 'Submitting...'
-                          : `Submit ${selectedOptions.length} Application${selectedOptions.length > 1 ? 's' : ''}`}
+                    <div className="flex gap-3">
+                      <button type="button" onClick={() => setSelectedOptions([])} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold">Back</button>
+                      <button type="submit" disabled={applyingKey === selectedEvent._id} className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-semibold disabled:opacity-60">
+                        {applyingKey === selectedEvent._id ? 'Submitting...' : 'Submit Applications'}
                       </button>
                     </div>
                   </form>
                 ) : (
-                  <div className="p-6 space-y-6">
-{/* Event Image */}
+                  <>
                     {resolveImageUrl(selectedEvent.image) ? (
-                      <div className="w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
-                        <img
-                          src={resolveImageUrl(selectedEvent.image)}
-                          alt={selectedEvent.title}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
+                      <img src={resolveImageUrl(selectedEvent.image)} alt={selectedEvent.title} className="h-52 w-full object-cover rounded-lg" />
                     ) : null}
+                    <h4 className="text-2xl font-semibold text-gray-900">{selectedEvent.title}</h4>
+                    <p className="text-gray-600">{selectedEvent.description || 'No description provided.'}</p>
 
-{/* Event Title */}
-<div>
-  <h3 className="text-2xl font-bold text-gray-800 text-sinhala">{selectedEvent.title}</h3>
-</div>
-
-{/* Event Description */}
-<div>
-  <p className="text-gray-600 text-sinhala leading-relaxed">
-    {selectedEvent.description || 'No description provided for this event.'}
-  </p>
-</div>
-
-{/* Event Details */}
-                    <div className="space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                      <div>
-                        <span className="text-xs font-semibold text-gray-500 uppercase">Date</span>
-                        <p className="text-gray-700 font-medium">
-                          {new Date(selectedEvent.date).toLocaleDateString('en-GB', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                          })}
-                        </p>
-                      </div>
-                      <div className="border-t border-gray-200 pt-3">
-                        <span className="text-xs font-semibold text-gray-500 uppercase">Time</span>
-                        <p className="text-gray-700 font-medium">
-                          {new Date(selectedEvent.date).toLocaleTimeString('en-GB', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </p>
-                      </div>
-                      <div className="border-t border-gray-200 pt-3">
-                        <span className="text-xs font-semibold text-gray-500 uppercase">Location</span>
-                        <p className="text-gray-700 font-medium text-sinhala">{selectedEvent.location || 'TBA'}</p>
-                      </div>
-                    </div>
-
-{/* Participation Options */}
-                    <div>
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Participation Opportunities</h4>
-
-                      {!isStudent ? (
-                        <p className="text-gray-500 text-sm bg-blue-50 border border-blue-100 rounded-lg p-3">
-                          Participation applications can be submitted by student accounts only.
-                        </p>
-                      ) : null}
-
-                      {Array.isArray(selectedEvent.participationOptions) && selectedEvent.participationOptions.length > 0 ? (
+                    {Array.isArray(selectedEvent.participationOptions) && selectedEvent.participationOptions.length > 0 ? (
+                      <div className="space-y-3">
+                        <p className="text-sm font-semibold text-gray-700 uppercase">Participation Options</p>
                         <div className="flex flex-wrap gap-2">
                           {selectedEvent.participationOptions.map((option) => {
                             const status = getStudentApplicationStatus(selectedEvent, option);
-                            const applied = !!status;
-                            const selected = selectedOptions.includes(option);
                             const statusMeta = getStatusMeta(status);
+                            const selected = selectedOptions.includes(option);
                             const metadata = getExistingPendingApplicationMeta(selectedEvent._id, option);
-                            const canManagePending = applied && String(status).toLowerCase() === 'pending' && !!metadata?.id;
-                            const removingCurrent = applyingKey === `${selectedEvent._id}:${option}:remove`;
-
+                            const canManagePending = String(status).toLowerCase() === 'pending' && !!metadata?.id;
                             return (
                               <div key={option} className="flex items-center gap-2">
                                 <button
                                   type="button"
-                                  className={
-                                    applied
-                                      ? `px-4 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
-                                      : `px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-200 ${selected ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-200 bg-white text-gray-700 hover:border-green-500'}`
-                                  }
+                                  disabled={!!status}
                                   onClick={() => toggleApplicationOption(option)}
-                                  disabled={applied}
+                                  className={
+                                    status
+                                      ? `px-3 py-1.5 rounded-full text-xs font-semibold cursor-default ${statusMeta.className}`
+                                      : `px-3 py-1.5 rounded-full text-xs font-semibold border ${selected ? 'bg-green-50 border-green-500 text-green-700' : 'bg-white border-gray-300 text-gray-700'}`
+                                  }
                                 >
-{formatOptionLabel(option)} {applied ? `(${statusMeta.label})` : selected ? '✓' : ''}
+                                  {formatOptionLabel(option)} {status ? `(${statusMeta.label})` : selected ? '✓' : ''}
                                 </button>
-
                                 {canManagePending ? (
                                   <>
-                                    <button
-                                      type="button"
-                                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-100 text-green-700 hover:bg-green-200 transition-all duration-200"
-                                      onClick={() => handleEditPendingApplication(option)}
-                                    >
-                                      Update
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-100 text-red-700 hover:bg-red-200 transition-all duration-200 disabled:opacity-50"
-                                      onClick={() => handleRemovePendingApplication(selectedEvent._id, option)}
-                                      disabled={removingCurrent}
-                                    >
-                                      {removingCurrent ? 'Removing...' : 'Remove'}
-                                    </button>
+                                    <button type="button" onClick={() => handleEditPendingApplication(option)} className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">Update</button>
+                                    <button type="button" onClick={() => handleRemovePendingApplication(selectedEvent._id, option)} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded">Remove</button>
                                   </>
                                 ) : null}
                               </div>
                             );
                           })}
                         </div>
-                      ) : (
-                        <p className="text-gray-500 text-sm">No participation roles are open for this event.</p>
-                      )}
-                    </div>
+                      </div>
+                    ) : null}
 
-{isStudent && selectedEvent.participationOptions && selectedEvent.participationOptions.length > 0 && (
-  // Action Buttons
-  <div className="flex gap-3 mt-6">
-    {/* your buttons here */}
-  </div>
-)}
-                      <div className="flex gap-3 pt-4 border-t border-gray-100">
-                        <button
-                          type="button"
-                          className="flex-1 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all duration-300"
-                          onClick={closeEventDetails}
-                        >
-                          Close
-                        </button>
-{selectedOptions.length > 0 && (
-  <button
-    type="button"
-    className="flex-1 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300"
-    onClick={() => {
-      // Form will show when options are selected
-    }}
-  >
-    Apply Now
-  </button>
-)}
-                  </div>
+                    <div className="flex gap-3 pt-4 border-t border-gray-100">
+                      <button type="button" onClick={closeEventDetails} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold">Close</button>
+                      {selectedOptions.length > 0 ? (
+                        <button type="button" className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-semibold">Apply Now</button>
+                      ) : null}
+                    </div>
+                  </>
                 )}
               </div>
+            </div>
+          </div>
+        ) : null}
+
+        {isAskPanelOpen ? (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setIsAskPanelOpen(false)}>
+            <div className="bg-white rounded-2xl w-full max-w-xl p-6" onClick={(event) => event.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold text-gray-900">Ask About Events</h3>
+                <button type="button" onClick={() => setIsAskPanelOpen(false)} className="text-gray-500">X</button>
+              </div>
+              <img src={askEventsImage} alt="Ask events" className="w-full h-36 object-cover rounded-lg mb-4" />
+              {askFormMessage ? <p className="mb-3 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg">{askFormMessage}</p> : null}
+              <form onSubmit={handleAskFormSubmit} className="space-y-3">
+                {['name', 'email', 'phone'].map((field) => (
+                  <div key={field}>
+                    <input
+                      type={field === 'email' ? 'email' : 'text'}
+                      value={askForm[field]}
+                      onChange={(event) => handleAskFieldChange(field, event.target.value)}
+                      onBlur={(event) => handleAskFieldBlur(field, event.target.value)}
+                      placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                    />
+                    {(askSubmitAttempted || askFormTouched[field]) && askFormErrors[field] ? (
+                      <p className="text-xs text-red-600 mt-1">{askFormErrors[field]}</p>
+                    ) : null}
+                  </div>
+                ))}
+                <div>
+                  <textarea
+                    rows={4}
+                    value={askForm.question}
+                    onChange={(event) => handleAskFieldChange('question', event.target.value)}
+                    onBlur={(event) => handleAskFieldBlur('question', event.target.value)}
+                    placeholder="Your question"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                  />
+                  {(askSubmitAttempted || askFormTouched.question) && askFormErrors.question ? (
+                    <p className="text-xs text-red-600 mt-1">{askFormErrors.question}</p>
+                  ) : null}
+                </div>
+                <button type="submit" className="w-full px-4 py-2 bg-green-600 text-white rounded-lg font-semibold">Submit Question</button>
+              </form>
             </div>
           </div>
         ) : null}

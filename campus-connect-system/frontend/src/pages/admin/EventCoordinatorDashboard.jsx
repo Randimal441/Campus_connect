@@ -221,12 +221,30 @@ export default function EventCoordinatorDashboard() {
     if (Array.isArray(item.participationForms)) {
       item.participationForms.forEach((formItem) => {
         const questions = Array.isArray(formItem.questions) ? formItem.questions : [];
-        const selected = questions
-          .map((question) => String(question?.key || '').trim().toLowerCase())
-          .filter((key) => APPLICATION_FORM_FIELD_KEYS.has(key));
+        const selected = [];
+        const customQuestions = [];
+
+        questions.forEach((question, index) => {
+          const questionKey = String(question?.key || '').trim().toLowerCase();
+          const questionLabel = String(question?.label || '').trim();
+          const normalizedQuestion = {
+            key: questionKey || `q_${index + 1}`,
+            label: questionLabel,
+            required: question?.required !== false,
+          };
+
+          if (APPLICATION_FORM_FIELD_KEYS.has(questionKey)) {
+            selected.push(questionKey);
+            return;
+          }
+
+          if (questionLabel) {
+            customQuestions.push(normalizedQuestion);
+          }
+        });
 
         mappedBaseFields[formItem.option] = selected;
-        mappedForms[formItem.option] = [];
+        mappedForms[formItem.option] = customQuestions;
       });
     }
 
@@ -314,6 +332,66 @@ export default function EventCoordinatorDashboard() {
     });
   };
 
+  const handleAddQuestion = (optionValue) => {
+    setForm((prev) => {
+      const currentQuestions = Array.isArray(prev.participationForms[optionValue])
+        ? prev.participationForms[optionValue]
+        : [];
+
+      return {
+        ...prev,
+        participationForms: {
+          ...prev.participationForms,
+          [optionValue]: [
+            ...currentQuestions,
+            {
+              key: `q_${Date.now()}`,
+              label: '',
+              required: true,
+            },
+          ],
+        },
+      };
+    });
+  };
+
+  const handleQuestionChange = (optionValue, questionIndex, field, value) => {
+    setForm((prev) => {
+      const currentQuestions = Array.isArray(prev.participationForms[optionValue])
+        ? prev.participationForms[optionValue]
+        : [];
+
+      const updatedQuestions = currentQuestions.map((question, index) => {
+        if (index !== questionIndex) return question;
+        return { ...question, [field]: value };
+      });
+
+      return {
+        ...prev,
+        participationForms: {
+          ...prev.participationForms,
+          [optionValue]: updatedQuestions,
+        },
+      };
+    });
+  };
+
+  const handleRemoveQuestion = (optionValue, questionIndex) => {
+    setForm((prev) => {
+      const currentQuestions = Array.isArray(prev.participationForms[optionValue])
+        ? prev.participationForms[optionValue]
+        : [];
+
+      return {
+        ...prev,
+        participationForms: {
+          ...prev.participationForms,
+          [optionValue]: currentQuestions.filter((_, index) => index !== questionIndex),
+        },
+      };
+    });
+  };
+
   const handleSave = async (event) => {
     event.preventDefault();
     setSaving(true);
@@ -338,15 +416,35 @@ export default function EventCoordinatorDashboard() {
           ? form.participationBaseFields[option]
           : [];
 
+        const customQuestions = Array.isArray(form.participationForms[option])
+          ? form.participationForms[option]
+              .map((question, index) => {
+                const questionLabel = String(question?.label || '').trim();
+                const questionKey = String(question?.key || '').trim().toLowerCase();
+
+                if (!questionLabel) return null;
+
+                return {
+                  key: questionKey || `q_${index + 1}`,
+                  label: questionLabel,
+                  required: question?.required !== false,
+                };
+              })
+              .filter(Boolean)
+          : [];
+
         return {
           option,
-          questions: APPLICATION_FORM_FIELDS
-            .filter((field) => selectedBaseFields.includes(field.key))
-            .map((field) => ({
-              key: field.key,
-              label: field.label,
-              required: true,
-            })),
+          questions: [
+            ...APPLICATION_FORM_FIELDS
+              .filter((field) => selectedBaseFields.includes(field.key))
+              .map((field) => ({
+                key: field.key,
+                label: field.label,
+                required: true,
+              })),
+            ...customQuestions,
+          ],
         };
       });
 
@@ -564,13 +662,12 @@ export default function EventCoordinatorDashboard() {
     </Button>
   </div>
 </div>
-                </div>
               </article>
             ))}
           </div>
         )}
 
-        {!loading && sortedItems.length > 0 ? (
+        {!loading && sortedItems.length > 0 && (
           <section className="mt-12 bg-gray-50 border border-gray-200 rounded-2xl p-6 md:p-8">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-800">Participation Applicants</h2>
@@ -679,6 +776,7 @@ export default function EventCoordinatorDashboard() {
   </p>
 )}
 </section>
+        )}
       </div>
 
       {isModalOpen ? (
@@ -728,7 +826,6 @@ export default function EventCoordinatorDashboard() {
     ))}
   </select>
 </div>
-              </div>
 
               {/* Date & Time */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -828,6 +925,9 @@ export default function EventCoordinatorDashboard() {
                       const optionMeta = PARTICIPATION_OPTIONS.find((option) => option.value === optionValue);
                       const selectedBaseFields = Array.isArray(form.participationBaseFields[optionValue])
                         ? form.participationBaseFields[optionValue]
+                        : [];
+                      const questions = Array.isArray(form.participationForms[optionValue])
+                        ? form.participationForms[optionValue]
                         : [];
 
                       return (
@@ -1096,26 +1196,9 @@ export default function EventCoordinatorDashboard() {
     </p>
   )}
 </div>
-                          </div>
-                          <div className="bg-emerald-50 rounded px-2 py-1 border border-emerald-200">
-                            <p className="text-emerald-700">Approved</p>
-                            <p className="font-semibold text-emerald-800">{category.approved}</p>
-                          </div>
-                          <div className="bg-red-50 rounded px-2 py-1 border border-red-200">
-                            <p className="text-red-700">Rejected</p>
-                            <p className="font-semibold text-red-800">{category.rejected}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-sm bg-gray-50 p-4 rounded-lg border border-gray-100">No participation applications submitted yet.</p>
-                )}
               </div>
             </div>
           </div>
-        </div>
       ) : null}
     </>
   );
