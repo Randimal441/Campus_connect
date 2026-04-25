@@ -74,6 +74,7 @@ const sanitizeFormQuestions = (questions) => (
       )
     : []
 );
+
 const validateApplicationPayload = (application, formQuestions) => {
   const submittedAnswers = normalizeSubmittedAnswers(application?.answers);
   const fullName = sanitizeApplicationField(application?.fullName);
@@ -94,6 +95,7 @@ const validateApplicationPayload = (application, formQuestions) => {
     if (missingRequired) {
       throw new Error('Please complete all required questions in the application form.');
     }
+
     const hasInvalidEmailAnswer = formQuestions.some((question) => {
       const keyText = sanitizeApplicationField(question?.key).toLowerCase();
       const labelText = sanitizeApplicationField(question?.label).toLowerCase();
@@ -145,23 +147,27 @@ const validateApplicationPayload = (application, formQuestions) => {
       throw new Error('Student ID must contain exactly 10 characters.');
     }
   } else {
-    if (!fullName || !studentId || !email || !phone || !notes) {
-      throw new Error('Please complete the participation application form.');
-    }
+const fullName = sanitizeApplicationField(application?.fullName);
+const studentId = sanitizeApplicationField(application?.studentId);
+const email = sanitizeApplicationField(application?.email);
+const phone = sanitizeApplicationField(application?.phone);
+const notes = sanitizeApplicationField(application?.notes);
 
-    if (!STUDENT_ID_LENGTH_REGEX.test(studentId)) {
-      throw new Error('Student ID must contain exactly 10 characters.');
-    }
+if (!fullName || !studentId || !email || !phone || !notes) {
+  throw new Error('Please complete the participation application form.');
+}
 
-    if (!EMAIL_HAS_AT_REGEX.test(email)) {
-      throw new Error('Email address must include @.');
-    }
+if (!STUDENT_ID_LENGTH_REGEX.test(studentId)) {
+  throw new Error('Student ID must contain exactly 10 characters.');
+}
 
-    if (!PHONE_STARTS_WITH_ZERO_REGEX.test(phone)) {
-      throw new Error('Phone number must start with 0 and contain exactly 10 digits.');
-    }
-  }
+if (!EMAIL_HAS_AT_REGEX.test(email)) {
+  throw new Error('Email address must include @.');
+}
 
+if (!PHONE_STARTS_WITH_ZERO_REGEX.test(phone)) {
+  throw new Error('Phone number must start with 0 and contain exactly 10 digits.');
+}
   return {
     fullName,
     studentId,

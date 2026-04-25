@@ -598,79 +598,85 @@ export default function EventCoordinatorDashboard() {
                       ? item.participationApplications.length
                       : 0;
 
-                    return (
-                      <tr key={item._id} className="hover:bg-gray-50/70 transition-colors">
-                        <td className="px-4 py-3">
-                          <div className="h-12 w-16 rounded-md bg-gray-100 overflow-hidden border border-gray-200">
-                            {resolveImageUrl(item.image) ? (
-                              <img
-                                src={resolveImageUrl(item.image)}
-                                alt={item.title}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <div className="h-full w-full flex items-center justify-center text-gray-400">
-                                <ImageIcon size={16} />
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm font-semibold text-gray-800 max-w-[240px] truncate">{item.title}</p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center text-[11px] font-semibold uppercase tracking-wide text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-200">
-                            {getEventTypeLabel(item.eventType)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="inline-flex items-center gap-1.5 text-sm text-gray-700">
-                            <CalendarDays size={14} className="text-green-600" />
-                            <span>{formatCardDate(item.date)}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="inline-flex items-center gap-1.5 text-sm text-gray-700">
-                            <Clock3 size={14} className="text-green-600" />
-                            <span>{formatCardTime(item)}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="inline-flex items-center gap-1.5 text-sm text-gray-700 max-w-[220px]">
-                            <MapPin size={14} className="text-green-600 shrink-0" />
-                            <span className="truncate">{item.location || 'TBA'}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700 border border-gray-200">
-                            {applicantCount}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openEditModal(item)}
-                              className="border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold py-2 px-3 rounded-lg"
-                            >
-                              <Pencil size={14} />
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleDelete(item._id)}
-                              className="bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold py-2 px-3 rounded-lg"
-                            >
-                              <Trash2 size={14} />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+return (
+  <tr key={item._id} className="hover:bg-gray-50/70 transition-colors">
+    <td className="px-4 py-3">
+      <div className="h-12 w-16 rounded-md bg-gray-100 overflow-hidden border border-gray-200">
+        {resolveImageUrl(item.image) ? (
+          <img
+            src={resolveImageUrl(item.image)}
+            alt={item.title}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="h-full w-full flex items-center justify-center text-gray-400">
+            <ImageIcon size={16} />
+          </div>
+        )}
+      </div>
+    </td>
+
+    <td className="px-4 py-3">
+      <p className="text-sm font-semibold text-gray-800 max-w-[240px] truncate">
+        {item.title}
+      </p>
+    </td>
+
+    <td className="px-4 py-3">
+      <span className="inline-flex items-center text-[11px] font-semibold uppercase tracking-wide text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-200">
+        {getEventTypeLabel(item.eventType)}
+      </span>
+    </td>
+
+    <td className="px-4 py-3">
+      <div className="inline-flex items-center gap-1.5 text-sm text-gray-700">
+        <CalendarDays size={14} className="text-green-600" />
+        <span>{formatCardDate(item.date)}</span>
+      </div>
+    </td>
+
+    <td className="px-4 py-3">
+      <div className="inline-flex items-center gap-1.5 text-sm text-gray-700">
+        <Clock3 size={14} className="text-green-600" />
+        <span>{formatCardTime(item)}</span>
+      </div>
+    </td>
+
+    <td className="px-4 py-3">
+      <div className="inline-flex items-center gap-1.5 text-sm text-gray-700 max-w-[220px]">
+        <MapPin size={14} className="text-green-600 shrink-0" />
+        <span className="truncate">{item.location || 'TBA'}</span>
+      </div>
+    </td>
+
+    <td className="px-4 py-3 text-sm text-gray-700">
+      <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700 border border-gray-200">
+        {applicantCount}
+      </span>
+    </td>
+
+    <td className="px-4 py-3">
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => openEditModal(item)}
+          className="border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold py-2 px-3 rounded-lg"
+        >
+          <Pencil size={14} />
+        </Button>
+
+        <Button
+          size="sm"
+          onClick={() => handleDelete(item._id)}
+          className="bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold py-2 px-3 rounded-lg"
+        >
+          <Trash2 size={14} />
+        </Button>
+      </div>
+    </td>
+  </tr>
+);
           </div>
         )}
 
@@ -803,7 +809,7 @@ export default function EventCoordinatorDashboard() {
   </p>
 )}
 </section>
-        )}
+)}
       </div>
 
       {isModalOpen ? (
@@ -1000,56 +1006,6 @@ export default function EventCoordinatorDashboard() {
     );
   })}
 </div>
-
-<div className="flex items-center justify-between mb-2">
-  <h4 className="font-semibold text-gray-800 mb-0">Custom Questions</h4>
-  <Button 
-    type="button" 
-    size="sm" 
-    className="bg-green-600 hover:bg-green-700 text-white text-xs py-1 px-3 rounded"
-    onClick={() => handleAddQuestion(optionValue)}
-  >
-    Add Question
-  </Button>
-</div>
-
-{questions.length === 0 ? (
-  <p className="text-sm text-gray-500 mb-0">No questions yet. Add questions students should answer for this role.</p>
-) : (
-  <div className="space-y-2">
-    {questions.map((question, questionIndex) => (
-      <div key={`${optionValue}-${questionIndex}`} className="flex gap-2 items-center bg-white p-2 rounded border border-gray-100">
-        <Input
-          value={question.label}
-          onChange={(event) =>
-            handleQuestionChange(optionValue, questionIndex, 'label', event.target.value)
-          }
-          placeholder="Question label"
-          className="flex-1 text-xs px-2 py-1 border border-gray-200 rounded"
-        />
-        <label className="flex items-center gap-1 text-xs whitespace-nowrap">
-          <input
-            type="checkbox"
-            checked={question.required !== false}
-            onChange={(event) =>
-              handleQuestionChange(optionValue, questionIndex, 'required', event.target.checked)
-            }
-            className="w-3 h-3"
-          />
-          <span>Required</span>
-        </label>
-        <Button
-          type="button"
-          size="sm"
-          className="bg-red-600 hover:bg-red-700 text-white text-xs py-1 px-2 rounded"
-          onClick={() => handleRemoveQuestion(optionValue, questionIndex)}
-        >
-          Remove
-        </Button>
-      </div>
-    ))}
-  </div>
-)}
                         </div>
                       );
                     })}

@@ -6,86 +6,13 @@ import Footer from '../../components/common/Footer';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
 
-const DUMMY_REVIEWS = [
-  {
-    _id: 'r1',
-    name: 'Emily H.',
-    rating: 5,
-    date: 'Feb 12, 2024',
-    text: 'Dr. Mitchell helped me work through my anxiety with such patience and understanding. Her approach is both professional and caring.',
-  },
-  {
-    _id: 'r2',
-    name: 'Michael J.',
-    rating: 5,
-    date: 'Feb 8, 2024',
-    text: 'Excellent therapist. The CBT techniques she taught me have been life changing. Highly recommend!',
-  },
-  {
-    _id: 'r3',
-    name: 'Anna L.',
-    rating: 4,
-    date: 'Feb 3, 2024',
-    text: 'Very knowledgeable and creates a safe space for healing. The couples therapy sessions really helped our relationship.',
-  },
-  {
-    _id: 'r4',
-    name: 'David K.',
-    rating: 5,
-    date: 'Jan 28, 2024',
-    text: 'The sessions were structured and practical. I now have better coping strategies for stressful days.',
-  },
-  {
-    _id: 'r5',
-    name: 'Sofia R.',
-    rating: 4,
-    date: 'Jan 20, 2024',
-    text: 'Warm and understanding counselor. I felt listened to from the very first appointment.',
-  },
-  {
-    _id: 'r6',
-    name: 'Kevin P.',
-    rating: 5,
-    date: 'Jan 14, 2024',
-    text: 'Great guidance for handling exam anxiety. The breathing techniques are very effective.',
-  },
-  {
-    _id: 'r7',
-    name: 'Nadeesha M.',
-    rating: 4,
-    date: 'Jan 9, 2024',
-    text: 'Professional and kind. The communication was clear and I always knew what to focus on next.',
-  },
-  {
-    _id: 'r8',
-    name: 'Liam T.',
-    rating: 5,
-    date: 'Jan 2, 2024',
-    text: 'Helped me build confidence and improve my daily routine. Highly recommended service.',
-  },
-  {
-    _id: 'r9',
-    name: 'Harini S.',
-    rating: 4,
-    date: 'Dec 22, 2023',
-    text: 'Very supportive and non-judgmental. I felt safe discussing difficult topics.',
-  },
-  {
-    _id: 'r10',
-    name: 'Rohan D.',
-    rating: 5,
-    date: 'Dec 15, 2023',
-    text: 'Excellent counselor with practical advice. I noticed positive changes after a few sessions.',
-  },
-];
-
 export default function ConsultantDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [consultant, setConsultant] = useState(null);
   const [sessions, setSessions] = useState([]);
-  const [reviews, setReviews] = useState(DUMMY_REVIEWS);
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showBookingModalStep1, setShowBookingModalStep1] = useState(false);
   const [showBookingModalStep2, setShowBookingModalStep2] = useState(false);
@@ -98,6 +25,8 @@ export default function ConsultantDetails() {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(null);
   const [reviewInput, setReviewInput] = useState('');
+  const [sessionFilter, setSessionFilter] = useState('Upcoming');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [selectedReviewRating, setSelectedReviewRating] = useState(5);
   const [hoverReviewRating, setHoverReviewRating] = useState(0);
   const averageRating = reviews.length
@@ -105,6 +34,13 @@ export default function ConsultantDetails() {
     : '0.0';
   const avatarColors = ['bg-pink-400', 'bg-blue-400', 'bg-purple-400', 'bg-cyan-400'];
   const ratingLabels = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
+
+  const isPastSession = (day) => {
+    const sessionDate = new Date(day);
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    return sessionDate < todayStart;
+  };
 
   const validateBookingDetails = () => {
     const year = academicYear.trim();
@@ -138,37 +74,54 @@ export default function ConsultantDetails() {
     return true;
   };
 
-  const handleAddReview = () => {
+  const handleAddReview = async () => {
     const text = reviewInput.trim();
     if (!text) return;
 
-    const newReview = {
-      _id: `r-${Date.now()}`,
-      name: user?.fullName || user?.name || 'Student',
-      rating: selectedReviewRating,
-      date: new Date().toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      }),
-      text,
-    };
+    setReviewSubmitting(true);
+    try {
+      await api(`/consulting/reviews/consultant/${id}`, {
+        method: 'POST',
+        body: {
+          rating: selectedReviewRating,
+          text,
+        },
+      });
 
-    setReviews((prev) => [newReview, ...prev]);
-    setReviewInput('');
-    setSelectedReviewRating(5);
+      setReviewInput('');
+      setSelectedReviewRating(5);
+      toast.success('Review submitted. It will be visible after admin approval.');
+    } catch (error) {
+      toast.error(error.message || 'Failed to submit review.');
+    } finally {
+      setReviewSubmitting(false);
+    }
   };
 
   useEffect(() => {
     setLoading(true);
-    // Fetch consultant profile and public sessions
+    // Fetch consultant profile, sessions, and approved reviews
     Promise.all([
       api(`/consulting/${id}`),
       api(`/consulting/sessions/public/${id}`),
+      api(`/consulting/reviews/consultant/${id}`),
     ])
-      .then(([consultantData, sessionsData]) => {
+      .then(([consultantData, sessionsData, reviewsData]) => {
         setConsultant(consultantData);
         setSessions(sessionsData || []);
+        setReviews(
+          (reviewsData || []).map((review) => ({
+            _id: review._id,
+            name: review.studentName || 'Student',
+            rating: review.rating,
+            text: review.text,
+            date: new Date(review.createdAt).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            }),
+          }))
+        );
       })
       .catch((err) => {
         console.error('Failed to load consultant details', err);
@@ -307,10 +260,10 @@ export default function ConsultantDetails() {
                   <button
                     type="button"
                     onClick={handleAddReview}
-                    disabled={!reviewInput.trim()}
-                    className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition ${reviewInput.trim() ? 'bg-teal-600 hover:bg-teal-700' : 'bg-gray-300 cursor-not-allowed'}`}
+                    disabled={!reviewInput.trim() || reviewSubmitting}
+                    className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition ${reviewInput.trim() && !reviewSubmitting ? 'bg-teal-600 hover:bg-teal-700' : 'bg-gray-300 cursor-not-allowed'}`}
                   >
-                    Add
+                    {reviewSubmitting ? 'Submitting...' : 'Add'}
                   </button>
                 </div>
                 <p className="mt-2 text-xs text-gray-500">Press Enter or click Add to submit your review.</p>
@@ -359,26 +312,66 @@ export default function ConsultantDetails() {
         {/* Booking schedule below */}
         <div className="mt-8 bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Sessions & Slots</h3>
+                    <div className="mb-4 flex items-center gap-2">
+                      <button
+                        onClick={() => setSessionFilter('Upcoming')}
+                        className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+                          sessionFilter === 'Upcoming'
+                            ? 'bg-teal-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        Upcoming
+                      </button>
+                      <button
+                        onClick={() => setSessionFilter('All')}
+                        className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+                          sessionFilter === 'All'
+                            ? 'bg-teal-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        All Sessions
+                      </button>
+                    </div>
           {sessions.length === 0 ? (
             <p className="text-gray-500">No sessions available at the moment.</p>
           ) : (
             <div className="space-y-4">
-              {sessions.map((session) => (
-                <div key={session._id} className="border rounded-lg p-4">
+              {sessions
+                .filter((session) => {
+                  const isPast = isPastSession(session.day);
+                  if (sessionFilter === 'Upcoming') {
+                    return !isPast;
+                  }
+                  return true;
+                })
+                .map((session) => {
+                const isPast = isPastSession(session.day);
+                return (
+                <div key={session._id} className={`border rounded-lg p-4 ${ isPast ? 'bg-gray-50 border-gray-300' : ''}`}>
                   <div className="flex items-center justify-between mb-2">
                     <div>
-                      <div className="text-sm text-gray-600">{session.day}</div>
-                      <div className="text-sm text-gray-800 font-medium">{session.startTime} - {session.endTime} • {session.place}</div>
+                      <div className={`text-sm ${ isPast ? 'text-gray-500' : 'text-gray-600'}`}>{session.day}</div>
+                      <div className={`text-sm font-medium ${ isPast ? 'text-gray-500' : 'text-gray-800'}`}>
+                        {session.startTime} - {session.endTime} • {session.place}
+                        {isPast && <span className="ml-2 text-xs bg-gray-300 text-gray-700 px-2 py-0.5 rounded">Past Session</span>}
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-500">Slots: {session.slots.length}</div>
+                    <div className={`text-sm ${ isPast ? 'text-gray-400' : 'text-gray-500'}`}>Slots: {session.slots.length}</div>
                   </div>
 
                   <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
-                    {session.slots.map((slot) => (
-                      <div key={slot._id} className={`p-2 rounded-md text-center border ${slot.isBooked ? 'bg-orange-50 border-orange-100 text-orange-700' : 'bg-teal-50 border-teal-100 text-teal-700'}`}>
+                    {session.slots.map((slot) => {
+                      const isSlotDisabled = isPast || slot.isBooked;
+                      return (
+                      <div key={slot._id} className={`p-2 rounded-md text-center border ${
+                        isPast ? 'bg-gray-100 border-gray-300 text-gray-500' :
+                        slot.isBooked ? 'bg-orange-50 border-orange-100 text-orange-700' : 'bg-teal-50 border-teal-100 text-teal-700'
+                      }`}>
                         <div className="text-sm font-medium">{slot.startTime} - {slot.endTime}</div>
-                        <div className="text-xs mt-1">{slot.isBooked ? 'Booked' : 'Available'}</div>
-                        {!slot.isBooked && (
+                        <div className="text-xs mt-1">{isPast ? 'Expired' : slot.isBooked ? 'Booked' : 'Available'}</div>
+                        {!slot.isBooked && !isPast && (
                           <button
                             onClick={() => {
                               if (!user) return navigate('/auth/signin');
@@ -390,12 +383,15 @@ export default function ConsultantDetails() {
                               setRiskPreview(null);
                               setShowBookingModalStep1(true);
                             }}
-                            className="mt-2 text-xs bg-green-600 hover:bg-green-700 text-white py-1 px-2 rounded"
+                            className="mt-2 text-xs bg-green-600 hover:bg-green-700 text-white py-1 px-2 rounded transition"
                           >
                             Book
                           </button>
                         )}
-                        {slot.isBooked && slot.bookedBy && String(user?._id) === String(slot.bookedBy) && (
+                        {isPast && !slot.isBooked && (
+                          <div className="mt-2 text-xs bg-gray-200 text-gray-600 py-1 px-2 rounded cursor-not-allowed">Unavailable</div>
+                        )}
+                        {slot.isBooked && slot.bookedBy && String(user?._id) === String(slot.bookedBy) && !isPast && (
                           <div className="mt-2">
                             <button
                               onClick={async () => {
@@ -421,23 +417,23 @@ export default function ConsultantDetails() {
                                 }
                               }}
                               disabled={cancelLoading === slot._id}
-                              className="mt-1 text-xs bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded"
+                              className="mt-1 text-xs bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded transition disabled:opacity-60"
                             >
                               {cancelLoading === slot._id ? 'Cancelling...' : 'Cancel Booking'}
                             </button>
                           </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       </main>
-      
-      {/* Booking Modal Step 1: contact details and preview */}
       {showBookingModalStep1 && bookingContext && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-40 p-4" aria-hidden={showBookingModalStep2 ? 'true' : 'false'}>
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
@@ -588,9 +584,9 @@ export default function ConsultantDetails() {
                   const summary = highTriggers.length > 0 ? 'Several responses indicate elevated symptoms; consider follow-up.' : 'Responses appear low-risk.';
 
                   //bellow one is tempory
-                  setRiskPreview({ riskLevel: 'medium', riskSummary: 'manual evaluation required' });
+                  //setRiskPreview({ riskLevel: 'medium', riskSummary: 'manual evaluation required' });
                   //below one is the testing situation.this one build after presentation
-                  //setRiskPreview({ riskLevel: risk, riskSummary: summary });
+                  setRiskPreview({ riskLevel: risk, riskSummary: summary });
                   // close step 2 and show step1 with preview
                   setShowBookingModalStep2(false);
                   setShowBookingModalStep1(true);

@@ -20,11 +20,7 @@ const StarRating = ({ rating }) => (
   </span>
 );
 
-const reviews = [
-  { initials: "EH", color: "bg-pink-400", name: "Emily H.", rating: 5, date: "Feb 12, 2024", text: "Dr. Mitchell helped me work through my anxiety with such patience and understanding. Her approach is both professional and caring." },
-  { initials: "MJ", color: "bg-blue-400", name: "Michael J.", rating: 5, date: "Feb 8, 2024", text: "Excellent therapist. The CBT techniques she taught me have been life changing. Highly recommend!" },
-  { initials: "AL", color: "bg-purple-400", name: "Anna L.", rating: 4, date: "Feb 3, 2024", text: "Very knowledgeable and creates a safe space for healing. The couples therapy sessions really helped our relationship." },
-];
+const REVIEW_AVATAR_COLORS = ['bg-pink-400', 'bg-blue-400', 'bg-purple-400', 'bg-cyan-400'];
 
 const DUMMY_SPECIALTIES = ['Anxiety & Depression', 'Trauma Recovery', 'Couples Therapy', 'CBT'];
 const DUMMY_DESCRIPTION = 'Dedicated to providing compassionate, evidence-based therapy to help individuals navigate life\'s challenges and achieve lasting well-being.';
@@ -35,6 +31,8 @@ export default function ConsultantDashboard() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [editingSession, setEditingSession] = useState(null);
@@ -42,6 +40,18 @@ export default function ConsultantDashboard() {
   const [deleting, setDeleting] = useState(false);
   const specialtiesToDisplay = profile?.specialties?.length ? profile.specialties : DUMMY_SPECIALTIES;
   const descriptionToDisplay = profile?.bio?.trim() ? profile.bio : DUMMY_DESCRIPTION;
+  const averageRating = reviews.length
+    ? (reviews.reduce((sum, r) => sum + Number(r.rating || 0), 0) / reviews.length)
+    : 0;
+
+  const getInitials = (name = 'Student') => {
+    return name
+      .split(' ')
+      .map((part) => part[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+  };
 
   const handleNewSession = (newSession) => {
     // refresh session list after creation
@@ -68,10 +78,11 @@ export default function ConsultantDashboard() {
   const handleDeleteSession = async (sessionId) => {
     setDeleting(true);
     try {
-      await api(`/consulting/sessions/${sessionId}`, { method: 'DELETE' });
+      const res = await api(`/consulting/sessions/${sessionId}`, { method: 'DELETE' });
       // Remove session from list
       setSessions((prev) => prev.filter((s) => s._id !== sessionId));
       setDeletingSessionId(null);
+      toast.success(res?.message || 'Session deleted successfully.');
     } catch (error) {
       console.error('Failed to delete session:', error);
       toast.error('Failed to delete session: ' + error.message);
@@ -103,6 +114,29 @@ export default function ConsultantDashboard() {
         setProfile(null);
         setProfileLoading(false);
       });
+  }, [user, authLoading]);
+
+  useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    if (!user?._id) {
+      setReviews([]);
+      setReviewsLoading(false);
+      return;
+    }
+
+    setReviewsLoading(true);
+    api(`/consulting/reviews/consultant/${user._id}`)
+      .then((data) => {
+        setReviews(data || []);
+      })
+      .catch((err) => {
+        console.error('Failed to fetch reviews:', err);
+        setReviews([]);
+      })
+      .finally(() => setReviewsLoading(false));
   }, [user, authLoading]);
 
   useEffect(() => {
@@ -184,30 +218,42 @@ export default function ConsultantDashboard() {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-gray-800">Reviews</h3>
                 <div className="flex items-center gap-1.5">
-                  <StarRating rating={4} />
-                  <span className="text-sm font-bold text-gray-800">4.7</span>
+                  <StarRating rating={Math.round(averageRating)} />
+                  <span className="text-sm font-bold text-gray-800">{averageRating.toFixed(1)}</span>
                   <span className="text-xs text-gray-400">/ reviews</span>
                 </div>
               </div>
 
               <div className="space-y-4">
-                {reviews.map((r, i) => (
-                  <div key={i} className="border-b border-gray-50 pb-4 last:border-0 last:pb-0">
-                    <div className="flex items-start gap-2.5">
-                      {avatar(r.initials, r.color)}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-0.5">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-gray-700">{r.name}</span>
-                            <StarRating rating={r.rating} />
+                {reviewsLoading ? (
+                  <p className="text-xs text-gray-400">Loading reviews...</p>
+                ) : reviews.length === 0 ? (
+                  <p className="text-xs text-gray-400">No approved reviews yet.</p>
+                ) : (
+                  reviews.map((r, i) => (
+                    <div key={r._id} className="border-b border-gray-50 pb-4 last:border-0 last:pb-0">
+                      <div className="flex items-start gap-2.5">
+                        {avatar(getInitials(r.studentName), REVIEW_AVATAR_COLORS[i % REVIEW_AVATAR_COLORS.length])}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-gray-700">{r.studentName}</span>
+                              <StarRating rating={r.rating} />
+                            </div>
+                            <span className="text-xs text-gray-400 whitespace-nowrap">
+                              {new Date(r.createdAt).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })}
+                            </span>
                           </div>
-                          <span className="text-xs text-gray-400 whitespace-nowrap">{r.date}</span>
+                          <p className="text-xs text-gray-500 leading-relaxed">{r.text}</p>
                         </div>
-                        <p className="text-xs text-gray-500 leading-relaxed">{r.text}</p>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>
