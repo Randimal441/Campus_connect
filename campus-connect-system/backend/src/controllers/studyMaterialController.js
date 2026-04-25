@@ -9,8 +9,9 @@ const UPLOADS_DIR = path.join(__dirname, '../../uploads');
 const getAllMaterials = async (req, res, next) => {
     try {
         const { search, subject } = req.query;
+        console.log(`Getting all materials (Search: "${search || ''}", Subject: "${subject || 'All'}") for user: ${req.user?._id}`);
+        
         const filter = {};
-
         if (subject && subject !== 'All') {
             filter.subject = subject;
         }
@@ -25,6 +26,7 @@ const getAllMaterials = async (req, res, next) => {
             .populate('uploadedBy', 'fullName email')
             .sort({ createdAt: -1 });
 
+        console.log(`Found ${materials.length} materials.`);
         res.json(materials);
     } catch (error) {
         next(error);
@@ -34,6 +36,7 @@ const getAllMaterials = async (req, res, next) => {
 // ---------- GET logged-in user's materials ----------
 const getMyMaterials = async (req, res, next) => {
     try {
+        console.log(`Getting materials for logged-in user: ${req.user?._id}`);
         const materials = await StudyMaterial.find({ uploadedBy: req.user._id })
             .populate('uploadedBy', 'fullName email')
             .sort({ createdAt: -1 });
@@ -48,10 +51,14 @@ const getMyMaterials = async (req, res, next) => {
 const uploadMaterial = async (req, res, next) => {
     try {
         if (!req.file) {
+            console.warn('Upload attempt without file.');
             return res.status(400).json({ message: 'Please upload a file.' });
         }
 
         const { title, description, subject } = req.body;
+        console.log(`Uploading: "${title}" by user: ${req.user?._id}`);
+        console.log(`Multer saved file to: ${req.file.path}`);
+
         if (!title) {
             return res.status(400).json({ message: 'Title is required.' });
         }
@@ -66,12 +73,15 @@ const uploadMaterial = async (req, res, next) => {
             uploadedBy: req.user._id,
         });
 
+        console.log(`Material document created: ${material._id}`);
+
         const populated = await StudyMaterial.findById(material._id).populate(
             'uploadedBy',
             'fullName email'
         );
         res.status(201).json(populated);
     } catch (error) {
+        console.error('Upload Error:', error);
         next(error);
     }
 };
@@ -79,21 +89,31 @@ const uploadMaterial = async (req, res, next) => {
 // ---------- GET download material ----------
 const downloadMaterial = async (req, res, next) => {
     try {
-        const material = await StudyMaterial.findById(req.params.id);
-        if (!material) return res.status(404).json({ message: 'Not found.' });
+        const materialId = req.params.id;
+        console.log(`Download requested for material ID: ${materialId} by user: ${req.user?._id}`);
+
+        const material = await StudyMaterial.findById(materialId);
+        if (!material) {
+            console.warn(`Material not found: ${materialId}`);
+            return res.status(404).json({ message: 'Not found.' });
+        }
 
         // Increment download count
         material.downloadCount += 1;
         await material.save();
 
         const filePath = path.join(UPLOADS_DIR, path.basename(material.fileUrl));
+        console.log(`Resolved file path: ${filePath}`);
 
         if (!fs.existsSync(filePath)) {
+            console.error(`File does not exist on disk: ${filePath}`);
             return res.status(404).json({ message: 'File not found on server.' });
         }
 
+        console.log(`Sending file: ${material.fileName}`);
         res.download(filePath, material.fileName);
     } catch (error) {
+        console.error('Download error:', error);
         next(error);
     }
 };
@@ -191,76 +211,130 @@ const deleteMaterial = async (req, res, next) => {
 // ---------- POST AI summarize ----------
 const summarizeMaterial = async (req, res, next) => {
     try {
+        console.log(`Summarization requested for material: ${req.params.id}`);
         const material = await StudyMaterial.findById(req.params.id);
         if (!material) return res.status(404).json({ message: 'Not found.' });
 
+        // RETURN CACHED SUMMARY IF EXISTS
+        if (material.aiSummary) {
+            console.log('Returning cached summary.');
+            return res.json({ summary: material.aiSummary });
+        }
+
         const filePath = path.join(UPLOADS_DIR, path.basename(material.fileUrl));
         if (!fs.existsSync(filePath)) {
+            console.error(`File not found: ${filePath}`);
             return res.status(404).json({ message: 'File not found on server.' });
         }
 
         let textContent = '';
         const ext = path.extname(material.fileName).toLowerCase();
+        console.log(`Starting text extraction for ${ext} file: ${material.fileName}`);
 
-        if (ext === '.txt') {
-            textContent = fs.readFileSync(filePath, 'utf-8');
-        } else if (ext === '.pdf') {
-            const pdfParse = require('pdf-parse');
-            const dataBuffer = fs.readFileSync(filePath);
-            const pdfData = await pdfParse(dataBuffer);
-            textContent = pdfData.text;
-        } else {
-            // For .doc, .docx, .ppt, .pptx — return a helpful message
-            return res.status(400).json({
-                message: 'AI summarization currently supports .txt and .pdf files only.',
-            });
+        try {
+            if (ext === '.txt') {
+                textContent = fs.readFileSync(filePath, 'utf-8');
+            } else if (ext === '.pdf') {
+                const pdfParse = require('pdf-parse');
+                const dataBuffer = fs.readFileSync(filePath);
+                const pdfData = await pdfParse(dataBuffer);
+                textContent = pdfData.text;
+            } else {
+                return res.status(400).json({
+                    message: 'AI summarization currently supports .txt and .pdf files only.',
+                });
+            }
+        } catch (extractErr) {
+            console.error('Text extraction error:', extractErr);
+            return res.status(500).json({ message: 'Failed to extract text from file. The file might be corrupted or protected.' });
         }
 
+        console.log(`Text extracted successfully. Length: ${textContent?.length || 0} characters.`);
+
         if (!textContent || textContent.trim().length < 20) {
+            console.warn('Text content too short for summarization.');
             return res.status(400).json({ message: 'File content is too short to summarize.' });
         }
 
         // Trim to prevent exceeding API limits
-        const trimmed = textContent.substring(0, 15000);
+        const trimmed = textContent.substring(0, 30000); 
 
-        const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+        const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_HIMANSHA || '').trim();
         if (!GEMINI_API_KEY) {
-            return res.status(500).json({ message: 'AI service is not configured. Please add GEMINI_API_KEY to .env' });
+            console.error('GEMINI_API_KEY is missing in .env');
+            return res.status(500).json({ message: 'AI service is not configured.' });
         }
 
-        const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [
-                        {
-                            parts: [
-                                {
-                                    text: `You are an academic study assistant. Summarize the following study material in a clear, well-structured format. Use bullet points for key concepts. Keep it concise but comprehensive.\n\n---\n${trimmed}`,
-                                },
-                            ],
-                        },
-                    ],
-                }),
+        console.log(`Calling Gemini API via @google/genai SDK...`);
+        let genAI;
+        try {
+            const mod = await import('@google/genai');
+            const { GoogleGenAI } = mod;
+            genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+        } catch (err) {
+            console.error('Failed to initialize @google/genai:', err);
+            return res.status(500).json({ message: 'AI initialization failed.' });
+        }
+
+        let summary;
+        try {
+            const promptText = `Generate a professional summary of the following study material in Markdown format. Use headings and bullet points. Include a "Key Takeaway" section.\n\nContent:\n${trimmed}`;
+
+            // Model Priority: 1. gemini-1.5-flash, 2. gemini-pro, 3. gemini-3-flash-preview
+            const modelsToTry = ['gemini-1.5-flash', 'gemini-pro', 'gemini-3-flash-preview'];
+            let lastError = null;
+
+            for (const modelName of modelsToTry) {
+                try {
+                    console.log(`Attempting Gemini model: ${modelName}...`);
+                    const result = await genAI.models.generateContent({
+                        model: modelName,
+                        contents: [{ role: 'user', parts: [{ text: promptText }] }],
+                        generationConfig: { maxOutputTokens: 2048 },
+                    });
+
+                    summary = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (summary) {
+                        console.log(`Success with model: ${modelName}`);
+                        break; 
+                    }
+                } catch (err) {
+                    lastError = err;
+                    console.warn(`Model ${modelName} failed: ${err.message}`);
+                    continue; // Try next model
+                }
             }
-        );
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.error('Gemini API error:', errorData);
-            return res.status(502).json({ message: 'AI service returned an error. Please try again later.' });
+            if (!summary && lastError) throw lastError;
+
+        } catch (err) {
+            console.error('All Gemini fallback models failed:', err.message);
+            if (err.status === 429 || err.message?.includes('429')) {
+                return res.status(429).json({ message: 'AI service quota exceeded. Please try again later.' });
+            }
+            if (err.status === 503 || err.message?.includes('503')) {
+                return res.status(503).json({ message: 'AI service is currently overloaded. Please try again in a few minutes.' });
+            }
+            throw err;
         }
 
-        const data = await response.json();
-        const summary =
-            data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-            'Could not generate a summary.';
+        if (!summary) {
+            console.error('Gemini API returned no summary.');
+            return res.status(500).json({ message: 'Could not generate a summary. The AI returned an empty response.' });
+        }
+
+        console.log('Summary generated successfully!');
+        // CACHE THE SUMMARY
+        material.aiSummary = summary;
+        await material.save();
 
         res.json({ summary });
     } catch (error) {
-        next(error);
+        console.error('Summarize Unexpected Error:', error);
+        if (error.status === 429) {
+            return res.status(429).json({ message: 'AI service quota exceeded. Please try again later.' });
+        }
+        res.status(502).json({ message: 'AI service is currently busy or unavailable. Please try again in a few moments.' });
     }
 };
 

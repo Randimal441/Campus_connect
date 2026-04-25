@@ -163,7 +163,11 @@ export default function ResourceSharing() {
   const handleDownload = async (item) => {
     try {
       await downloadMaterial(item._id, item.fileName);
-      fetchAll();
+      // Wait a bit before fetching to allow the counter to increment on server
+      setTimeout(() => {
+        fetchAll();
+        fetchMy();
+      }, 1000);
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -588,38 +592,118 @@ export default function ResourceSharing() {
 
       {/* ═══════════ AI SUMMARY MODAL ═══════════ */}
       {summaryOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm" onClick={() => setSummaryOpen(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm" onClick={() => !summaryLoading && setSummaryOpen(null)}>
           <div
-            className="relative w-full max-w-2xl max-h-[85vh] bg-white border border-gray-100 rounded-2xl shadow-2xl p-6 overflow-auto flex flex-col"
+            className="relative w-full max-w-3xl max-h-[90vh] bg-white border border-gray-100 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-4">
-              <div className="flex items-center gap-3">
-                <span className="text-3xl bg-green-50 p-2 rounded-xl border border-green-100">🤖</span>
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-white">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center border border-green-100 shadow-sm">
+                  <span className="text-2xl">🤖</span>
+                </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-800">AI Summary</h2>
-                  <p className="text-xs text-gray-500 line-clamp-1">{summaryOpen.title}</p>
+                  <h2 className="text-2xl font-bold text-gray-800 tracking-tight">AI Insights</h2>
+                  <p className="text-sm text-gray-500 font-medium line-clamp-1">{summaryOpen.title}</p>
                 </div>
               </div>
-              <button onClick={() => setSummaryOpen(null)} className="text-gray-400 hover:text-gray-600">✕</button>
-            </div>
-            {summaryLoading ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-4">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-600"></div>
-                <span className="text-gray-500 font-medium text-sm">Our AI is reading the document...</span>
-              </div>
-            ) : (
-              <div className="flex-1 bg-gray-50 border border-gray-100 rounded-xl p-5 text-gray-700 text-sm leading-relaxed whitespace-pre-wrap overflow-y-auto">
-                {summaryOpen.text}
-              </div>
-            )}
-            <div className="mt-6 flex justify-end">
-              <button
-                className="px-6 py-2.5 rounded-xl font-bold text-white bg-green-600 hover:bg-green-700 transition-all shadow-md"
-                onClick={() => setSummaryOpen(null)}
+              <button 
+                onClick={() => setSummaryOpen(null)} 
+                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all"
               >
-                Done
+                ✕
               </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-gray-50/50">
+              {summaryLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-6">
+                  <div className="relative">
+                    <div className="w-16 h-16 border-4 border-green-100 border-t-green-600 rounded-full animate-spin"></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-8 h-8 bg-green-600 rounded-full animate-pulse"></div>
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <span className="text-gray-800 font-bold block text-lg mb-1">Analyzing your document...</span>
+                    <span className="text-gray-500 text-sm">Our AI is extracting key concepts and takeaways.</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="prose prose-green max-w-none">
+                  <div className="bg-white border border-gray-200 rounded-2xl p-6 md:p-8 shadow-sm text-gray-700 leading-relaxed whitespace-pre-wrap font-medium">
+                    {summaryOpen.text}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-100 bg-white flex flex-col sm:flex-row gap-4 items-center justify-between">
+              <div className="flex items-center gap-2 text-xs text-gray-400 font-medium">
+                <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+                Powered by Gemini 2.0 Flash
+              </div>
+              <div className="flex gap-3 w-full sm:w-auto">
+                <button
+                  className="flex-1 sm:flex-none px-8 py-3 rounded-xl font-bold text-gray-700 bg-gray-50 hover:bg-gray-100 transition-all border border-gray-200 flex items-center justify-center gap-2"
+                  onClick={() => {
+                    const printWindow = window.open('', '_blank');
+                    printWindow.document.write(`
+                      <html>
+                        <head>
+                          <title>AI Summary - ${summaryOpen.title}</title>
+                          <style>
+                            body { font-family: sans-serif; padding: 40px; line-height: 1.6; color: #333; }
+                            h1 { color: #059669; border-bottom: 2px solid #059669; padding-bottom: 10px; }
+                            .meta { color: #666; margin-bottom: 30px; }
+                            .content { white-space: pre-wrap; background: #f9fafb; padding: 20px; border-radius: 10px; border: 1px solid #e5e7eb; }
+                            @media print { .no-print { display: none; } }
+                          </style>
+                        </head>
+                        <body>
+                          <h1>AI Study Summary</h1>
+                          <div class="meta">
+                            <p><strong>Topic:</strong> ${summaryOpen.title}</p>
+                            <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+                          </div>
+                          <div class="content">${summaryOpen.text}</div>
+                          <p style="margin-top: 40px; font-size: 10pt; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 20px;">
+                            Generated by Campus Connect
+                          </p>
+                          <script>
+                            window.onload = function() {
+                              window.print();
+                            }
+                          </script>
+                        </body>
+                      </html>
+                    `);
+                    printWindow.document.close();
+                  }}
+                  disabled={summaryLoading || summaryOpen.text.includes('Generating summary')}
+                >
+                  📥 Download
+                </button>
+                <button
+                  className="flex-1 sm:flex-none px-6 py-3 rounded-xl font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-all border border-gray-200 flex items-center justify-center gap-2"
+                  onClick={() => {
+                    navigator.clipboard.writeText(summaryOpen.text);
+                    showToast('Summary copied to clipboard!');
+                  }}
+                  disabled={summaryLoading || summaryOpen.text.includes('Generating summary')}
+                >
+                  📄 Copy
+                </button>
+                <button
+                  className="flex-1 sm:flex-none px-8 py-3 rounded-xl font-bold text-white bg-green-600 hover:bg-green-700 transition-all shadow-lg hover:shadow-green-600/30"
+                  onClick={() => setSummaryOpen(null)}
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         </div>

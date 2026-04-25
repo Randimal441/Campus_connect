@@ -49,22 +49,18 @@ export const uploadMaterial = async (formData) => {
 };
 
 export const downloadMaterial = async (id, fileName) => {
-    const res = await fetch(`${API_BASE}/study-materials/${id}/download`, {
-        headers: authHeaders(),
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || 'Download failed');
-    }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
+    const token = getToken();
+    const url = `${API_BASE}/study-materials/${id}/download?token=${token}`;
+    
+    // Instead of fetch + blob (which can be flaky on some browsers/mobile), 
+    // we use a direct link which the browser handles natively.
     const a = document.createElement('a');
     a.href = url;
     a.download = fileName || 'download';
+    a.target = '_blank';
     document.body.appendChild(a);
     a.click();
     a.remove();
-    URL.revokeObjectURL(url);
 };
 
 export const rateMaterial = async (id, value) => {
