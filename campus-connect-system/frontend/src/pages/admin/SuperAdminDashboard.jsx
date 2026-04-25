@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 /* ────── main component ──────────────────────── */
 export default function SuperAdminDashboard() {
   const [pending, setPending] = useState([]);
+  const [users, setUsers] = useState([]);
   const [moderation, setModeration] = useState({
     pending_approval: 0,
     approved: 0,
@@ -20,8 +21,12 @@ export default function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.allSettled([api('/approvals/pending'), api('/clubs-sports/admin/all'), api('/consulting')])
-      .then(([approvalsResult, clubsResult, consultantsResult]) => {
+    Promise.allSettled([
+      api('/approvals/pending'),
+      api('/clubs-sports/admin/all'),
+      api('/consulting'),
+      api('/users/admin/all'),
+    ]).then(([approvalsResult, clubsResult, consultantsResult, usersResult]) => {
         if (approvalsResult.status === 'fulfilled') {
           const pendingApprovals = Array.isArray(approvalsResult.value) ? approvalsResult.value : [];
           setPending(pendingApprovals);
@@ -70,6 +75,12 @@ export default function SuperAdminDashboard() {
           });
         } else {
           setModeration({ pending_approval: 0, approved: 0, disabled: 0, total: 0 });
+        }
+
+        if (usersResult.status === 'fulfilled') {
+          setUsers(Array.isArray(usersResult.value) ? usersResult.value : []);
+        } else {
+          setUsers([]);
         }
       })
       .finally(() => setLoading(false));
@@ -267,6 +278,57 @@ export default function SuperAdminDashboard() {
           </div>
         </div>
       )}
+
+      <div className="mt-10 space-y-4 animate-fade-in-up">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h3 className="mb-1">All Users</h3>
+            <p className="text-sm text-muted-foreground">Complete list of registered users and approval status</p>
+          </div>
+          <span className="badge">Total: {users.length}</span>
+        </div>
+
+        <div className="table-wrapper">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>ID Number</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Joined</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="text-center text-muted-foreground py-8">
+                    No users found.
+                  </td>
+                </tr>
+              ) : (
+                users.map((user) => (
+                  <tr key={user._id}>
+                    <td className="font-semibold">{user.fullName}</td>
+                    <td className="font-mono text-sm">{user.idNumber}</td>
+                    <td>{user.email}</td>
+                    <td>
+                      <span className="badge">{user.role}</span>
+                    </td>
+                    <td>
+                      <span className={`badge ${user.isApproved ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {user.isApproved ? 'Approved' : 'Pending'}
+                      </span>
+                    </td>
+                    <td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </>
   );
 }

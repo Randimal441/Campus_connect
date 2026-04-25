@@ -1,5 +1,17 @@
 const { User } = require('../models/UserModel');
 
+const getAllUsers = async (req, res, next) => {
+  try {
+    const users = await User.find({})
+      .select('fullName idNumber email role isApproved approvedAt createdAt')
+      .sort({ createdAt: -1 });
+
+    res.json(users);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getProfile = async (req, res, next) => {
   try {
     res.json(req.user);
@@ -49,4 +61,4 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
-module.exports = { getProfile, updateProfile };
+module.exports = { getAllUsers, getProfile, updateProfile };

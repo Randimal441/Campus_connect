@@ -90,7 +90,7 @@ export default function SignUpForm({ onSubmit, loading, message }) {
           <Input
             id="fullName"
             type="text"
-            placeholder="John Doe"
+            placeholder="Kasun Perera"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             className="pl-10 h-11"
