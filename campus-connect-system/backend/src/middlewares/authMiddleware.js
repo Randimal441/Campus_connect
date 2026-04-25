@@ -7,6 +7,11 @@ const protect = async (req, res, next) => {
     if (token && token.startsWith('Bearer ')) {
       token = token.slice(7);
     }
+    
+    // Check query params if not in headers (useful for direct file downloads)
+    if (!token && req.query.token) {
+      token = req.query.token;
+    }
 
     if (!token) {
       return res.status(401).json({ message: 'Not authorized. No token.' });

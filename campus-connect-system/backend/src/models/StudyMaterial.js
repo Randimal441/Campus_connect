@@ -34,6 +34,7 @@ const studyMaterialSchema = new mongoose.Schema(
     totalRatings: { type: Number, default: 0 },
     reports: [reportSchema],
     downloadCount: { type: Number, default: 0 },
+    aiSummary: { type: String, default: null },
   },
   { timestamps: true }
 );
