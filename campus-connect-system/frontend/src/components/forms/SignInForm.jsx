@@ -16,13 +16,13 @@ export default function SignInForm({ onSubmit, loading, message }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="signin-email">Email Address</Label>
+        <Label htmlFor="signin-email">Email or ID Number</Label>
         <div className="relative">
           <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             id="signin-email"
-            type="email"
-            placeholder="you@university.edu"
+            type="text"
+            placeholder="you@university.edu or STU-12345"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="pl-10 h-11"

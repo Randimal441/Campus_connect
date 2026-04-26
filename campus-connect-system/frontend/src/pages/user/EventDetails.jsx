@@ -510,12 +510,12 @@ export default function EventDetails() {
             <button
               type="button"
               className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
-              onClick={() => navigate('/user/events-chill')}
+              onClick={() => navigate('/user/events')}
             >
               Back to Events
             </button>
             <Link
-              to="/user/events-chill"
+              to="/user/events"
               className="text-sm text-green-700 hover:text-green-800 font-semibold"
             >
               View all events

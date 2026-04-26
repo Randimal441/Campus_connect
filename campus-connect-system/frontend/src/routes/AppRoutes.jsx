@@ -36,7 +36,9 @@ export default function AppRoutes() {
       <Route path="/user/clubs-sports/medicle-support" element={<MedicleSupport />} />
       <Route path="/user/resource-sharing" element={<ResourceSharing />} />
       <Route path="/user/consulting" element={<Consulting />} />
+      <Route path="/user/events" element={<EventsChill />} />
       <Route path="/user/events-chill" element={<EventsChill />} />
+      <Route path="/user/events/:id" element={<EventDetails />} />
       <Route path="/user/events-chill/:id" element={<EventDetails />} />
       <Route path="/user/consulting/:id" element={<ConsultantDetails />}/>
       <Route path="/user/councelling-history" element={<CouncellingHistory />} />

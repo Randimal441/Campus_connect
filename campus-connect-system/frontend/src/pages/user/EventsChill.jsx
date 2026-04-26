@@ -1,5 +1,6 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ImageIcon } from 'lucide-react';
 import {
   applyForParticipation,
   getMyEventApplications,
@@ -77,9 +78,9 @@ const getCountdownData = (eventDate, now) => {
 
 const getApplicationKey = (eventId, option) => `${eventId}:${option}`;
 const askNameRegex = /^[A-Za-z\s]+$/;
-const askPhoneRegex = /^0\d{9}$/;
+const askPhoneRegex = /^0\d{9}$/; // Phone must start with 0 and have exactly 10 digits
 const emailHasAtRegex = /^[^\s@]+@[^\s@]+$/;
-const studentIdRegex = /^.{10}$/;
+const studentIdRegex = /^.{10}$/; // Student ID must be exactly 10 characters
 
 const getStatusMeta = (status) => {
   const normalized = String(status || '').toLowerCase();
@@ -150,6 +151,7 @@ const getCountdownTone = (status) => {
     unit: 'text-sky-500',
   };
 };
+
 export default function EventsChill() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -167,17 +169,15 @@ export default function EventsChill() {
   const [applyError, setApplyError] = useState('');
   const [applyingKey, setApplyingKey] = useState('');
   const [appliedMap, setAppliedMap] = useState({});
-  
-  // Modal & form state
+// Modal & form state
+const [applicationStatusMap, setApplicationStatusMap] = useState({});
+const [applicationMetaMap, setApplicationMetaMap] = useState({});
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [applicationAnswersByOption, setApplicationAnswersByOption] = useState({});
   const [participationFieldErrors, setParticipationFieldErrors] = useState({});
   const [participationFieldTouched, setParticipationFieldTouched] = useState({});
   const [participationSubmitAttempted, setParticipationSubmitAttempted] = useState(false);
-const [applicationStatusMap, setApplicationStatusMap] = useState({});
-const [applicationMetaMap, setApplicationMetaMap] = useState({});
-
 const [myEventRequests, setMyEventRequests] = useState([]);
 const [activeTab, setActiveTab] = useState('events');
 const [selectedEventType, setSelectedEventType] = useState('all');
@@ -318,24 +318,6 @@ const [askFormMessage, setAskFormMessage] = useState('');
     return Array.isArray(matched?.questions) ? matched.questions : [];
   };
 
-const getStudentApplicationStatus = (eventItem, option) => {
-  if (!user?._id) return null;
-
-  const applications = Array.isArray(eventItem.participationApplications)
-    ? eventItem.participationApplications
-    : [];
-
-  const found = applications.find((entry) => {
-    const studentId =
-      typeof entry.student === 'object'
-        ? entry.student?._id
-        : entry.student;
-
-    return String(studentId) === String(user._id) && entry.option === option;
-  });
-
-  return found?.status || null;
-};
   const validateParticipationField = (eventItem, option, fieldKey, value) => {
     const trimmed = String(value || '').trim();
     const templateQuestions = getParticipationTemplate(eventItem, option);
@@ -343,30 +325,29 @@ const getStudentApplicationStatus = (eventItem, option) => {
 
     if (hasTemplate) {
       const question = templateQuestions.find((entry) => entry.key === fieldKey);
-      const keyText = String(question?.key || '').toLowerCase();
-      const labelText = String(question?.label || '').toLowerCase();
-      const isEmailQuestion = keyText.includes('email') || labelText.includes('email');
-      const isPhoneQuestion = keyText.includes('phone') || labelText.includes('phone');
-      const isStudentIdQuestion = keyText.includes('studentid')
-        || keyText.includes('student_id')
-        || (labelText.includes('student') && labelText.includes('id'));
+const keyText = String(question?.key || '').toLowerCase();
+const labelText = String(question?.label || '').toLowerCase();
+const isEmailQuestion = keyText.includes('email') || labelText.includes('email');
+const isPhoneQuestion = keyText.includes('phone') || labelText.includes('phone');
+const isStudentIdQuestion = keyText.includes('studentid')
+  || keyText.includes('student_id')
+  || (labelText.includes('student') && labelText.includes('id'));
 
-      if (question?.required && !trimmed) {
-        return `${question.label} is required.`;
-      }
+if (question?.required && !trimmed) {
+  return `${question.label} is required.`;
+}
 
-      if (isEmailQuestion && trimmed && !emailHasAtRegex.test(trimmed)) {
-        return 'Email must include @.';
-      }
+if (isEmailQuestion && trimmed && !emailHasAtRegex.test(trimmed)) {
+  return 'Email must include @.';
+}
 
-      if (isPhoneQuestion && trimmed && !askPhoneRegex.test(trimmed)) {
-        return 'Phone number must start with 0 and contain exactly 10 digits.';
-      }
+if (isPhoneQuestion && trimmed && !askPhoneRegex.test(trimmed)) {
+  return 'Phone number must start with 0 and contain exactly 10 digits.';
+}
 
-      if (isStudentIdQuestion && trimmed && !studentIdRegex.test(trimmed)) {
-        return 'Student ID must contain exactly 10 characters.';
-      }
-
+if (isStudentIdQuestion && trimmed && !studentIdRegex.test(trimmed)) {
+  return 'Student ID must contain exactly 10 characters.';
+}
       return '';
     }
 
@@ -382,16 +363,15 @@ const getStudentApplicationStatus = (eventItem, option) => {
       return '';
     }
 
-    if (fieldKey === 'studentId') {
-      if (!trimmed) return 'Student ID is required.';
-      if (!studentIdRegex.test(trimmed)) return 'Student ID must contain exactly 10 characters.';
-      return '';
-    }
+if (fieldKey === 'studentId') {
+  if (!trimmed) return 'Student ID is required.';
+  if (!studentIdRegex.test(trimmed)) return 'Student ID must contain exactly 10 characters.';
+  return '';
+}
 
 if (fieldKey === 'phone') {
   if (!trimmed) return 'Phone number is required.';
-  if (!askPhoneRegex.test(trimmed))
-    return 'Phone number must start with 0 and contain exactly 10 digits.';
+  if (!askPhoneRegex.test(trimmed)) return 'Phone number must start with 0 and contain exactly 10 digits.';
   return '';
 }
 
@@ -420,7 +400,7 @@ if (fieldKey === 'phone') {
         return;
       }
 
-      ['fullName', 'studentId', 'email', 'phone', 'notes'].forEach((fieldKey) => {
+['fullName', 'studentId', 'email', 'phone', 'notes'].forEach((fieldKey) => {
         const key = getParticipationErrorKey(option, fieldKey);
         const error = validateParticipationField(eventItem, option, fieldKey, optionAnswers[fieldKey]);
         if (error) allErrors[key] = error;
@@ -482,6 +462,31 @@ if (fieldKey === 'phone') {
       const studentId = typeof entry.student === 'object' ? entry.student?._id : entry.student;
       return String(studentId) === String(user._id) && entry.option === option;
     });
+  };
+
+  const getStudentApplicationStatus = (eventItem, option) => {
+    if (!user?._id || !eventItem?._id) return '';
+
+    const key = getApplicationKey(eventItem._id, option);
+    const cachedStatus = applicationStatusMap[key];
+    if (cachedStatus) return String(cachedStatus).toLowerCase();
+
+    const cachedMetaStatus = applicationMetaMap[key]?.status;
+    if (cachedMetaStatus) return String(cachedMetaStatus).toLowerCase();
+
+    const applications = Array.isArray(eventItem.participationApplications)
+      ? eventItem.participationApplications
+      : [];
+
+    const matched = applications.find((entry) => {
+      const studentId = typeof entry.student === 'object' ? entry.student?._id : entry.student;
+      return String(studentId) === String(user._id) && entry.option === option;
+    });
+
+    if (matched?.status) return String(matched.status).toLowerCase();
+    if (appliedMap[key]) return 'pending';
+
+    return '';
   };
 
   const openEventDetails = (eventItem) => {
@@ -588,7 +593,7 @@ if (fieldKey === 'phone') {
 
     return {
       fullName: savedApplication?.fullName || user?.fullName || '',
-      studentId: savedApplication?.studentId || '',
+studentId: savedApplication?.studentId || '',
       email: savedApplication?.email || user?.email || '',
       phone: savedApplication?.phone || '',
       notes: savedApplication?.notes || '',
@@ -698,10 +703,9 @@ if (fieldKey === 'phone') {
             throw new Error(`Please complete the application form for ${formatOptionLabel(option)}.`);
           }
 
-          if (!studentIdRegex.test(studentId)) {
-            throw new Error(`Student ID must contain exactly 10 characters for ${formatOptionLabel(option)}.`);
-          }
-
+if (!studentIdRegex.test(studentId)) {
+  throw new Error(`Student ID must contain exactly 10 characters for ${formatOptionLabel(option)}.`);
+}
           if (!askNameRegex.test(fullName)) {
             throw new Error(`Name must contain only letters for ${formatOptionLabel(option)}.`);
           }
@@ -711,7 +715,7 @@ if (fieldKey === 'phone') {
           }
 
           if (!askPhoneRegex.test(phone)) {
-            throw new Error(`Phone number must start with 0 and contain exactly 10 digits for ${formatOptionLabel(option)}.`);
+throw new Error(`Phone number must start with 0 and contain exactly 10 digits for ${formatOptionLabel(option)}.`);
           }
         }
 
@@ -872,17 +876,18 @@ if (fieldKey === 'phone') {
 
   const validateAskField = (field, value) => {
     const trimmed = String(value || '').trim();
-if (!trimmed) {
-  return `${field.charAt(0).toUpperCase()}${field.slice(1)} is required.`;
-}
+    if (!trimmed) {
+      return `${field.charAt(0).toUpperCase()}${field.slice(1)} is required.`;
+    }
 
-if (field === 'name' && !askNameRegex.test(trimmed)) {
-  return 'Name must contain letters only. Numbers are not allowed.';
-}
+    if (field === 'name' && !askNameRegex.test(trimmed)) {
+      return 'Name must contain letters only. Numbers are not allowed.';
+    }
 
-if (field === 'email' && !emailHasAtRegex.test(trimmed)) {
-  return 'Email must include @.';
-}
+    if (field === 'email' && !emailHasAtRegex.test(trimmed)) {
+      return 'Email must include @.';
+    }
+
     if (field === 'phone' && !askPhoneRegex.test(trimmed)) {
       return 'Phone number must start with 0 and contain exactly 10 digits.';
     }
@@ -890,70 +895,23 @@ if (field === 'email' && !emailHasAtRegex.test(trimmed)) {
     return '';
   };
 
-const validateAskForm = (formData) => {
-  const nextErrors = {};
-
-  ['name', 'email', 'phone', 'question'].forEach((field) => {
-    const fieldError = validateAskField(field, formData[field]);
-    if (fieldError) {
-      nextErrors[field] = fieldError;
-    }
+  const validateAskForm = (values) => ({
+    name: validateAskField('name', values.name),
+    email: validateAskField('email', values.email),
+    phone: validateAskField('phone', values.phone),
+    question: validateAskField('question', values.question),
   });
 
-  return nextErrors;
-};
-
-const handleAskFieldChange = (field, value) => {
-  let nextValue = value;
-
-  if (field === 'name') {
-    nextValue = value.replace(/[^A-Za-z\s]/g, '');
-  }
-
-  if (field === 'phone') {
-    nextValue = value.replace(/\D/g, '').slice(0, 10);
-  }
-
-  setAskForm((prev) => ({
-    ...prev,
-    [field]: nextValue,
-  }));
-
-  setAskFormMessage('');
-
-  setAskFormErrors((prev) => {
-    const next = { ...prev };
-    const fieldError = validateAskField(field, nextValue);
-
-    if (fieldError) {
-      next[field] = fieldError;
-    } else {
-      delete next[field];
+  const handleAskFieldChange = (field, value) => {
+    setAskForm((prev) => ({ ...prev, [field]: value }));
+    if (askSubmitAttempted || askFormTouched[field]) {
+      setAskFormErrors((prev) => ({ ...prev, [field]: validateAskField(field, value) }));
     }
+  };
 
-    return next;
-  });
-};
-
-const handleAskFieldBlur = (field) => {
-  setAskFormTouched((prev) => ({
-    ...prev,
-    [field]: true,
-  }));
-
-  setAskFormErrors((prev) => {
-    const next = { ...prev };
-    const fieldError = validateAskField(field, askForm[field]);
-
-    if (fieldError) {
-      next[field] = fieldError;
-    } else {
-      delete next[field];
-    }
-
-    return next;
-  });
-};
+  const handleAskFieldBlur = (field, value) => {
+    setAskFormTouched((prev) => ({ ...prev, [field]: true }));
+    setAskFormErrors((prev) => ({ ...prev, [field]: validateAskField(field, value) }));
   };
 
   const handleAskFormSubmit = (event) => {
@@ -962,176 +920,271 @@ const handleAskFieldBlur = (field) => {
 
     const nextErrors = validateAskForm(askForm);
     setAskFormErrors(nextErrors);
-setAskFormTouched({
-  name: true,
-  email: true,
-  phone: true,
-  question: true,
-});
 
-const hasErrors = Object.keys(nextErrors).length > 0;
+    const hasErrors = Object.values(nextErrors).some(Boolean);
+    if (hasErrors) return;
 
-if (hasErrors) {
-  setAskFormMessage('Please fix the validation errors before submitting.');
-  return;
-}
+    setAskFormMessage('Your question has been recorded. A coordinator will contact you soon.');
+    setAskFormTouched({});
+    setAskForm({ name: '', email: '', phone: '', question: '' });
+  };
 
-setAskFormMessage(
-  'Your question has been recorded. A coordinator will contact you soon.'
-);
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-sky-50">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -left-24 top-20 h-72 w-72 rounded-full bg-emerald-200/30 blur-3xl" />
+        <div className="absolute right-0 top-40 h-80 w-80 rounded-full bg-sky-200/30 blur-3xl" />
+        <div className="absolute bottom-10 left-1/2 h-72 w-72 rounded-full bg-amber-200/20 blur-3xl" />
+      </div>
+      <Navbar />
+      <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <section className="mb-8 overflow-hidden rounded-[2rem] border border-white/60 bg-white/80 shadow-[0_20px_60px_-30px_rgba(15,23,42,0.35)] backdrop-blur-md">
+          <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="p-6 sm:p-8 lg:p-10">
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                Events & Chill Sessions
+              </div>
+              <h1 className="mt-4 text-3xl font-bold text-gray-900 sm:text-4xl lg:text-5xl">
+                Discover campus events with a cleaner, more visual dashboard.
+              </h1>
+              <p className="mt-4 max-w-2xl text-sm sm:text-base text-gray-600 leading-7">
+                Browse upcoming events, review your participation requests, and ask the assistant for event details in one place.
+              </p>
 
-setAskForm({
-  name: '',
-  email: '',
-  phone: '',
-  question: '',
-});
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Upcoming</p>
+                  <p className="mt-1 text-lg font-bold text-gray-900">Live events</p>
+                  <p className="text-xs text-gray-600">Freshly styled with image previews.</p>
+                </div>
+                <div className="rounded-2xl border border-sky-100 bg-sky-50/80 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">Requests</p>
+                  <p className="mt-1 text-lg font-bold text-gray-900">Track status</p>
+                  <p className="text-xs text-gray-600">See pending, approved, and rejected.</p>
+                </div>
+                <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Assistant</p>
+                  <p className="mt-1 text-lg font-bold text-gray-900">Ask anything</p>
+                  <p className="text-xs text-gray-600">Chat about events quickly.</p>
+                </div>
+              </div>
 
-setAskFormTouched({});
-setAskFormErrors({});
-setAskSubmitAttempted(false);
+              <div className="mt-6 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('events')}
+                  className={`px-4 py-2 rounded-full text-sm font-semibold transition ${activeTab === 'events' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'}`}
+                >
+                  Upcoming Events
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('requests')}
+                  className={`px-4 py-2 rounded-full text-sm font-semibold transition ${activeTab === 'requests' ? 'bg-sky-600 text-white shadow-md shadow-sky-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'}`}
+                >
+                  My Requests
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAskPanelOpen(true)}
+                  className="px-4 py-2 rounded-full text-sm font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-200 hover:from-blue-700 hover:to-indigo-700"
+                >
+                  Ask About Events
+                </button>
+              </div>
+            </div>
+
+            <div className="flex bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 p-4 sm:p-5 lg:p-6 text-white">
+              <div className="relative h-full min-h-[320px] w-full overflow-hidden rounded-[1.5rem] border border-white/10 shadow-xl lg:min-h-[420px]">
+                <div
+                  className="flex h-full transition-transform duration-700 ease-out"
+                  style={{ transform: `translateX(-${headerImageIndex * 100}%)` }}
+                >
+                  {headerImages.map((imageSrc, index) => (
+                    <img
+                      key={`${imageSrc}-${index}`}
+                      src={imageSrc}
+                      alt={`Event header ${index + 1}`}
+                      className="h-full w-full flex-shrink-0 object-cover"
+                    />
+                  ))}
+                </div>
+
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/50 via-transparent to-transparent" />
+
+                {headerImages.length > 1 ? (
+                  <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/25 px-2 py-1 backdrop-blur-sm">
+                    {headerImages.map((_, dotIndex) => (
+                      <button
+                        key={`dot-${dotIndex}`}
+                        type="button"
+                        onClick={() => setHeaderImageIndex(dotIndex)}
+                        className={`h-2 w-2 rounded-full transition ${dotIndex === headerImageIndex ? 'bg-white' : 'bg-white/45 hover:bg-white/70'}`}
+                        aria-label={`Show event image ${dotIndex + 1}`}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
             </div>
           </div>
         </section>
 
-{error ? (
-  <p className="mb-4 rounded-2xl border border-red-200 bg-red-50/90 p-4 text-red-700 shadow-sm backdrop-blur-sm">
-    {error}
-  </p>
-) : null}
+        {error ? <p className="mb-4 rounded-2xl border border-red-200 bg-red-50/90 p-4 text-red-700 shadow-sm backdrop-blur-sm">{error}</p> : null}
+        {applyError ? <p className="mb-4 rounded-2xl border border-red-200 bg-red-50/90 p-4 text-red-700 shadow-sm backdrop-blur-sm">{applyError}</p> : null}
+        {applyMessage ? <p className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50/90 p-4 text-emerald-700 shadow-sm backdrop-blur-sm">{applyMessage}</p> : null}
 
-{applyError ? (
-  <p className="mb-4 rounded-2xl border border-red-200 bg-red-50/90 p-4 text-red-700 shadow-sm backdrop-blur-sm">
-    {applyError}
-  </p>
-) : null}
-
-{applyMessage ? (
-  <p className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50/90 p-4 text-emerald-700 shadow-sm backdrop-blur-sm">
-    {applyMessage}
-  </p>
-) : null}
-
-{activeTab === 'events' ? (
-  <>
-    {/* FILTERS */}
-    <section className="mb-6 flex flex-col md:flex-row gap-3 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur-md">
-      <input
-        type="text"
-        value={searchEventName}
-        onChange={(e) => setSearchEventName(e.target.value)}
-        placeholder="Search by event name"
-        className="w-full md:w-2/3 px-4 py-3 border border-gray-200 rounded-xl bg-white/90 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-      />
-
-      <select
-        value={selectedEventType}
-        onChange={(e) => setSelectedEventType(e.target.value)}
-        className="w-full md:w-1/3 px-4 py-3 border border-gray-200 rounded-xl bg-white/90 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-      >
-        <option value="all">All event types</option>
-        {EVENT_TYPE_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </section>
-
-    {/* LOADING */}
-    {loading ? (
-      <p className="text-gray-500">Loading events...</p>
-    ) : upcomingItems.length === 0 ? (
-      <p className="rounded-2xl border border-gray-200 bg-white/80 p-4 text-gray-500 shadow-sm">
-        No upcoming events found.
-      </p>
-    ) : (
-      <>
-        {/* EVENT GRID */}
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {visibleUpcomingItems.map((item) => {
-            const countdown = getCountdownData(item.date, now);
-            const countdownTone = getCountdownTone(countdown.status);
-
-            return (
-              <article
-                key={item._id}
-                className="group overflow-hidden rounded-[1.5rem] border border-white/70 bg-white/85 shadow-[0_14px_40px_-26px_rgba(15,23,42,0.45)] backdrop-blur-md transition hover:-translate-y-1 hover:shadow-xl"
+        {activeTab === 'events' ? (
+          <>
+            <section className="mb-6 flex flex-col md:flex-row gap-3 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur-md">
+              <input
+                type="text"
+                value={searchEventName}
+                onChange={(event) => setSearchEventName(event.target.value)}
+                placeholder="Search by event name"
+                className="w-full md:w-2/3 px-4 py-3 border border-gray-200 rounded-xl bg-white/90 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              <select
+                value={selectedEventType}
+                onChange={(event) => setSelectedEventType(event.target.value)}
+                className="w-full md:w-1/3 px-4 py-3 border border-gray-200 rounded-xl bg-white/90 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
-                {/* IMAGE */}
-                <div className="relative h-48 overflow-hidden">
-                  {resolveImageUrl(item.image) ? (
-                    <img
-                      src={resolveImageUrl(item.image)}
-                      alt={item.title}
-                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-100 via-white to-sky-100 text-gray-400">
-                      <ImageIcon size={36} />
-                    </div>
-                  )}
-                </div>
+                <option value="all">All event types</option>
+                {EVENT_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </section>
 
-                {/* CONTENT */}
-                <div className="p-5">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {item.title}
-                  </h3>
+            {loading ? (
+              <p className="text-gray-500">Loading events...</p>
+            ) : upcomingItems.length === 0 ? (
+              <p className="rounded-2xl border border-gray-200 bg-white/80 p-4 text-gray-500 shadow-sm">No upcoming events found.</p>
+            ) : (
+              <>
+                <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {visibleUpcomingItems.map((item) => {
+                  const countdown = getCountdownData(item.date, now);
+                  const countdownTone = getCountdownTone(countdown.status);
+                  return (
+                    <article key={item._id} className="group overflow-hidden rounded-[1.5rem] border border-white/70 bg-white/85 shadow-[0_14px_40px_-26px_rgba(15,23,42,0.45)] backdrop-blur-md transition hover:-translate-y-1 hover:shadow-xl">
+                      <div className="relative h-48 overflow-hidden">
+                        {resolveImageUrl(item.image) ? (
+                          <img src={resolveImageUrl(item.image)} alt={item.title} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-100 via-white to-sky-100 text-gray-400">
+                            <ImageIcon size={36} />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-slate-900/10 to-transparent" />
+                        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
+                          <span className="rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 shadow-sm">
+                            {getEventTypeLabel(item.eventType)}
+                          </span>
+                          <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide bg-white/90 shadow-sm ${countdown.status === 'ended' ? 'text-red-700' : countdown.status === 'started' ? 'text-amber-700' : 'text-sky-700'}`}>
+                            {getCountdownStatusLabel(countdown.status)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="p-5">
+                        <h3 className="mt-0 text-lg font-semibold text-gray-900">{item.title}</h3>
+                        <p className="mt-1 text-sm text-gray-600">{new Date(item.date).toLocaleString('en-GB')}</p>
+                        <p className="text-sm text-gray-600">{item.location || 'TBA'}</p>
+                        <div className={`mt-3 rounded-xl border p-3 ${countdownTone.container}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className={`text-[11px] font-semibold uppercase tracking-wide ${countdownTone.heading}`}>
+                              {countdown.status === 'upcoming' ? 'Time Remaining' : 'Event Status'}
+                            </p>
+                            {countdown.status === 'started' ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+                                Live now
+                              </span>
+                            ) : null}
+                          </div>
 
-                  <p className="mt-1 text-sm text-gray-600">
-                    {new Date(item.date).toLocaleString('en-GB')}
-                  </p>
+                          {countdown.status === 'upcoming' ? (
+                            <div className="mt-2 grid grid-cols-3 gap-2">
+                              <div className="rounded-lg bg-white/85 p-2 text-center">
+                                <p className={`text-lg font-bold leading-none ${countdownTone.value}`}>{formatCountdownUnit(countdown.days)}</p>
+                                <p className={`mt-1 text-[10px] font-semibold uppercase tracking-wide ${countdownTone.unit}`}>Days</p>
+                              </div>
+                              <div className="rounded-lg bg-white/85 p-2 text-center">
+                                <p className={`text-lg font-bold leading-none ${countdownTone.value}`}>{formatCountdownUnit(countdown.hours)}</p>
+                                <p className={`mt-1 text-[10px] font-semibold uppercase tracking-wide ${countdownTone.unit}`}>Hours</p>
+                              </div>
+                              <div className="rounded-lg bg-white/85 p-2 text-center">
+                                <p className={`text-lg font-bold leading-none ${countdownTone.value}`}>{formatCountdownUnit(countdown.minutes)}</p>
+                                <p className={`mt-1 text-[10px] font-semibold uppercase tracking-wide ${countdownTone.unit}`}>Mins</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className={`mt-2 text-xs font-semibold ${countdownTone.heading}`}>
+                              {countdown.label}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openEventDetails(item)}
+                          className="mt-4 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 px-3 py-2.5 text-sm font-semibold text-white shadow-md shadow-emerald-200 transition hover:from-emerald-700 hover:to-green-700"
+                        >
+                          View Details
+                        </button>
+                      </div>
+                    </article>
+                  );
+                  })}
+                </section>
 
-                  <p className="text-sm text-gray-600">
-                    {item.location || 'TBA'}
-                  </p>
-
-                  {/* COUNTDOWN */}
-                  <div className={`mt-3 rounded-xl border p-3 ${countdownTone.container}`}>
-                    <p className={`text-xs font-semibold ${countdownTone.heading}`}>
-                      {countdown.label}
-                    </p>
+                {!showAllEvents && upcomingItems.length > 6 ? (
+                  <div className="mt-6 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowAllEvents(true)}
+                      className="rounded-full bg-gradient-to-r from-sky-600 to-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-sky-200 transition hover:from-sky-700 hover:to-blue-700"
+                    >
+                      Discover more events
+                    </button>
                   </div>
+                ) : null}
+              </>
+            )}
+          </>
+        ) : (
+          <section className="rounded-2xl border border-white/70 bg-white/80 p-5 shadow-sm backdrop-blur-md">
+            {myRequestsWithEventDetails.length === 0 ? (
+              <p className="text-gray-500">No participation requests yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {myRequestsWithEventDetails.map((request) => {
+                  const meta = getStatusMeta(request.status);
+                  return (
+                    <article key={request.id} className="rounded-xl border border-gray-200 bg-white/90 p-4 shadow-sm">
+                      <p className="font-semibold text-gray-900">{request.eventTitle}</p>
+                      <p className="text-sm text-gray-600">{new Date(request.eventDate).toLocaleString('en-GB')}</p>
+                      <p className="text-sm text-gray-600">Role: {formatOptionLabel(request.option)}</p>
+                      <span className={`inline-flex mt-2 px-2.5 py-1 rounded-full text-xs font-semibold ${meta.className}`}>
+                        {meta.label || 'Unknown'}
+                      </span>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
 
-                  <button
-                    type="button"
-                    onClick={() => openEventDetails(item)}
-                    className="mt-4 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 px-3 py-2.5 text-sm font-semibold text-white"
-                  >
-                    View Details
-                  </button>
-                </div>
-              </article>
-            );
-          })}
-        </section>
-      </>
-    )}
-  </>
-) : (
-  <section className="rounded-2xl border border-white/70 bg-white/80 p-5 shadow-sm backdrop-blur-md">
-    {/* keep feature request system unchanged */}
-    {myRequestsWithEventDetails.length === 0 ? (
-      <p className="text-gray-500">No participation requests yet.</p>
-    ) : (
-      <div className="space-y-3">
-        {myRequestsWithEventDetails.map((request) => (
-          <article key={request.id} className="rounded-xl border border-gray-200 bg-white/90 p-4 shadow-sm">
-            <p className="font-semibold text-gray-900">{request.eventTitle}</p>
-          </article>
-        ))}
-      </div>
-    )}
-  </section>
-)}
+        {selectedEvent ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm" onClick={closeEventDetails}>
+            <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-white/70 bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+              <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-emerald-50 via-white to-sky-50 p-5">
+                <h3 className="text-xl font-semibold text-gray-900">{selectedOptions.length > 0 ? 'Application Form' : 'Event Details'}</h3>
+                <button type="button" onClick={closeEventDetails} className="text-gray-500">X</button>
+              </div>
 
-{/* MODALS (KEEP FEATURE VERSION FULLY) */}
-{selectedEvent ? (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-    {/* keep full feature modal unchanged */}
-  </div>
-) : null}
+              <div className="max-h-[75vh] overflow-y-auto p-5 space-y-5">
                 {selectedOptions.length > 0 ? (
                   <form
                     className="space-y-5"
@@ -1140,49 +1193,6 @@ setAskSubmitAttempted(false);
                       handleApplySelected(selectedEvent._id);
                     }}
                   >
-<p className="text-gray-600">
-  Fill and submit all selected participation applications for{" "}
-  <strong className="text-gray-800">{selectedEvent.title}</strong>.
-</p>
-
-{/* Participation Options */}
-<div>
-  <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
-    Select Participation Options
-  </h4>
-
-  <div className="flex flex-wrap gap-2">
-    {selectedEvent.participationOptions.map((option) => {
-      const status = getStudentApplicationStatus(selectedEvent, option);
-      const applied = !!status;
-      const selected = selectedOptions.includes(option);
-      const statusMeta = getStatusMeta(status);
-
-      return (
-        <button
-          key={`selected-${option}`}
-          type="button"
-          className={
-            applied
-              ? `px-4 py-2 rounded-full text-sm font-semibold cursor-default ${statusMeta.className}`
-              : `px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-200 ${
-                  selected
-                    ? 'border-green-600 bg-green-50 text-green-700'
-                    : 'border-gray-200 bg-white text-gray-700 hover:border-green-500'
-                }`
-          }
-          onClick={() => toggleApplicationOption(option)}
-          disabled={applied}
-        >
-          {formatOptionLabel(option)}{" "}
-          {applied ? `(${statusMeta.label})` : selected ? '✓' : ''}
-        </button>
-      );
-    })}
-  </div>
-</div>
-
-{/* Form Fields for Selected Options */}
                     {selectedOptions.map((option) => {
                       const templateQuestions = getParticipationTemplate(selectedEvent, option);
                       const answers = applicationAnswersByOption[option] || {};
@@ -1190,160 +1200,9 @@ setAskSubmitAttempted(false);
                         <div key={option} className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                           <h4 className="font-semibold text-gray-800">{formatOptionLabel(option)}</h4>
                           {templateQuestions.length > 0 ? (
-<div className="space-y-4">
-  {templateQuestions.map((question) => (
-    <div key={`${option}-${question.key}`}>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
-        {question.label}
-        {question.required ? <span className="text-red-500 ml-1">*</span> : ''}
-      </label>
-
-      <textarea
-        rows={3}
-        value={optionAnswers[question.key] || ''}
-        onChange={(event) =>
-          handleApplicationFieldChange(option, question.key, event.target.value)
-        }
-        onBlur={(event) =>
-          handleParticipationFieldBlur(option, question.key, event.target.value)
-        }
-        required={question.required !== false}
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-      />
-
-      {(participationSubmitAttempted ||
-        participationFieldTouched[getParticipationErrorKey(option, question.key)]) &&
-      participationFieldErrors[getParticipationErrorKey(option, question.key)] ? (
-        <p className="text-xs text-red-600 mt-1">
-          {participationFieldErrors[getParticipationErrorKey(option, question.key)]}
-        </p>
-      ) : null}
-    </div>
-  ))}
-</div>
-
-{/* Standard Application Fields */}
-<>
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
-        Full Name <span className="text-red-500 ml-1">*</span>
-      </label>
-
-      <input
-        type="text"
-        value={optionAnswers.fullName || ''}
-        onChange={(e) =>
-          handleApplicationFieldChange(option, 'fullName', e.target.value)
-        }
-        onBlur={(e) =>
-          handleParticipationFieldBlur(option, 'fullName', e.target.value)
-        }
-        required
-        pattern="[A-Za-z\s]+"
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-      />
-
-      {(participationSubmitAttempted ||
-        participationFieldTouched[getParticipationErrorKey(option, 'fullName')]) &&
-      participationFieldErrors[getParticipationErrorKey(option, 'fullName')] ? (
-        <p className="text-xs text-red-600 mt-1">
-          {participationFieldErrors[getParticipationErrorKey(option, 'fullName')]}
-        </p>
-      ) : null}
-    </div>
-
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
-        Student ID <span className="text-red-500 ml-1">*</span>
-      </label>
-
-      <input
-        type="text"
-        value={optionAnswers.studentId || ''}
-        onChange={(e) =>
-          handleApplicationFieldChange(option, 'studentId', e.target.value)
-        }
-        onBlur={(e) =>
-          handleParticipationFieldBlur(option, 'studentId', e.target.value)
-        }
-        required
-        minLength={10}
-        maxLength={10}
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-      />
-
-      {(participationSubmitAttempted ||
-        participationFieldTouched[getParticipationErrorKey(option, 'studentId')]) &&
-      participationFieldErrors[getParticipationErrorKey(option, 'studentId')] ? (
-        <p className="text-xs text-red-600 mt-1">
-          {participationFieldErrors[getParticipationErrorKey(option, 'studentId')]}
-        </p>
-      ) : null}
-    </div>
-
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
-        Email <span className="text-red-500 ml-1">*</span>
-      </label>
-
-      <input
-        type="email"
-        value={optionAnswers.email || ''}
-        onChange={(e) =>
-          handleApplicationFieldChange(option, 'email', e.target.value)
-        }
-        onBlur={(e) =>
-          handleParticipationFieldBlur(option, 'email', e.target.value)
-        }
-        required
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-      />
-
-      {(participationSubmitAttempted ||
-        participationFieldTouched[getParticipationErrorKey(option, 'email')]) &&
-      participationFieldErrors[getParticipationErrorKey(option, 'email')] ? (
-        <p className="text-xs text-red-600 mt-1">
-          {participationFieldErrors[getParticipationErrorKey(option, 'email')]}
-        </p>
-      ) : null}
-    </div>
-
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
-        Phone Number <span className="text-red-500 ml-1">*</span>
-      </label>
-
-      <input
-        type="text"
-        value={optionAnswers.phone || ''}
-        onChange={(e) =>
-          handleApplicationFieldChange(option, 'phone', e.target.value)
-        }
-        onBlur={(e) =>
-          handleParticipationFieldBlur(option, 'phone', e.target.value)
-        }
-        placeholder="07X XXX XXXX"
-        required
-        inputMode="numeric"
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-      />
-
-      {(participationSubmitAttempted ||
-        participationFieldTouched[getParticipationErrorKey(option, 'phone')]) &&
-      participationFieldErrors[getParticipationErrorKey(option, 'phone')] ? (
-        <p className="text-xs text-red-600 mt-1">
-          {participationFieldErrors[getParticipationErrorKey(option, 'phone')]}
-        </p>
-      ) : null}
-    </div>
-  </div>
-
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-2">
-      Why are you applying for this role?
-      <span className="text-red-500 ml-1">*</span>
-    </label>
+                            templateQuestions.map((question) => (
+                              <div key={`${option}-${question.key}`}>
+                                <label className="block text-sm text-gray-700 mb-1">{question.label}</label>
                                 <textarea
                                   rows={3}
                                   value={answers[question.key] || ''}
@@ -1383,67 +1242,15 @@ setAskSubmitAttempted(false);
                       );
                     })}
 
-{/* Form Actions */}
-<div className="flex gap-3 pt-6 border-t border-gray-100">
-
-  {/* Clear Form */}
-  <button
-    type="button"
-    className="flex-1 px-6 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 font-semibold rounded-lg transition-all duration-300"
-    onClick={() => {
-      if (!selectedEvent) return;
-
-      setApplicationAnswersByOption((prev) => {
-        const next = { ...prev };
-        selectedOptions.forEach((option) => {
-          next[option] = createBlankAnswersForOption(selectedEvent, option);
-        });
-        return next;
-      });
-
-      setParticipationFieldErrors({});
-      setParticipationFieldTouched({});
-      setParticipationSubmitAttempted(false);
-      setApplyError('');
-      setApplyMessage('');
-    }}
-  >
-    Clear Form
-  </button>
-
-  {/* Back */}
-  <button
-    type="button"
-    className="flex-1 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all duration-300"
-    onClick={() => {
-      setSelectedOptions([]);
-      setApplicationAnswersByOption({});
-      setParticipationFieldErrors({});
-      setParticipationFieldTouched({});
-      setParticipationSubmitAttempted(false);
-    }}
-  >
-    Back to Details
-  </button>
-
-  {/* Submit */}
-  <button
-    type="submit"
-    className="flex-1 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-    disabled={applyingKey === selectedEvent._id}
-  >
-    {applyingKey === selectedEvent._id
-      ? 'Submitting...'
-      : `Submit ${selectedOptions.length} Application${selectedOptions.length > 1 ? 's' : ''}`}
-  </button>
-
-</div>
+                    <div className="flex gap-3">
+                      <button type="button" onClick={() => setSelectedOptions([])} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold">Back</button>
+                      <button type="submit" disabled={applyingKey === selectedEvent._id} className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-semibold disabled:opacity-60">
+                        {applyingKey === selectedEvent._id ? 'Submitting...' : 'Submit Applications'}
                       </button>
                     </div>
                   </form>
                 ) : (
-<div className="p-6 space-y-6">
-  {/* Event Image */}
+                  <>
                     {resolveImageUrl(selectedEvent.image) ? (
                       <div className="overflow-hidden rounded-2xl border border-gray-200 shadow-sm">
                         <img src={resolveImageUrl(selectedEvent.image)} alt={selectedEvent.title} className="h-56 w-full object-cover" />
@@ -1452,65 +1259,9 @@ setAskSubmitAttempted(false);
                     <h4 className="text-2xl font-semibold text-gray-900">{selectedEvent.title}</h4>
                     <p className="text-gray-600">{selectedEvent.description || 'No description provided.'}</p>
 
-{/* Event Title */}
-<div>
-  <h3 className="text-2xl font-bold text-gray-800 text-sinhala">
-    {selectedEvent.title}
-  </h3>
-</div>
-
-{/* Event Description */}
-<div>
-  <p className="text-gray-600 text-sinhala leading-relaxed">
-    {selectedEvent.description || 'No description provided for this event.'}
-  </p>
-</div>
-
-{/* Event Details */}
-<div className="space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
-  <div>
-    <span className="text-xs font-semibold text-gray-500 uppercase">Date</span>
-    <p className="text-gray-700 font-medium">
-      {new Date(selectedEvent.date).toLocaleDateString('en-GB', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })}
-    </p>
-  </div>
-
-  <div className="border-t border-gray-200 pt-3">
-    <span className="text-xs font-semibold text-gray-500 uppercase">Time</span>
-    <p className="text-gray-700 font-medium">
-      {new Date(selectedEvent.date).toLocaleTimeString('en-GB', {
-        hour: '2-digit',
-        minute: '2-digit',
-      })}
-    </p>
-  </div>
-
-  <div className="border-t border-gray-200 pt-3">
-    <span className="text-xs font-semibold text-gray-500 uppercase">Location</span>
-    <p className="text-gray-700 font-medium text-sinhala">
-      {selectedEvent.location || 'TBA'}
-    </p>
-  </div>
-</div>
-
-{/* Participation Options */}
-<div>
-  <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
-    Participation Opportunities
-  </h4>
-
-  {!isStudent ? (
-    <p className="text-gray-500 text-sm bg-blue-50 border border-blue-100 rounded-lg p-3">
-      Participation applications can be submitted by student accounts only.
-    </p>
-  ) : null}
-
-  {Array.isArray(selectedEvent.participationOptions) &&
-  selectedEvent.participationOptions.length > 0 ? (
+                    {Array.isArray(selectedEvent.participationOptions) && selectedEvent.participationOptions.length > 0 ? (
+                      <div className="space-y-3">
+                        <p className="text-sm font-semibold text-gray-700 uppercase">Participation Options</p>
                         <div className="flex flex-wrap gap-2">
                           {selectedEvent.participationOptions.map((option) => {
                             const status = getStudentApplicationStatus(selectedEvent, option);
@@ -1530,12 +1281,7 @@ setAskSubmitAttempted(false);
                                       : `px-3 py-1.5 rounded-full text-xs font-semibold border ${selected ? 'bg-green-50 border-green-500 text-green-700' : 'bg-white border-gray-300 text-gray-700'}`
                                   }
                                 >
-{formatOptionLabel(option)}{' '}
-{applied
-  ? `(${statusMeta.label})`
-  : selected
-    ? '✓'
-    : ''}
+                                  {formatOptionLabel(option)} {status ? `(${statusMeta.label})` : selected ? '✓' : ''}
                                 </button>
                                 {canManagePending ? (
                                   <>
@@ -1550,32 +1296,13 @@ setAskSubmitAttempted(false);
                       </div>
                     ) : null}
 
-{/* Action Buttons */}
-{isStudent &&
-selectedEvent.participationOptions &&
-selectedEvent.participationOptions.length > 0 && (
-  <div className="flex gap-3 pt-4 border-t border-gray-100">
-    
-    <button
-      type="button"
-      className="flex-1 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all duration-300"
-      onClick={closeEventDetails}
-    >
-      Close
-    </button>
-
-    {selectedOptions.length > 0 && (
-      <button
-        type="button"
-        className="flex-1 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-300"
-        onClick={handleApplyNow}
-      >
-        Apply Now
-      </button>
-    )}
-
-  </div>
-)}
+                    <div className="flex gap-3 pt-4 border-t border-gray-100">
+                      <button type="button" onClick={closeEventDetails} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold">Close</button>
+                      {selectedOptions.length > 0 ? (
+                        <button type="button" className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-semibold">Apply Now</button>
+                      ) : null}
+                    </div>
+                  </>
                 )}
               </div>
             </div>

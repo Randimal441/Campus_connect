@@ -2,6 +2,7 @@ const { User, ROLES } = require('../models/UserModel');
 const { generateToken } = require('../utils/generateToken');
 
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const signup = async (req, res, next) => {
   try {
@@ -31,7 +32,8 @@ const signup = async (req, res, next) => {
       return res.status(400).json({ message: 'Email already registered.' });
     }
 
-    const isApproved = normalizedRole === 'super_admin';
+    // Student accounts can access immediately; admin/staff roles still require approval.
+    const isApproved = normalizedRole === 'super_admin' || normalizedRole === 'student';
     const user = await User.create({
       fullName: normalizedFullName,
       idNumber: normalizedIdNumber,
@@ -63,12 +65,19 @@ const signup = async (req, res, next) => {
 const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+    const identifier = email?.trim();
+    const normalizedEmail = identifier?.toLowerCase();
 
-    if (!email || !password) {
+    if (!identifier || !password) {
       return res.status(400).json({ message: 'Email and password are required.' });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({
+      $or: [
+        { email: normalizedEmail },
+        { idNumber: { $regex: `^${escapeRegex(identifier)}$`, $options: 'i' } },
+      ],
+    });
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials.' });
     }
@@ -78,7 +87,7 @@ const login = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid credentials.' });
     }
 
-    if (!user.isApproved) {
+    if (user.role !== 'student' && !user.isApproved) {
       return res
         .status(403)
         .json({ message: 'Account pending approval by Super Admin.' });

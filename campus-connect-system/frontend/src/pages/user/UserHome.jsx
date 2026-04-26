@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { SECTIONS } from '../../utils/constants';
 import Navbar from '../../components/common/Navbar';
 import Footer from '../../components/common/Footer';
@@ -71,6 +71,7 @@ function ScrollReveal({ children, className = '', delay = 0 }) {
 }
 
 export default function UserHome() {
+  const navigate = useNavigate();
   const [latestItems, setLatestItems] = useState([]);
   const [latestLoading, setLatestLoading] = useState(true);
   const [latestError, setLatestError] = useState('');
@@ -198,16 +199,17 @@ export default function UserHome() {
           <div className="section-grid">
           {SECTIONS.map((section, index) => (
             <ScrollReveal key={section.id} delay={120 + index * 80} className="h-full">
-              <Link
-                to={section.path}
-                className="section-card block h-full"
+              <button
+                type="button"
+                onClick={() => navigate(section.path)}
+                className="section-card block h-full w-full text-left cursor-pointer"
               >
                 <h3 className="mb-2">{section.label}</h3>
                 <p className="text-muted-foreground">{sectionDescriptions[section.id]}</p>
                 <div className="mt-4 flex items-center text-primary font-bold text-sm">
                   Explore <span className="ml-2">→</span>
                 </div>
-              </Link>
+              </button>
             </ScrollReveal>
           ))}
           </div>
@@ -451,7 +453,7 @@ export default function UserHome() {
                 lasting memories.
               </p>
               <Link
-                to="/user/events-chill"
+                to="/user/events"
                 className="inline-block bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
               >
                 Explore Events
@@ -505,7 +507,7 @@ export default function UserHome() {
                     <p className="text-xs text-gray-500 mb-3">
                       Event Date: {formatDate(item.date)}
                     </p>
-                    <Link to="/user/events-chill" className="text-sm font-semibold text-green-700 hover:text-green-800">
+                    <Link to="/user/events" className="text-sm font-semibold text-green-700 hover:text-green-800">
                       View in Events →
                     </Link>
                   </div>
